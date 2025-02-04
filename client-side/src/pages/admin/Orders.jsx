@@ -11,6 +11,11 @@ import {
 import { ConfirmActionType } from "../../enums/commonEnums";
 import React, { useState, useEffect, useRef } from "react";
 import ReactToPrint from "react-to-print";
+import Modal from "../../components/common/modal/Modal"
+import Button from "../../components/common/Button";
+import SearchDropdown from "../../components/common/search/SearchDropdown";
+import backendConnection from "../../api/backendApi";
+import { membership } from "../../api/admin";
 
 const Orders = () => {
   const [orders, setOrders] = useState([]);
@@ -29,7 +34,9 @@ const Orders = () => {
   const [error, setError] = useState(null);
   const componentRef = useRef();
   const printRef = useRef();
+
   console.log(filteredOrders);
+
   useEffect(() => {
     const fetchOrders = async () => {
       try {
@@ -149,6 +156,43 @@ const Orders = () => {
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
+
+  {/* Manual Order here */}
+
+  {/* Add Order Modal */}
+  const [isAddOrderModalShown, showAddOrderModal] = useState(false);
+  const [studentOptions, setStudentOptions] = useState([]);
+  const [modalSelectedStudent, setSelectedStudent] = useState();
+
+  const openAddModalHandler = async () => {
+    try {
+      const result = await membership();
+      const options = result.filter(student => student.membership === "None").map(student => ({
+        label: `${student.id_number} - ${student.first_name} ${student.last_name}`,
+        value: student.id_number
+      }))
+      setStudentOptions(options);
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    }
+
+    showAddOrderModal(true);
+  }
+
+  const closeAddModal = () => {
+    showAddOrderModal(false);
+  }
+
+  const clearAddModal = () => {
+    setSelectedStudent(null);
+  }
+
+  const createOrderHandler = () => {
+    console.log(modalSelectedStudent);
+    closeAddModal();
+    clearAddModal();
+  }
+
   return (
     <div className="p-4 pt-20">
       <div className="mb-4">
@@ -160,6 +204,28 @@ const Orders = () => {
           className="px-4 py-2 border border-gray-300 rounded-md w-full"
         />
       </div>
+
+      <Button
+        onClick={openAddModalHandler}
+      >
+        Add Order
+      </Button>
+
+      {
+        isAddOrderModalShown && (
+          <Modal onClose={() => closeAddModal()}>
+            <div className="p-4 h-full">
+              <h1 className="text-2xl font-semibold"> Add Order </h1>
+              <SearchDropdown options={studentOptions} placeholder="Select student..." onOptionSelect={(opt) => setSelectedStudent(opt)} />
+              <Button size="full" onClick={createOrderHandler}>Create Order</Button>
+            </div>
+          </Modal>
+        )
+      }
+
+      {
+        
+      }
 
       {/* Tabs */}
       <div className="flex flex-wrap justify-around bg-gray-100 p-2 rounded">
