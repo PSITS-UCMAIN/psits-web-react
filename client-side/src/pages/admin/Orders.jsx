@@ -163,6 +163,8 @@ const Orders = () => {
   const [isAddOrderModalShown, showAddOrderModal] = useState(false);
   const [studentOptions, setStudentOptions] = useState([]);
   const [modalSelectedStudent, setSelectedStudent] = useState();
+  {/* Add Item */}
+  const [isAddItemModalShown, showAddItemModal] = useState(false);
 
   const openAddModalHandler = async () => {
     try {
@@ -178,19 +180,33 @@ const Orders = () => {
 
     showAddOrderModal(true);
   }
-
-  const closeAddModal = () => {
+  // create order button
+  const createOrderHandler = () => {
+    console.log(modalSelectedStudent);
+    
+    // close modals
+    showAddItemModal(false);
     showAddOrderModal(false);
-  }
-
-  const clearAddModal = () => {
+    // clear data
     setSelectedStudent(null);
   }
 
-  const createOrderHandler = () => {
-    console.log(modalSelectedStudent);
-    closeAddModal();
-    clearAddModal();
+  // open add item modal from add order modal
+  const openAddItemModal = () => {
+    showAddOrderModal(false);
+    showAddItemModal(true);
+  }
+
+  // add item
+  const addItemHandler = () => {
+    showAddItemModal(false);
+    showAddOrderModal(true);
+  }
+
+  // exit add item modal
+  const exitAddItemHandler = () => {
+    showAddItemModal(false);
+    showAddOrderModal(true);
   }
 
   return (
@@ -214,9 +230,10 @@ const Orders = () => {
       {
         isAddOrderModalShown && (
           <Modal onClose={() => closeAddModal()}>
-            <div className="p-4 h-full">
+            <div className="flex flex-col gap-2 p-4 h-full">
               <h1 className="text-2xl font-semibold"> Add Order </h1>
               <SearchDropdown options={studentOptions} placeholder="Select student..." onOptionSelect={(opt) => setSelectedStudent(opt)} />
+              <Button size="full" onClick={openAddItemModal}>Add Item</Button>
               <Button size="full" onClick={createOrderHandler}>Create Order</Button>
             </div>
           </Modal>
@@ -224,7 +241,13 @@ const Orders = () => {
       }
 
       {
-        
+        isAddItemModalShown && (
+          <Modal onClose={exitAddItemHandler}>
+            <div className="p-4 h-full">
+              <h1 className="text-2xl font-semibold">Add Item</h1>
+            </div>
+          </Modal>
+        )
       }
 
       {/* Tabs */}
