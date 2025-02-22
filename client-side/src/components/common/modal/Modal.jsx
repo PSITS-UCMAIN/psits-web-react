@@ -11,20 +11,14 @@ import { useState, useEffect } from "react";
  * @param {Boolean} props.showCloseButton - Flag to show or hide the close button.
  * @returns {JSX.Element} The rendered modal component.
  */
-const Modal = ({ children, onClose, showCloseButton = true, className }) => {
-  const [isVisible, setIsVisible] = useState(false);
-
-  useEffect(() => {
-    setIsVisible(true);
-  }, []);
+const Modal = ({ children, onClose = () => {}, showCloseButton = true, className }) => {
 
   const handleClose = () => {
-    setIsVisible(false);
-    setTimeout(onClose, 300); // Match the duration of the CSS transition
+    onClose();
   };
 
   return (
-    <div className={`fixed p-4 inset-0 flex items-center justify-center z-50 ${isVisible ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}>
+    <div className={`fixed p-4 inset-0 flex items-center justify-center z-50 transition-opacity duration-300`}>
       {/* When the background behind is clicked, the modal closes. */}
       <div
         className="fixed inset-0 bg-black bg-opacity-40 z-10"
@@ -37,7 +31,7 @@ const Modal = ({ children, onClose, showCloseButton = true, className }) => {
           bg-white rounded-xl shadow-xl 
           min-w-96 md:min-w-[450px] w-fit z-10 h-full
           overflow-hidden 
-          transform transition-transform duration-300 ${isVisible ? 'scale-100' : 'scale-95'}
+          transform transition-transform duration-300
         `}
       >
         { /* The close button */
