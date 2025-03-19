@@ -12,7 +12,7 @@ function Logs() {
       try {
         const result = await fetchAdminLogs();
         setData(result);
-        console.log("Fetched data:", result);
+        // console.log("Fetched data:", result);
       } catch (error) {
         console.error("Error fetching data: ", error);
       } finally {
@@ -45,13 +45,7 @@ function Logs() {
         return <span className="text-xs text-gray-500">{formattedDate}</span>;
       },
     },
-    {
-      key: "_id",
-      label: "ID",
-      selector: (row) => row._id,
-      sortable: true,
-      cell: (row) => <span className="text-xs text-gray-500">{row._id}</span>,
-    },
+
     {
       key: "admin",
       label: "Admin",
@@ -59,15 +53,7 @@ function Logs() {
       sortable: true,
       cell: (row) => <span className="text-xs text-gray-500">{row.admin}</span>,
     },
-    {
-      key: "admin_id",
-      label: "Admin ID",
-      selector: (row) => row.admin_id,
-      sortable: true,
-      cell: (row) => (
-        <span className="text-xs text-gray-500">{row.admin_id}</span>
-      ),
-    },
+
     {
       key: "action",
       label: "Action",
@@ -86,15 +72,7 @@ function Logs() {
         <span className="text-xs text-gray-500">{row.target}</span>
       ),
     },
-    {
-      key: "target_id",
-      label: "Target ID",
-      selector: (row) => row.target_id,
-      sortable: true,
-      cell: (row) => (
-        <span className="text-xs text-gray-500">{row.target_id}</span>
-      ),
-    },
+
     {
       key: "target_model",
       label: "Target Model",

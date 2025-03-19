@@ -18,16 +18,16 @@ const DashboardCard = ({ icon, title, count }) => {
       variants={cardVariants}
       transition={{ duration: 0.3, type: "spring", stiffness: 100 }}
     >
-      <div className="mb-3 flex flex-col items-center justify-center gap-2">
-        <FontAwesomeIcon
-          icon={icon}
-          className="text-2xl sm:text-3xl text-gray-600"
-        />
+      <div className="mb-3  flex flex-col items-center justify-center gap-2">
+      <FontAwesomeIcon 
+        icon={icon}
+        className="text-2xl sm:text-3xl text-[#074873]"
+      />
         <h3 className="text-sm sm:text-base font-medium text-gray-500">
           {title}
         </h3>
       </div>
-      <p className="text-xl sm:text-2xl md:text-3xl font-semibold text-gray-900 mt-auto">
+      <p className="text-xl sm:text-2xl md:text-3xl font-semibold text-[#074873] mt-auto">
         {count}
       </p>
     </motion.div>

@@ -188,7 +188,6 @@ router.put(
 );
 
 router.post("/editedStudent", authenticateToken, async (req, res) => {
-  //TODO: Log (Done)
   const {
     id_number,
     rfid,
@@ -248,7 +247,7 @@ router.post("/editedStudent", authenticateToken, async (req, res) => {
     });
 
     await log.save();
-    console.log("Action logged successfully.");
+    //console.log("Action logged successfully.");
 
     res
       .status(200)
@@ -317,7 +316,6 @@ router.post(
   "/students/change-password-admin",
   authenticateToken,
   async (req, res) => {
-    //TODO: Log (Done)
     try {
       const getStudent = await Student.findOne({
         id_number: req.body.id_number,
@@ -342,7 +340,7 @@ router.post(
       });
 
       await log.save();
-      console.log("Action logged successfully.");
+      //console.log("Action logged successfully.");
 
       res.status(200).json({ message: "Password changed successfully" });
     } catch (error) {
@@ -352,6 +350,29 @@ router.post(
         .json({ message: "An error occurred", error: error.message });
     }
   }
+);
+
+router.get(
+	"/fetch-specific-student/:id_number",
+	authenticateToken,
+	async (req, res) => {
+		const { id_number } = req.params;
+
+		try {
+			const student = await Student.findOne({ id_number });
+			if (!student) {
+				res.status(404).json({ message: "Student not found" });
+			} else {
+				const user = {
+					isRequest: student.isRequest,
+					role: student.role,
+				};
+				res.status(200).json({ data: user });
+			}
+		} catch (error) {
+			console.error(error);
+		}
+	}
 );
 
 module.exports = router;

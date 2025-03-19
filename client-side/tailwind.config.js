@@ -38,6 +38,7 @@ export default {
         main: "calc(100vh - 100px)",
         "main-md": "calc(100vh - 72px)",
         footer: "calc(100vh - 218px)",
+        'screen-half': "calc(100vh - 100px  )" // Ensure this is correctly defined
       },
       container: {
         center: true,

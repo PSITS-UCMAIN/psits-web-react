@@ -1,26 +1,25 @@
-import React, { useState, useEffect, useRef } from "react";
+import { isAfter, isBefore } from "date-fns";
 import { motion } from "framer-motion";
-import { Link } from "react-router-dom";
+import React, { useEffect, useRef, useState } from "react";
+import { InfinitySpin } from "react-loader-spinner";
+import "swiper/swiper-bundle.css";
 import "../../App.css";
 import {
-  merchandiseAdmin,
   deleteMerchandise,
+  merchandiseAdmin,
   publishMerchandise,
 } from "../../api/admin";
-import TableComponent from "../../components/Custom/TableComponent";
-import { InfinitySpin } from "react-loader-spinner";
-import Product from "./Product";
-import FormButton from "../../components/forms/FormButton";
-import EditProduct from "./EditProduct";
-import "swiper/swiper-bundle.css";
 import ButtonsComponent from "../../components/Custom/ButtonsComponent";
-import FilterOptions from "../students/merchandise/FilterOptions";
-import { Dialog } from "@headlessui/react";
-import { AiOutlineClose } from "react-icons/ai";
+import TableComponent from "../../components/Custom/TableComponent";
+import FormButton from "../../components/forms/FormButton";
+import {
+  conditionalPosition,
+  formattedDate,
+} from "../../components/tools/clientTools";
 import { showToast } from "../../utils/alertHelper";
-import { isBefore, isAfter, isWithinInterval } from "date-fns";
-import { formattedDate } from "../../components/tools/clientTools";
-import { conditionalPosition } from "../../components/tools/clientTools";
+import FilterOptions from "../students/merchandise/FilterOptions";
+import EditProduct from "./EditProduct";
+import Product from "./Product";
 
 function Merchandise() {
   const [data, setData] = useState([]);
@@ -52,8 +51,27 @@ function Merchandise() {
     try {
       setLoading(true);
       const result = await merchandiseAdmin();
-      setData(result);
-      setFilteredData(result);
+
+      const sortedResult = result.sort((a, b) => {
+        const statusOrder = {
+          Publishing: 1,
+          Expired: 2,
+          Deleted: 3,
+          Pending: 4,
+        };
+
+        const statusA = getStatus(a);
+        const statusB = getStatus(b);
+
+        if (a.is_active !== b.is_active) {
+          return b.is_active - a.is_active;
+        }
+
+        return statusOrder[statusA] - statusOrder[statusB];
+      });
+
+      setData(sortedResult);
+      setFilteredData(sortedResult);
       setLoading(false);
     } catch (error) {
       console.error("Error fetching data: ", error);
@@ -132,6 +150,7 @@ function Merchandise() {
     if (await deleteMerchandise(merchToDelete)) {
       showToast("success", "Merchandise Deleted");
       setDeleteModalOpen(false);
+      fetchData();
     }
   };
   const publishMerchandiseApi = async () => {
@@ -145,7 +164,6 @@ function Merchandise() {
   const handleDeleteProductModal = (id) => {
     setMerchToDelete(id);
     setDeleteModalOpen(true);
-    fetchData();
   };
   const handlePublishProductModal = (id) => {
     setMerchToPublish(id);
@@ -194,13 +212,13 @@ function Merchandise() {
       label: "Product",
       sortable: true,
       cell: (row) => (
-        <div className="flex items-center justify-center md:justify-start gap-2">
+        <div className="flex items-center justify-center md:justify-start gap-2 ">
           <img
             src={row.imageUrl[0]}
             alt={row.name}
             width="50"
             height="50"
-            className="rounded-md shadow-sm"
+            className="rounded-md shadow-sm object-cover"
           />
         </div>
       ),
@@ -519,21 +537,26 @@ function Merchandise() {
                 <div className="flex items-center font-secondary justify-between gap-10">
                   <span className="font-medium text-lg">Variation:</span>
                   <span className="text-sm">
-                    {selectedItem?.selectedVariations.map((item, index) => (
-                      <p key={index}> {item}</p>
-                    ))}
+                    {selectedItem?.selectedVariations
+                      .map((sizes) => sizes)
+                      .join(", ")}
                   </span>
                 </div>
                 <div className="flex items-center font-secondary justify-between gap-10">
                   <span className="font-medium text-lg">Sizes:</span>
                   <span className="text-sm">
                     {" "}
-                    {selectedItem?.selectedSizes.map((item, index) => (
-                      <p key={index}> {item}</p>
-                    ))}
+                    {selectedItem?.selectedSizes
+                      .map((sizes) => sizes)
+                      .join(", ")}
                   </span>
                 </div>
-
+                <div className="flex items-center font-secondary justify-between gap-10">
+                  <span className="font-medium text-lg">Audience:</span>
+                  <span className="text-sm">
+                    {selectedItem?.selectedAudience}
+                  </span>
+                </div>
                 <div className="flex items-center font-secondary justify-between gap-10">
                   <span className="font-medium text-lg">Category:</span>
                   <span className="text-sm">{selectedItem?.category}</span>

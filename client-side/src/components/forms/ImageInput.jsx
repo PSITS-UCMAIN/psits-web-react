@@ -6,7 +6,15 @@ const ImageInput = ({
   multiple,
   previews,
   onRemoveImage,
+  uploadedImages,
+  newImages,
+  imagePreviews,
+  onAddImages,
 }) => {
+  const handleRemove = (image, index) => {
+    onRemoveImage(image, index);
+  };
+
   return (
     <div>
       <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -22,7 +30,7 @@ const ImageInput = ({
             />
             <button
               type="button"
-              onClick={() => onRemoveImage(index)}
+              onClick={() => handleRemove(preview, index)}
               className="absolute top-0 right-0 bg-red-500 text-white text-xs p-1 rounded-full"
             >
               &times;

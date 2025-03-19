@@ -47,7 +47,7 @@ function MembershipRequest() {
 
     setSelectedStudentName(fullName);
 
-    console.log(fullName);
+    // console.log(fullName);
   };
 
   const handleCloseModal = () => {
@@ -57,7 +57,7 @@ function MembershipRequest() {
   };
 
   const handleFormSubmit = (data) => {
-    console.log("Form submitted successfully:", data);
+    // console.log("Form submitted successfully:", data);
   };
 
   const fetchData = async () => {

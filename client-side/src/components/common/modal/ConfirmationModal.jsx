@@ -5,7 +5,7 @@ import {
 } from "../../../enums/commonEnums.js";
 import { capitalizeFirstLetter } from "../../../utils/stringUtils.js";
 
-function ConfirmationModal({ confirmType, onConfirm, onCancel }) {
+function ConfirmationModal({ confirmType, onConfirm, onCancel, type }) {
   let confirmTypeWord = ConfirmActionWords[confirmType];
 
   const confirmButtonColor =
@@ -13,7 +13,9 @@ function ConfirmationModal({ confirmType, onConfirm, onCancel }) {
     confirmType === ConfirmActionType.SUSPEND ||
     confirmType === ConfirmActionType.RENEWAL ||
     confirmType === ConfirmActionType.ORDER ||
-    confirmType === ConfirmActionType.CANCEL
+    confirmType === ConfirmActionType.CANCEL ||
+    confirmType === ConfirmActionType.REMOVE ||
+    confirmType === ConfirmActionType.DECLINE
       ? "bg-[#991b1b] hover:bg-[#b92121]"
       : "bg-green-500 hover:bg-green-600";
 
@@ -55,6 +57,12 @@ function ConfirmationModal({ confirmType, onConfirm, onCancel }) {
             confirmTypeWord === "renewal"
               ? ""
               : confirmTypeWord === "suspend"
+              ? " this officer"
+              : confirmTypeWord === "remove" && type === "attendance"
+              ? " this  student"
+              : confirmTypeWord === "remove"
+              ? " this role for this student"
+              : type === "officer"
               ? " this officer"
               : " this student"}
             ?

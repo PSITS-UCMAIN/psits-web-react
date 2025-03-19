@@ -14,18 +14,29 @@ export const login = async (formData) => {
         },
       }
     );
-
-    showToast("success", response.data.message);
-
-    sessionStorage.setItem("Token", response.data.token);
-    return sessionStorage.getItem("Token") !== "" ? response.data.role : null;
+    if (response.status === 200) {
+      showToast("success", response.data.message);
+      sessionStorage.setItem(
+        "Token",
+        response.status === 200 ? response.data.token : ""
+      );
+      return (
+        (sessionStorage.getItem("Token") !== "" ||
+          sessionStorage.getItem("Token")) !== null && {
+          role: response.data.role,
+          campus: response.data.campus,
+          token: response.data.token,
+        }
+      );
+    } else {
+      showToast("error", response.data.message);
+    }
   } catch (error) {
     if (error.response && error.response.data) {
       showToast("error", error.response.data.message || "An error occurred");
     } else {
       showToast("error", "An error occurred");
     }
-    console.error("Error:", error);
   }
 };
 
@@ -45,7 +56,7 @@ export const register = async (formData) => {
     } else {
       showToast("error", response.data.message);
     }
-    console.log(response.data.message);
+    // console.log(response.data.message);
   } catch (error) {
     console.error("Error:", error.response.data.message);
     showToast("error", error.response.data.message);
@@ -72,7 +83,7 @@ export const handleLogouts = async () => {
       showToast("error", response.data.message);
     }
 
-    console.log(response.data.message);
+    // console.log(response.data.message);
   } catch (error) {
     console.error(
       "Error:",

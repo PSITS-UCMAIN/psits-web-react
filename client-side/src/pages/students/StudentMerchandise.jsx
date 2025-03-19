@@ -9,6 +9,8 @@ import { useNavigate } from "react-router-dom";
 import FilterOptions from "./merchandise/FilterOptions";
 import { motion, AnimatePresence } from "framer-motion";
 import Pagination from "../../components/Custom/Pagination";
+import { getInformationData } from "../../authentication/Authentication";
+import { fetchSpecificStudent } from "../../api/students";
 
 const StudentMerchandise = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -24,7 +26,9 @@ const StudentMerchandise = () => {
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5; // Customize this value based on your design
+  const itemsPerPage = 5;
+  const userData = getInformationData();
+  const [isRequest, setIsRequest] = useState(false);
 
   const buttonVariants = {
     initial: { scale: 1 },
@@ -36,6 +40,14 @@ const StudentMerchandise = () => {
 
   const handleSearchChange = (e) => {
     setSearchQuery(e.target.value);
+  };
+
+  const handleFetchSpecificStudent = async () => {
+    const result = await fetchSpecificStudent(userData.id_number);
+
+    if (result) {
+      setIsRequest(result.isRequest);
+    }
   };
 
   const handleReset = () => {
@@ -102,7 +114,6 @@ const StudentMerchandise = () => {
   const toggleFilterOption = () => {
     setIsFilterOptionOpen((prevState) => !prevState);
   };
-
   const fetchData = async () => {
     try {
       setIsLoading(true);
@@ -114,7 +125,17 @@ const StudentMerchandise = () => {
         const startDate = new Date(item.start_date);
         const endDate = new Date(item.end_date);
 
-        return currentDate <= endDate;
+        const selectedAudienceArray = item.selectedAudience.includes(",")
+          ? item.selectedAudience.split(",").map((aud) => aud.trim())
+          : [item.selectedAudience];
+
+        return (
+          currentDate <= endDate &&
+          (selectedAudienceArray.some(
+            (audience) => userData.audience.includes(audience) && !isRequest
+          ) ||
+            selectedAudienceArray.includes("all"))
+        );
       });
 
       setProducts(filteredProducts);
@@ -127,7 +148,8 @@ const StudentMerchandise = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+    handleFetchSpecificStudent();
+  }, [isRequest]);
 
   const handlePageChange = (page) => {
     setCurrentPage(page);

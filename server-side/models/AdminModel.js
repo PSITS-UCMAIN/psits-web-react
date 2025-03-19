@@ -33,6 +33,9 @@ const adminSchema = new Schema({
   status: {
     type: String,
   },
+  campus: {
+    type: String,
+  },
 });
 
 const Admin = mongoose.model("admin", adminSchema);

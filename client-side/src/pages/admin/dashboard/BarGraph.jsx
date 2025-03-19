@@ -1,15 +1,15 @@
-import { getDashboardStats } from "../../../api/admin";
 import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
   BarElement,
+  CategoryScale,
+  Chart as ChartJS,
+  Legend,
+  LinearScale,
   Title,
   Tooltip,
-  Legend,
 } from "chart.js";
-import { React, useState, useEffect } from "react";
+import { React, useEffect, useState } from "react";
 import { Bar } from "react-chartjs-2";
+import { getDashboardStats } from "../../../api/admin";
 
 ChartJS.register(
   CategoryScale,
@@ -49,19 +49,18 @@ const BarGraph = () => {
 
     callTotal();
   }, []);
-
   const colors = [
-    "rgba(190, 213, 219, 0.7)", 
-    "rgba(156, 163, 175, 0.7)",
-    "rgba(107, 114, 128, 0.7)", 
-    "rgba(75, 85, 99, 0.7)", 
+    "rgba(54, 162, 235, 0.7)", // Freshmen
+    "rgba(255, 206, 86, 0.7)", // Sophomore
+    "rgba(75, 192, 192, 0.7)", // Junior
+    "rgba(153, 102, 255, 0.7)", // Senior
   ];
 
   const borderColors = [
-    "rgba(209, 213, 219, 1)", 
-    "rgba(156, 163, 175, 1)", 
-    "rgba(107, 114, 128, 1)", 
-    "rgba(75, 85, 99, 1)", 
+    "rgba(54, 162, 235, 1)",
+    "rgba(255, 206, 86, 1)",
+    "rgba(75, 192, 192, 1)",
+    "rgba(153, 102, 255, 1)",
   ];
 
   const data = {
@@ -69,7 +68,7 @@ const BarGraph = () => {
     datasets: [
       {
         label: "1",
-        data: [year.year1, 0, 0, 0], // Set only Year 1 data
+        data: [year.year1, 0, 0, 0],
         backgroundColor: colors[0],
         borderColor: borderColors[0],
         borderWidth: 1,
@@ -131,12 +130,11 @@ const BarGraph = () => {
   };
 
   return (
-    <div className="w-full h-96 p-4">
+    <div className="w-full  p-4">
       {" "}
       {/* Ensure full width and height, with padding */}
-      <h2 className="text-xl sm:text-2xl text-gray-600 mb-4">Year Level</h2>
-      <div className="w-full h-60">
-        {" "}
+      <h2 className="text-xl sm:text-2xl text-[#074873] mb-4">Year Level</h2>
+      <div className="w-full max-w-[90vw] sm:max-w-[80vw] md:max-w-[70vw] lg:max-w-[60vw] xl:max-w-[50vw] mx-auto">
         {/* Container for the chart */}
         <Bar data={data} options={options} />
       </div>

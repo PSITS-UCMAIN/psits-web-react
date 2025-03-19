@@ -455,6 +455,10 @@ const ProductDetail = () => {
                 {formError}
               </div>
             )}
+
+
+            {/* Buy Now Pop Up Details Modal */}
+            
             <div className="flex gap-2">
               {!cartLimited && orderId !== _id && (
                 <button

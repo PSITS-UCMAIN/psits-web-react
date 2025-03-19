@@ -45,6 +45,34 @@
   position: relative;
   cursor: col-resize;
 }
+/* si jan ga add ani keyframes for raffle */
+@keyframes spinGlow {
+  0% {
+    box-shadow: 
+      0px -10px 30px rgba(22, 165, 221, 0.56); /* Top */
+  }
+  25% {
+    box-shadow: 
+      20px 0px 30px rgba(22, 165, 221, 0.56); /* Right */
+  }
+  50% {
+    box-shadow: 
+      0px 10px 90px rgba(22, 165, 221, 0.56); /* Bottom */
+  }
+  75% {
+    box-shadow: 
+      -10px 0px 30px rgba(22, 165, 221, 0.56); /* Left */
+  }
+  100% {
+    box-shadow: 
+      0px -10px 30px rgba(22, 165, 221, 0.56); /* Back to Top */
+  }
+}
+
+.animate-spinGlow {
+  animation: spinGlow 3s infinite linear;
+}
+
 
 .table-resizer::after {
   content: '';

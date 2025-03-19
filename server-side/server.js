@@ -13,8 +13,7 @@ const orderRoutes = require("./routes/orders");
 const facebookRoutes = require("./routes/facebook");
 const cartRoutes = require("./routes/cart");
 const logRoutes = require("./routes/logs");
-const cookieParser = require("cookie-parser");
-
+const eventRoutes = require("./routes/events");
 require("dotenv").config();
 
 app.use(
@@ -26,7 +25,6 @@ app.use(
 );
 
 app.use(bodyParser.json());
-app.use(cookieParser());
 mongoose
   .connect(process.env.MONGODB_URI, {
     dbName: process.env.DB_NAME,
@@ -44,6 +42,7 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/facebook", facebookRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/logs", logRoutes);
+app.use("/api/events", eventRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server started, listening at port ${PORT}`);

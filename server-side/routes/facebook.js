@@ -21,7 +21,7 @@ router.get("/", async (req, res) => {
     const feedData = feed.data;
 
     if (!feedData || !feedData.data) {
-      console.log("No feed data found");
+      // console.log("No feed data found");
       return res.status(404).json({ message: "No feed data found" });
     }
 

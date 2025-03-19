@@ -76,14 +76,23 @@ const EditOfficer = ({ isVisible, onClose, studentData, onSave }) => {
                 />
               </div>
               <div className="mb-4">
-                <label className="block text-sm font-medium">Position</label>
-                <input
-                  type="text"
-                  name="position"
-                  value={formData.position || ""}
+                <label className="block text-sm font-medium">Campus</label>
+                <select
+                  className="mt-1 block w-full p-2 rounded-md border-gray-300 shadow-sm"
+                  id="campus"
+                  name="campus"
                   onChange={handleChange}
-                  className="mt-1 block w-full rounded-md p-2 border-gray-300 shadow-sm"
-                />
+                  value={formData.campus || ""}
+                  required
+                >
+                  <option value="none" selected disabled hidden>
+                    Select Campus
+                  </option>
+                  <option value="UC-Main">UC Main</option>
+                  <option value="UC-Banilad">UC Banilad</option>
+                  <option value="UC-LM">UC Lapu-Lapu Mandaue</option>
+                  <option value="UC-PT">UC Pardo Talisay</option>
+                </select>
               </div>
             </div>
 

@@ -47,6 +47,33 @@ export const deletedStudent = async () => {
     console.error("Error:", error);
   }
 };
+
+//Student tab admin count
+
+export const getCountStudent = async () => {
+  try {
+    const response = await axios.get(
+      `${backendConnection()}/api/get-students-count`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    return response.data;
+  } catch (error) {
+    if (error.response && error.response.data) {
+      window.location.reload();
+      return false;
+    } else {
+      console.log("error", "An error occurred");
+      return false;
+    }
+  }
+};
+
 export const membershipRequest = async () => {
   try {
     const response = await axios.get(
@@ -123,114 +150,6 @@ export const approveMembership = async (formData) => {
     } else {
       console.error(error);
       showToast("error", "An error occurred");
-    }
-  }
-};
-//Total Numbers of All Members
-export const allMembers = async () => {
-  try {
-    const response = await axios.get(`${backendConnection()}/api/all-members`, {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    return response.data.message;
-  } catch (error) {
-    if (error.response && error.response.data) {
-      console.log("error", error.response.data.message || "An error occurred");
-      window.location.reload();
-    } else {
-      console.log("error", "An error occurred");
-    }
-  }
-};
-//Total Numbers of all request
-export const totalRequest = async () => {
-  try {
-    const response = await axios.get(
-      `${backendConnection()}/api/request-members`,
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-
-    return response.data.message;
-  } catch (error) {
-    if (error.response && error.response.data) {
-      console.log("error", error.response.data.message || "An error occurred");
-    } else {
-      console.log("error", "An error occurred");
-    }
-  }
-};
-//Total Numbers of all Renewal
-export const totalRenewal = async () => {
-  try {
-    const response = await axios.get(
-      `${backendConnection()}/api/renewal-members`,
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-
-    return response.data.message;
-  } catch (error) {
-    if (error.response && error.response.data) {
-      console.log("error", error.response.data.message || "An error occurred");
-    } else {
-      console.log("error", "An error occurred");
-    }
-  }
-};
-//Total Numbers of all Deleted
-export const totalDeleted = async () => {
-  try {
-    const response = await axios.get(
-      `${backendConnection()}/api/deleted-members`,
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-
-    return response.data.message;
-  } catch (error) {
-    if (error.response && error.response.data) {
-      console.log("error", error.response.data.message || "An error occurred");
-    } else {
-      console.log("error", "An error occurred");
-    }
-  }
-};
-//History Total
-export const totalHistory = async () => {
-  try {
-    const response = await axios.get(
-      `${backendConnection()}/api/history-members`,
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-
-    return response.data.message;
-  } catch (error) {
-    if (error.response && error.response.data) {
-      console.log("error", error.response.data.message || "An error occurred");
-    } else {
-      console.log("error", "An error occurred");
     }
   }
 };
@@ -332,6 +251,7 @@ export const merchandise = async () => {
   } catch (error) {
     if (error.response && error.response.data) {
       showToast("error", error.response.data.message || "An error occurred");
+      window.location.reload();
     } else {
       showToast("error", "An error occurred");
     }
@@ -561,13 +481,13 @@ export const getOrderDate = async () => {
   }
 };
 
-export const deleteReports = async (id, merchName) => {
+export const deleteReports = async (product_id, id, merchName) => {
   try {
     const response = await axios.delete(
       `${backendConnection()}/api/merch/delete-report`,
 
       {
-        data: { id, merchName },
+        data: { product_id, id, merchName },
         headers: {
           "Content-Type": "application/json",
 
@@ -606,7 +526,7 @@ export const getAllOfficers = async () => {
       }
     );
     if (response.status === 200) {
-      console.log(response.data.data);
+      // console.log(response.data.data);
       return response.data.data;
     }
   } catch (error) {
@@ -614,6 +534,136 @@ export const getAllOfficers = async () => {
       //showToast("error", error.response.data.message || "An error occurred");
     } else {
       //showToast("error", "An error occurred");
+    }
+    console.error("Error:", error);
+  }
+};
+
+export const getAllStudentOfficers = async () => {
+  try {
+    const response = await axios.get(
+      `${backendConnection()}/api/get-all-student-officers`,
+
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    if (response.status === 200) {
+      // console.log(response.data.data);
+      return response.data.data;
+    }
+  } catch (error) {
+    if (error.response && error.response.data) {
+      //showToast("error", error.response.data.message || "An error occurred");
+    } else {
+      //showToast("error", "An error occurred");
+    }
+    console.error("Error:", error);
+  }
+};
+
+//TODO:
+//get-all-developers
+export const getAllDevelopers = async () => {
+  try {
+    const response = await axios.get(
+      `${backendConnection()}/api/get-all-developers`,
+
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    if (response.status === 200) {
+      // console.log(response.data.data);
+      return response.data.data;
+    }
+  } catch (error) {
+    if (error.response && error.response.data) {
+    }
+    console.error("Error:", error);
+  }
+};
+//TODO:
+//get-all-media
+export const getAllMedia = async () => {
+  try {
+    const response = await axios.get(
+      `${backendConnection()}/api/get-all-media`,
+
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    if (response.status === 200) {
+      // console.log(response.data.data);
+      return response.data.data;
+    }
+  } catch (error) {
+    if (error.response && error.response.data) {
+      //showToast("error", error.response.data.message || "An error occurred");
+    } else {
+      //showToast("error", "An error occurred");
+    }
+    console.error("Error:", error);
+  }
+};
+//TODO:
+//get-all-volunteers
+export const getAllVolunteers = async () => {
+  try {
+    const response = await axios.get(
+      `${backendConnection()}/api/get-all-volunteers`,
+
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    if (response.status === 200) {
+      // console.log(response.data.data);
+      return response.data.data;
+    }
+  } catch (error) {
+    if (error.response && error.response.data) {
+      //showToast("error", error.response.data.message || "An error occurred");
+    } else {
+      //showToast("error", "An error occurred");
+    }
+    console.error("Error:", error);
+  }
+};
+//TODO:remove role officer
+
+export const roleRemove = async (id_number) => {
+  try {
+    const response = await axios.put(
+      `${backendConnection()}/api/admin/role-remove`,
+      { id_number },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    // console.log(response.data.message);
+    return response.status;
+  } catch (error) {
+    if (error.response && error.response.data) {
+      showToast("error", error.response.data.message || "An error occurred");
+    } else {
+      showToast("error", "An error occurred");
     }
     console.error("Error:", error);
   }
@@ -632,7 +682,7 @@ export const getSuspendOfficers = async () => {
       }
     );
     if (response.status === 200) {
-      console.log(response.data.data);
+      // console.log(response.data.data);
       return response.data.data;
     }
   } catch (error) {
@@ -684,7 +734,7 @@ export const officerSuspend = async (id_number) => {
         },
       }
     );
-    console.log(response.data.message);
+    // console.log(response.data.message);
     return response.status;
   } catch (error) {
     if (error.response && error.response.data) {
@@ -747,7 +797,7 @@ export const logAdminAction = async ({
       }
     );
 
-    console.log("Action logged successfully:", response.data.message);
+    // console.log("Action logged successfully:", response.data.message);
   } catch (error) {
     console.error(
       "Error logging admin action:",
@@ -768,5 +818,258 @@ export const fetchAdminLogs = async () => {
   } catch (error) {
     console.error("Error fetching admin logs:", error);
     throw new Error("Unable to fetch admin logs");
+  }
+};
+
+//fetch student name
+export const fetchStudentName = async (id_number) => {
+  try {
+    const response = await axios.get(
+      `${backendConnection()}/api/admin/search-student/${id_number}`,
+      {
+        headers: {
+          Authorization: `Bearer ${sessionStorage.getItem("Token")}`,
+        },
+      }
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching student:", error);
+  }
+};
+
+export const requestRoleAdmin = async (role, id_number, admin) => {
+  try {
+    const response = await axios.put(
+      `${backendConnection()}/api/admin/request-role`,
+      { role, id_number, admin },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    if (response.status === 200) {
+      showToast("success", response.data.message);
+    } else {
+      showToast("error", response.data.message);
+    }
+    return response.status === 200;
+  } catch (error) {
+    if (error.response && error.response.data) {
+      showToast("error", error.response.data.message || "An error occurred");
+    } else {
+      showToast("error", "An error occurred");
+    }
+    console.error("Error:", error);
+  }
+};
+
+//fetch request students role
+export const fetchAllStudentRequestRole = async () => {
+  try {
+    const response = await axios.get(
+      `${backendConnection()}/api/admin/get-request-role`,
+      {
+        headers: {
+          Authorization: `Bearer ${sessionStorage.getItem("Token")}`,
+        },
+      }
+    );
+
+    return response.data.data;
+  } catch (error) {
+    console.error("Error fetching student:", error);
+  }
+};
+//Approve Role President
+export const approveRole = async (id_number) => {
+  try {
+    const response = await axios.put(
+      `${backendConnection()}/api/admin/approve-role`,
+      { id_number },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    if (response.status === 200) {
+      showToast("success", response.data.message);
+    } else {
+      showToast("error", response.data.message);
+    }
+    return response.status === 200;
+  } catch (error) {
+    if (error.response && error.response.data) {
+      showToast("error", error.response.data.message || "An error occurred");
+    } else {
+      showToast("error", "An error occurred");
+    }
+    console.error("Error:", error);
+  }
+};
+//Decline Role President
+export const declineRole = async (id_number) => {
+  try {
+    const response = await axios.put(
+      `${backendConnection()}/api/admin/decline-role`,
+      { id_number },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    if (response.status === 200) {
+      showToast("success", response.data.message);
+    } else {
+      showToast("error", response.data.message);
+    }
+    return response.status === 200;
+  } catch (error) {
+    if (error.response && error.response.data) {
+      showToast("error", error.response.data.message || "An error occurred");
+    } else {
+      showToast("error", "An error occurred");
+    }
+    console.error("Error:", error);
+  }
+};
+
+//get-all-pending-counts
+export const fetchAllPendingCounts = async () => {
+  try {
+    const response = await axios.get(
+      `${backendConnection()}/api/orders/get-all-pending-counts`,
+      {
+        headers: {
+          Authorization: `Bearer ${sessionStorage.getItem("Token")}`,
+        },
+      }
+    );
+    // console.log(response.data.data);
+    return response.data.data;
+  } catch (error) {
+    console.error("Error fetching student:", error);
+  }
+};
+
+export const addOfficer = async (formData) => {
+  try {
+    const response = await axios.post(
+      `${backendConnection()}/api/admin/add-officer`,
+      formData,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (response.status === 200) {
+      showToast("success", response.data.message);
+      return true;
+    } else {
+      console.error(response.data.message);
+      showToast("error", response.data.message || "An error occurred");
+    }
+  } catch (error) {
+    if (error.response && error.response.data) {
+      console.error(error);
+      showToast("error", error.response.data.message || "An error occurred");
+    } else {
+      console.error(error);
+      showToast("error", "An error occurred");
+    }
+  }
+};
+
+//get-request-admin
+
+export const getRequestAdminAccount = async () => {
+  try {
+    const response = await axios.get(
+      `${backendConnection()}/api/admin/get-request-admin`,
+
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    if (response.status === 200) {
+      // console.log(response.data.data);
+      return response.data.data;
+    }
+  } catch (error) {
+    if (error.response && error.response.data) {
+      //showToast("error", error.response.data.message || "An error occurred");
+    } else {
+      //showToast("error", "An error occurred");
+    }
+    console.error("Error:", error);
+  }
+};
+
+export const approveAdminAccount = async (id_number) => {
+  try {
+    const response = await axios.put(
+      `${backendConnection()}/api/admin/approve-admin-account`,
+      { id_number },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    if (response.status === 200) {
+      showToast("success", response.data.message);
+    } else {
+      showToast("error", response.data.message);
+    }
+    return response.status === 200;
+  } catch (error) {
+    if (error.response && error.response.data) {
+      showToast("error", error.response.data.message || "An error occurred");
+    } else {
+      showToast("error", "An error occurred");
+    }
+    console.error("Error:", error);
+  }
+};
+//Decline Role President
+export const declineAdminAccount = async (id_number) => {
+  try {
+    const response = await axios.put(
+      `${backendConnection()}/api/admin/decline-admin-account`,
+      { id_number },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    if (response.status === 200) {
+      showToast("success", response.data.message);
+    } else {
+      showToast("error", response.data.message);
+    }
+    return response.status === 200;
+  } catch (error) {
+    if (error.response && error.response.data) {
+      showToast("error", error.response.data.message || "An error occurred");
+    } else {
+      showToast("error", "An error occurred");
+    }
+    console.error("Error:", error);
   }
 };

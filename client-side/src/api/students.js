@@ -7,7 +7,7 @@ const token = sessionStorage.getItem("Token");
 
 export const requestMembership = async (id_number) => {
   try {
-    console.log("Sending request for ID:", id_number);
+    // console.log("Sending request for ID:", id_number);
     const response = await axios.put(
       `${backendConnection()}/api/students/request`,
       { id_number },
@@ -51,7 +51,7 @@ export const getMembershipStatusStudents = async (id_number) => {
     if (response.status === 200) {
       return response.data;
     } else {
-      console.log(response.data.message);
+      // console.log(response.data.message);
       window.location.reload();
     }
   } catch (error) {
@@ -154,3 +154,34 @@ export const deleteItem = async (data) => {
     console.error("Error:", error);
   }
 };
+
+///fetch-specific-student/:id_number
+
+export const fetchSpecificStudent = async (id_number) => {
+	try {
+		const response = await axios.get(
+			`${backendConnection()}/api/fetch-specific-student/${id_number}`,
+			{
+				
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${token}`,
+				},
+			}
+		);
+
+		if (response.status === 200) {
+			return response.data.data;
+		} else {
+			return null;
+		}
+	} catch (error) {
+		if (error.response && error.response.data) {
+			console.error("Error:", error);
+		} else {
+			console.error("Error:", error);
+		}
+		console.error("Error:", error);
+	}
+};
+

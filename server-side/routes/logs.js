@@ -40,7 +40,7 @@ router.post("/", authenticateToken, async (req, res) => {
     });
 
     await log.save();
-    console.log("Action logged successfully");
+  
     res.status(200).json({ message: "Action logged successfully" });
   } catch (error) {
     console.error("Error logging action:", error);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { showToast } from "../../utils/alertHelper";
 import { motion, AnimatePresence } from "framer-motion";
 import { viewCart, deleteItem } from "../../api/students";
@@ -355,42 +355,41 @@ const StudentCart = () => {
   const [formData, setFormData] = useState({});
   const user = getInformationData();
 
+  const fetchProducts = useCallback(async () => {
+    try {
+      const data = await viewCart(user.id_number);
+      if (data && data.length > 0) {
+        const currentDate = new Date();
+
+        const filteredProducts = data.filter((item) => {
+          return (
+            currentDate >= new Date(item.start_date) &&
+            currentDate <= new Date(item.end_date)
+          );
+        });
+
+        setProducts(filteredProducts);
+        setLoading(false);
+      } else {
+        setProducts([]);
+        setLoading(false);
+      }
+    } catch (error) {
+      setError(error.message || "Failed to fetch products");
+    }
+  });
+
+  const fetchStatus = useCallback(async () => {
+    try {
+      const membershipStatus = await getMembershipStatusStudents(
+        user.id_number
+      );
+      setStatus(membershipStatus);
+    } catch (error) {
+      setError(error.message || "Failed to fetch membership status");
+    }
+  });
   useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const data = await viewCart(user.id_number);
-        if (data && data.length > 0) {
-          const currentDate = new Date();
-
-          const filteredProducts = data.filter((item) => {
-            return (
-              currentDate >= new Date(item.start_date) &&
-              currentDate <= new Date(item.end_date)
-            );
-          });
-
-          setProducts(filteredProducts);
-          setLoading(false);
-        } else {
-          setProducts([]);
-          setLoading(false);
-        }
-      } catch (error) {
-        setError(error.message || "Failed to fetch products");
-      }
-    };
-
-    const fetchStatus = async () => {
-      try {
-        const membershipStatus = await getMembershipStatusStudents(
-          user.id_number
-        );
-        setStatus(membershipStatus);
-      } catch (error) {
-        setError(error.message || "Failed to fetch membership status");
-      }
-    };
-
     fetchProducts();
     fetchStatus();
   }, []);
@@ -462,9 +461,8 @@ const StudentCart = () => {
       setLoading(false);
       setShowModal(false);
     }
-    setTimeout(() => {
-      window.location.reload();
-    }, 1000);
+    fetchProducts();
+    fetchStatus();
   };
 
   const handleRemove = (id) => {

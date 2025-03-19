@@ -1,14 +1,40 @@
 import backendConnection from "../api/backendApi";
 import { setInformationData } from "./Authentication";
+import { getInformationData } from "./Authentication";
 import axios from "axios";
 import { React, useState, useEffect } from "react";
 import { InfinitySpin } from "react-loader-spinner";
-import { Navigate } from "react-router-dom";
-
+import { Navigate, useLocation } from "react-router-dom";
+import {
+  presidentPosition,
+  headDevPosition,
+  higherPosition,
+  treasurerPosition,
+  restrictedComponent,
+  restrictedComponentOtherCampus,
+} from "../components/tools/clientTools";
 const PrivateRouteAdmin = ({ element: Component }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
   const token = sessionStorage.getItem("Token");
+  const location = useLocation();
+  const lastPart = location.pathname.split("/").pop();
+  const secondToTheLast = location.pathname.split("/").slice(-2, -1)[0];
+  const thirdToTheLast = location.pathname.split("/").slice(-3)[0];
+  const fifthToTheLast = location.pathname.split("/").slice(-6, -4)[0];
+  const user = getInformationData();
+
+  const unauthorized =
+    !higherPosition() &&
+    !treasurerPosition() &&
+    restrictedComponent().includes(lastPart);
+  const campus = user.campus === "UC-Main";
+  const other_campus_authorized =
+    restrictedComponentOtherCampus().includes(fifthToTheLast) ||
+    restrictedComponentOtherCampus().includes(secondToTheLast) ||
+    restrictedComponentOtherCampus().includes(thirdToTheLast) ||
+    restrictedComponentOtherCampus().includes(lastPart);
+
   const checkAuthentication = async () => {
     try {
       const response = await axios.get(
@@ -27,6 +53,7 @@ const PrivateRouteAdmin = ({ element: Component }) => {
       }
     } catch (error) {
       console.error("Not authorized:");
+      //window.location.reload();
       setIsAuthenticated(false);
     } finally {
       setLoading(false);
@@ -51,7 +78,15 @@ const PrivateRouteAdmin = ({ element: Component }) => {
     );
   }
 
-  return isAuthenticated ? <Component /> : <Navigate to="/" replace />;
+  return unauthorized && campus ? (
+    <Navigate to="/admin/dashboard" replace />
+  ) : !campus && !other_campus_authorized ? (
+    <Navigate to="/admin/events" replace />
+  ) : isAuthenticated ? (
+    <Component />
+  ) : (
+    <Navigate to="/" replace />
+  );
 };
 
 export default PrivateRouteAdmin;

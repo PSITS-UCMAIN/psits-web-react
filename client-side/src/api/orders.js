@@ -138,3 +138,58 @@ export const approveOrder = async (formData) => {
     return null;
   }
 };
+
+
+export const getAllPendingOrders = async () => {
+	try {
+		const response = await axios.get(
+			`${backendConnection()}/api/orders/get-all-pending-orders`,
+			{
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${token}`,
+				},
+			}
+		);
+
+		if (response.status === 200) {
+			return response.data;
+		} else {
+			return null;
+		}
+	} catch (error) {
+		if (error.response && error.response.data) {
+			console.error("Error:", error);
+		} else {
+			console.error("Error:", error);
+		}
+		console.error("Error:", error);
+	}
+};
+
+export const getAllPaidOrders = async () => {
+	try {
+		const response = await axios.get(
+			`${backendConnection()}/api/orders/get-all-paid-orders`,
+			{
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${token}`,
+				},
+			}
+		);
+
+		if (response.status === 200) {
+			return response.data;
+		} else {
+			return null;
+		}
+	} catch (error) {
+		if (error.response && error.response.data) {
+			console.error("Error:", error);
+		} else {
+			console.error("Error:", error);
+		}
+		console.error("Error:", error);
+	}
+};

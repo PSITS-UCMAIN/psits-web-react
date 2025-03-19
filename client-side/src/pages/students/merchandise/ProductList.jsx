@@ -1,21 +1,17 @@
-import React from 'react';
-import ProductCard from './ProductCard';
-
+import React from "react";
+import ProductCard from "./ProductCard";
+import { InfinitySpin } from "react-loader-spinner";
 const ProductList = ({ products, isLoading }) => {
   return (
-    <div className="py-4">
+    <div className="pt-4">
       {isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-          {Array.from({ length: products.length }).map((_, index) => (
-            <div
-              key={index}
-              className="bg-gray-200 p-4 rounded-md shadow animate-pulse"
-            >
-              <div className="h-32 bg-gray-300 rounded-md mb-4"></div>
-              <div className="h-4 bg-gray-300 rounded-md mb-2"></div>
-              <div className="h-4 bg-gray-300 rounded-md"></div>
-            </div>
-          ))}
+        <div className="flex justify-center items-center h-60vh">
+          <InfinitySpin
+            visible={true}
+            width={200}
+            color="#0d6efd"
+            ariaLabel="infinity-spin-loading"
+          />
         </div>
       ) : products.length === 0 ? (
         <p className="text-gray-600 text-center mt-4">No products available</p>

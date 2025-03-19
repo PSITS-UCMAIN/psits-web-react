@@ -20,7 +20,6 @@ const loginLimiter = rateLimit({
 });
 
 router.post("/login", loginLimiter, async (req, res) => {
-  //TODO: Log (Done)
   const { id_number, password } = req.body;
   const currentDate = new Date();
 
@@ -29,6 +28,7 @@ router.post("/login", loginLimiter, async (req, res) => {
     let role;
     let admin = null;
     let student = null;
+    let campus;
 
     if (id_number.includes("-admin")) {
       admin = await Admin.findOne({ id_number });
@@ -50,16 +50,7 @@ router.post("/login", loginLimiter, async (req, res) => {
         users = student;
         role = "Student";
       } else {
-        console.log(
-          `Invalid password from ${id_number} - ${
-            student.first_name +
-            " " +
-            student.middle_name +
-            " " +
-            student.last_name
-          } on ${currentDate}`
-        );
-
+       
         return res
           .status(400)
           .json({ message: "Invalid ID number or password" });
@@ -92,15 +83,13 @@ router.post("/login", loginLimiter, async (req, res) => {
       course: users.course,
       year: users.year,
       position: role === "Admin" ? users.position : "Student",
+      role: users.role,
+      campus: users.campus,
     };
-
+    campus = users.campus;
     const token = jwt.sign({ user, role }, token_key, {
       expiresIn: role === "Admin" ? "2h" : "10m",
     });
-
-    console.log(
-      `${id_number} - ${user.name} signed in successfully on ${currentDate}`
-    );
 
     // Create a log only if the user is an Admin
     if (role === "Admin") {
@@ -111,10 +100,9 @@ router.post("/login", loginLimiter, async (req, res) => {
       });
 
       await log.save();
-      console.log("Admin login logged successfully!");
     }
 
-    return res.json({ message: "Signed in successfully", role, token });
+    return res.json({ message: "Signed in successfully", role, token, campus });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "An error occurred", error });

@@ -1,0 +1,30 @@
+name: PSITS Server
+
+on:
+  pull_request:
+    branches:
+      - master
+      - production
+
+jobs:
+  build:
+    name: Build Project
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Locate Server side directory
+        working-directory: server-side
+        run: |
+          ls -la
+
+      - name: Setup Node
+        uses: actions/setup-node@v1
+        with:
+          node-version: 16
+
+      - name: Install Dependencies
+        working-directory: server-side
+        run: npm install

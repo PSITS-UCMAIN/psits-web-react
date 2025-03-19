@@ -22,13 +22,12 @@ export const getInformationData = () => {
     year: storedData?.year || null,
     role: storedRole || null,
     position: storedData?.position || null,
+    audience: storedData?.role || null,
+    campus: storedData?.campus || null,
   };
 };
 export const removeAuthentication = () => {
-  //TODO: Log (Done)
-  const userData = getInformationData(); // Use getInformationData to retrieve user information
-
-  // Check if the user has the role of "Admin"
+  const userData = getInformationData();
   if (userData.role === "Admin") {
     const logData = {
       admin: userData.name || "Unknown Admin",
@@ -44,7 +43,7 @@ export const removeAuthentication = () => {
         },
       })
       .then(() => {
-        console.log("Logout action logged successfully.");
+        // console.log("Logout action logged successfully.");
       })
       .catch((error) => {
         console.error("Error logging logout action:", error);
@@ -55,6 +54,7 @@ export const removeAuthentication = () => {
   sessionStorage.removeItem("Token");
   sessionStorage.removeItem("Data");
   sessionStorage.removeItem("hasReloaded");
+  localStorage.removeItem("delayed_render");
   storedData = null;
   storedRole = null;
 };
@@ -97,6 +97,7 @@ export const getTimeout = () => {
   if (now.getTime() > time) {
     localStorage.removeItem("timeout");
     localStorage.removeItem("attempt");
+
     return null;
   }
 

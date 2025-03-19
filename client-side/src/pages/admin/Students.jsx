@@ -1,14 +1,8 @@
 import React, { useState, useEffect, useCallback } from "react";
-import MembershipTab from "../../components/admin/MembershipTab";
+
 import { Outlet, useLocation } from "react-router-dom";
 import Tab from "../../components/Tab";
-import {
-  allMembers,
-  totalRequest,
-  totalRenewal,
-  totalDeleted,
-  totalHistory,
-} from "../../api/admin";
+import { getCountStudent } from "../../api/admin";
 import { InfinitySpin } from "react-loader-spinner";
 
 const Students = () => {
@@ -27,26 +21,14 @@ const Students = () => {
 
   const fetchData = useCallback(async () => {
     try {
-      const [
-        allMembersCount,
-        requestCount,
-        renewalCount,
-        deletedCount,
-        historyCount,
-      ] = await Promise.all([
-        allMembers(),
-        totalRequest(),
-        totalRenewal(),
-        totalDeleted(),
-        totalHistory(),
-      ]);
+      const data = await getCountStudent();
 
       setCounts({
-        allMembers: allMembersCount,
-        request: requestCount,
-        renewals: renewalCount,
-        deleted: deletedCount,
-        history: historyCount,
+        allMembers: data?.all,
+        request: data?.request,
+        renewals: data?.renew,
+        deleted: data?.deleted,
+        history: data?.history,
       });
     } catch (err) {
       console.error("Error fetching membership data: ", err);
@@ -101,10 +83,6 @@ const Students = () => {
             color="#0d6efd"
             ariaLabel="infinity-spin-loading"
           />
-        </div>
-      ) : error ? (
-        <div className="flex justify-center items-center w-full h-full">
-          <p className="text-red-600">{error}</p>
         </div>
       ) : (
         <div className="flex flex-col py-4 space-y-4">

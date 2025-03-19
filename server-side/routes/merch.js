@@ -4,10 +4,11 @@ const Student = require("../models/StudentModel");
 const Orders = require("../models/OrdersModel");
 const Admin = require("../models/AdminModel");
 const Log = require("../models/LogModel");
+const Event = require("../models/EventsModel");
 const { default: mongoose } = require("mongoose");
 const multer = require("multer");
 const multerS3 = require("multer-s3");
-const { S3Client } = require("@aws-sdk/client-s3");
+const { S3Client, DeleteObjectCommand } = require("@aws-sdk/client-s3");
 const { ObjectId } = require("mongodb");
 require("dotenv").config();
 const authenticateToken = require("../middlewares/authenticateToken");
@@ -40,7 +41,6 @@ router.post(
   authenticateToken,
   upload.array("images", 3),
   async (req, res) => {
-    //TODO: Log (Done)
     const {
       name,
       price,
@@ -49,10 +49,13 @@ router.post(
       description,
       selectedVariations,
       selectedSizes,
+      selectedAudience,
       created_by,
       start_date,
       end_date,
       category,
+      isEvent,
+      eventDate,
       type,
       control,
     } = req.body;
@@ -69,6 +72,7 @@ router.post(
         description,
         selectedVariations: selectedVariations.split(","),
         selectedSizes: selectedSizes.split(","),
+        selectedAudience,
         created_by,
         start_date,
         end_date,
@@ -78,7 +82,25 @@ router.post(
         imageUrl,
       });
 
-      await newMerch.save();
+      const newMerchId = await newMerch.save();
+
+      if (isEvent) {
+        try {
+          const newEvent = new Event({
+            eventId: newMerchId._id,
+            eventName: name,
+            eventImage: imageUrl,
+            eventDate: eventDate,
+            eventDescription: description,
+            status: "Ongoing",
+            attendees: [],
+          });
+
+          await newEvent.save();
+        } catch (error) {
+          console.error(error);
+        }
+      }
 
       const admin = await Admin.findOne({ name: created_by });
 
@@ -92,7 +114,6 @@ router.post(
       });
 
       await log.save();
-      console.log("Admin action logged: Merchandise added");
 
       res.status(201).json("Merch Addition Successful");
     } catch (error) {
@@ -113,6 +134,23 @@ router.get("/retrieve", authenticateToken, async (req, res) => {
     res.status(500).send(error.message);
   }
 });
+
+router.get("/retrieve/:id", authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const merch = await Merch.findById(id);
+
+    if (!merch) {
+      return res.status(404).json({ message: "Merchandise not found" });
+    }
+
+    res.status(200).json(merch);
+  } catch (error) {
+    console.error("Error fetching merch:", error.message);
+    res.status(500).send(error.message);
+  }
+});
+
 router.get("/retrieve-admin", authenticateToken, async (req, res) => {
   try {
     const merches = await Merch.find({});
@@ -124,26 +162,23 @@ router.get("/retrieve-admin", authenticateToken, async (req, res) => {
 });
 
 router.delete("/delete-report", authenticateToken, async (req, res) => {
-  // TODO: Log (Done)
-  const { id, merchName } = req.body;
+  const { product_id, id, merchName } = req.body;
 
   try {
     // Ensure the request comes from an admin
     if (req.role !== "Admin") {
       return res.status(403).json({ message: "Forbidden: Admin access only." });
     }
-
+    const productId = new mongoose.Types.ObjectId(product_id);
     const objectId = new mongoose.Types.ObjectId(id);
-    console.log(`ObjectId: ${objectId}, MerchName: ${merchName}`);
 
     const result = await Merch.findOneAndUpdate(
-      { name: merchName },
+      { _id: productId },
       { $pull: { order_details: { _id: objectId } } },
       { new: true }
     );
 
     if (!result) {
-      console.log("Merch item not found or update failed.");
       return res
         .status(404)
         .json({ message: "Merch item not found or update failed." });
@@ -160,7 +195,7 @@ router.delete("/delete-report", authenticateToken, async (req, res) => {
     });
 
     await log.save();
-    console.log("Action logged successfully.");
+    ////console.log("Action logged successfully.");
 
     res.status(200).json({
       message: "Success deleting student in reports",
@@ -176,7 +211,6 @@ router.put(
   authenticateToken,
   upload.array("images", 3),
   async (req, res) => {
-    //TODO: Log (Done)
     const {
       name,
       price,
@@ -191,17 +225,53 @@ router.put(
       type,
       control,
       sales_data,
+      selectedAudience,
+      removeImage,
     } = req.body;
-
-    const id = req.params._id;
-
-    let imageUrl = req.files.map((file) => file.location);
-
     try {
+      const id = req.params._id;
+      //console.log(removeImage);
+      let imageUrl = req.files.map((file) => file.location);
+
+      const imagesToRemove = Array.isArray(removeImage)
+        ? removeImage
+        : removeImage
+        ? [removeImage]
+        : [];
+
+      const imageKeys = imagesToRemove.length
+        ? imagesToRemove.map((url) => url.replace(process.env.bucketUrl, ""))
+        : [];
+      //console.log(imageKeys);
+      await Promise.all(
+        imageKeys.map((imageKey) =>
+          s3Client.send(
+            new DeleteObjectCommand({
+              Bucket: process.env.AWS_BUCKET_NAME,
+              Key: imageKey,
+            })
+          )
+        )
+      );
       const existingMerch = await Merch.findById(id);
       if (!existingMerch) {
         console.error("Merch not found");
         return res.status(404).send("Merch not found");
+      }
+      let updatedImages = existingMerch.imageUrl.filter(
+        (img) => !imagesToRemove.includes(img)
+      );
+
+      updatedImages = [...updatedImages, ...imageUrl];
+
+      const updatedResult = await Merch.updateOne(
+        { _id: id },
+        { imageUrl: imagesToRemove },
+        { $pull: { imageUrl: imagesToRemove } }
+      );
+      if (updatedResult.modifiedCount === 0) {
+        console.error("Failed to update merch images");
+        return res.status(500).send("Failed to update merch images");
       }
 
       if (imageUrl.length === 0) {
@@ -221,7 +291,8 @@ router.put(
         category: category,
         type: type,
         control: control,
-        imageUrl: imageUrl,
+        imageUrl: updatedImages,
+        selectedAudience: selectedAudience,
       };
 
       if (sales_data) {
@@ -233,60 +304,81 @@ router.put(
       }
 
       const result = await Merch.updateOne({ _id: id }, { $set: updateFields });
-
+      const event_result = await Event.updateOne(
+        { eventId: id },
+        { $set: { eventName: name, eventDescription: description } }
+      );
       if (result.matchedCount === 0) {
         console.error("Merch not found");
         return res.status(404).send("Merch not found");
       }
+      const selectedAudienceArray = selectedAudience.includes(",")
+        ? selectedAudience.split(",").map((aud) => aud.trim())
+        : [selectedAudience];
 
-      const students = await Student.find({ "cart.product_id": id });
+      const query = selectedAudienceArray.includes("all")
+        ? { "cart.product_id": id }
+        : { "cart.product_id": id, role: { $in: selectedAudienceArray } };
 
-      for (const student of students) {
-        for (let item of student.cart) {
-          if (item.product_id.toString() === id) {
-            item.product_name = name;
-            item.price = price;
-            item.sub_total = price * item.quantity;
-            item.imageUrl1 = imageUrl[0];
-            item.start_date = start_date;
-            item.end_date = end_date;
-            item.category = category;
-            item.batch = batch;
-            item.limited = control === "limited-purchase" ? true : false;
-            item.quantity = control === "limited-purchase" ? 1 : item.quantity;
+      const students = await Student.find(query);
+
+      if (students) {
+        for (const student of students) {
+          for (let item of student.cart) {
+            if (item.product_id.toString() === id) {
+              item.product_name = name;
+              item.price = price;
+              item.sub_total = price * item.quantity;
+              item.imageUrl1 = imageUrl[0];
+              item.start_date = start_date;
+              item.end_date = end_date;
+              item.category = category;
+              item.batch = batch;
+              item.limited = control === "limited-purchase" ? true : false;
+              item.quantity =
+                control === "limited-purchase" ? 1 : item.quantity;
+            }
           }
-        }
 
-        await student.save();
+          await student.save();
+        }
       }
-      const orders = await Orders.find({
-        "items.product_id": id,
-        order_status: "Pending",
-      });
+      const queryOrders = selectedAudienceArray.includes("all")
+        ? { "items.product_id": id, order_status: "Pending" }
+        : {
+            "items.product_id": id,
+            order_status: "Pending",
+            role: { $in: selectedAudienceArray },
+          };
 
-      for (const order of orders) {
-        let newTotal = 0;
+      const orders = await Orders.find(queryOrders);
 
-        for (let item of order.items) {
-          if (item.product_id.toString() === id) {
-            item.product_name = name;
-            item.price = price;
+      if (orders) {
+        for (const order of orders) {
+          let newTotal = 0;
 
-            item.imageUrl1 = imageUrl[0];
+          for (let item of order.items) {
+            if (item.product_id.toString() === id) {
+              item.product_name = name;
+              item.price = price;
 
-            item.category = category;
-            item.batch = batch;
-            item.limited = control === "limited-purchase" ? true : false;
-            item.quantity = control === "limited-purchase" ? 1 : item.quantity;
-            item.sub_total = price * item.quantity;
+              item.imageUrl1 = imageUrl[0];
+
+              item.category = category;
+              item.batch = batch;
+              item.limited = control === "limited-purchase" ? true : false;
+              item.quantity =
+                control === "limited-purchase" ? 1 : item.quantity;
+              item.sub_total = price * item.quantity;
+            }
+
+            newTotal += item.sub_total;
           }
 
-          newTotal += item.sub_total;
+          order.total = newTotal;
+
+          await order.save();
         }
-
-        order.total = newTotal;
-
-        await order.save();
       }
 
       // Log the edit merch action
@@ -300,10 +392,11 @@ router.put(
       });
 
       await log.save();
-      console.log("Action logged successfully.");
+      //console.log("Action logged successfully.");
 
       res.status(200).send("Merch, carts, and orders updated successfully");
     } catch (error) {
+      console.error(error);
       console.error("Error updating merch, carts, and orders:", error.message);
       res.status(500).send(error.message);
     }
@@ -312,7 +405,6 @@ router.put(
 
 // DELETE merch by id (soft)
 router.put("/delete-soft", authenticateToken, async (req, res) => {
-  // TODO: Log (Done)
   const { _id } = req.body;
 
   try {
@@ -344,7 +436,7 @@ router.put("/delete-soft", authenticateToken, async (req, res) => {
     });
 
     await log.save();
-    console.log("Action logged successfully.");
+    //console.log("Action logged successfully.");
 
     res.status(200).json({ message: "Merch deleted successfully" });
   } catch (error) {
@@ -355,7 +447,6 @@ router.put("/delete-soft", authenticateToken, async (req, res) => {
 
 // Publish merch
 router.put("/publish", authenticateToken, async (req, res) => {
-  // TODO: Log (Done)
   const { _id } = req.body;
 
   try {
@@ -387,7 +478,7 @@ router.put("/publish", authenticateToken, async (req, res) => {
     });
 
     await log.save();
-    console.log("Action logged successfully.");
+    //console.log("Action logged successfully.");
 
     res.status(200).json({ message: "Merch published successfully" });
   } catch (error) {
@@ -418,7 +509,7 @@ router.put(
 
       // Check if the merch_id already exists in the cart
       if (student.cart.includes(merchObjectId)) {
-        console.log("Merch already in cart");
+        //console.log("Merch already in cart");
         return res.status(400).json({ message: "Merch already in cart!" });
       }
 
@@ -426,7 +517,7 @@ router.put(
       student.cart.push(merchObjectId);
       await student.save();
 
-      console.log("Merch added to cart");
+      //console.log("Merch added to cart");
       return res.status(200).json({ message: "Merch added to cart" });
     } catch (error) {
       console.error("Error adding merch to cart:", error.message);
@@ -491,7 +582,7 @@ router.delete(
       student.cart.splice(index, 1);
       await student.save();
 
-      console.log("Merch removed from cart.");
+      //console.log("Merch removed from cart.");
       return res.status(200).json({ message: "Merch removed from cart." });
     } catch (error) {
       console.error("Error removing merch from cart:", error.message);

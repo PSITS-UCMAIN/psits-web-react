@@ -26,8 +26,9 @@ const StudentLayout = () => {
 
     { text: "Cart", icon: "fas fa-shopping-cart", path: "cart" },
     { text: "Orders", icon: "fas fa-clipboard-list", path: "orders" },
+    { text: "Events", icon: "fas fa-calendar-alt", path: "events" },
     { text: "Resources", icon: "fas fa-book-open", path: "resources" },
-  ];
+  ]; 
 
   return (
     <div className="min-h-screen relative">

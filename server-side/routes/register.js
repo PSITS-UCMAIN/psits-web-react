@@ -45,6 +45,9 @@ router.post("/register", async (req, res) => {
       status: "True",
       membership: "None",
       applied,
+      role: "all",
+      campus: "UC-Main",
+      isRequest: false,
     });
     await newStudent.save();
 
@@ -147,7 +150,7 @@ router.post("/student/forgot-password", async (req, res) => {
         console.error("Error sending email:", err.message);
         return res.status(500).send({ message: err.message });
       }
-      console.log("Email sent from forgot password:", info.response);
+      //console.log("Email sent from forgot password:", info.response);
       res.status(200).send({ message: "Email sent" });
     });
   } catch (err) {

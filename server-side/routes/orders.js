@@ -1,7 +1,6 @@
 const express = require("express");
-const bcrypt = require("bcryptjs");
 const Student = require("../models/StudentModel");
-const Admin = require("../models/AdminModel");
+const Event = require("../models/EventsModel");
 const Cart = require("../models/CartModel");
 const Orders = require("../models/OrdersModel");
 const Merch = require("../models/MerchModel");
@@ -46,6 +45,40 @@ router.get("/get-all-orders", authenticateToken, async (req, res) => {
   }
 });
 
+//orders/get-all-paid-orders
+//get all pending orders
+router.get("/get-all-pending-orders", authenticateToken, async (req, res) => {
+	try {
+    const orders = await Orders.find({order_status: "Pending"}).sort({ order_date: -1 });
+   
+		if (orders.length > 0) {
+			res.status(200).json(orders);
+		} else {
+			res.status(400).json({ message: "No Records" });
+    }
+	} catch (error) {
+		console.error("Error fetching orders:", error);
+		res.status(500).json("Internal Server Error");
+	}
+});
+//Get all paid orders
+router.get("/get-all-paid-orders", authenticateToken, async (req, res) => {
+	try {
+    const orders = await Orders.find({ order_status: "Paid" }).sort({
+			order_date: -1
+		});
+		if (orders.length > 0) {
+			res.status(200).json(orders);
+		} else {
+			res.status(400).json({ message: "No Records" });
+		}
+	} catch (error) {
+		console.error("Error fetching orders:", error);
+		res.status(500).json("Internal Server Error");
+	}
+});
+
+
 router.post("/student-order", authenticateToken, async (req, res) => {
   const {
     id_number,
@@ -62,6 +95,9 @@ router.post("/student-order", authenticateToken, async (req, res) => {
   } = req.body;
   const itemsArray = Array.isArray(items) ? items : [items];
 
+
+  const student = await Student.findOne({ id_number: id_number });
+
   try {
     const newOrder = new Orders({
       id_number,
@@ -75,6 +111,7 @@ router.post("/student-order", authenticateToken, async (req, res) => {
       total,
       order_date,
       order_status,
+      role: student.role,
     });
 
     await newOrder.save();
@@ -118,14 +155,13 @@ router.post("/student-order", authenticateToken, async (req, res) => {
 
     res.status(200).json({ message: "Order Placed Successfully" });
   } catch (error) {
-    console.error(error); // Log error for debugging
+    console.error(error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
 // Cancel Order
 router.put("/cancel/:product_id", authenticateToken, async (req, res) => {
-  // TODO: Log (Done)
   const { product_id } = req.params;
 
   if (!product_id) {
@@ -173,7 +209,7 @@ router.put("/cancel/:product_id", authenticateToken, async (req, res) => {
       });
 
       await log.save();
-      console.log("Action logged successfully.");
+      //console.log("Action logged successfully.");
     }
 
     res.status(200).json({ message: "Order canceled successfully" });
@@ -221,43 +257,97 @@ router.put("/approve-order", authenticateToken, async (req, res) => {
 
     if (Array.isArray(items) && items.length > 0) {
       await Promise.all(
-        items.map(async (item) => {
-          const sizes = Array.isArray(item.sizes) ? item.sizes : [];
-          const variations = Array.isArray(item.variation)
-            ? item.variation
-            : [];
+				items.map(async (item) => {
+					const sizes = Array.isArray(item.sizes) ? item.sizes : [];
+					const variations = Array.isArray(item.variation)
+						? item.variation
+						: [];
+					const merchId = new ObjectId(item.product_id);
 
-          await Merch.findByIdAndUpdate(item.product_id, {
-            $push: {
-              order_details: {
-                reference_code: reference_code,
-                product_name: item.product_name,
-                id_number: successfulOrder.id_number,
-                student_name: successfulOrder.student_name,
-                rfid: successfulOrder.rfid,
-                course: successfulOrder.course,
-                year: successfulOrder.year,
-                batch: item.batch,
-                size: { $each: sizes },
-                variation: { $each: variations },
-                quantity: item.quantity,
-                total: item.sub_total,
-                order_date: successfulOrder.order_date,
-                transaction_date: successfulOrder.transaction_date,
-              },
-            },
-            $inc: {
-              "sales_data.unitsSold": item.quantity,
-              "sales_data.totalRevenue": item.sub_total,
-            },
-          });
-        })
-      );
+					const existMerch = await Merch.findOne({
+						_id: item.product_id,
+						"order_details.reference_code": reference_code,
+					});
+					//console.log(existMerch);
+
+					if (!existMerch) {
+						await Merch.findByIdAndUpdate(item.product_id, {
+							$push: {
+								order_details: {
+									reference_code: reference_code,
+									product_name: item.product_name,
+									id_number: successfulOrder.id_number,
+									student_name: successfulOrder.student_name,
+									rfid: successfulOrder.rfid,
+									course: successfulOrder.course,
+									year: successfulOrder.year,
+									batch: item.batch,
+									size: { $each: sizes },
+									variation: { $each: variations },
+									quantity: item.quantity,
+									total: item.sub_total,
+									order_date: successfulOrder.order_date,
+									transaction_date: successfulOrder.transaction_date,
+								},
+							},
+							$inc: {
+								"sales_data.unitsSold": item.quantity,
+								"sales_data.totalRevenue": item.sub_total,
+							},
+						});
+
+						const merchToGet = await Merch.findById(item.product_id);
+
+						const event = await Event.findOne({ eventId: merchId });
+
+						if (event) {
+							const campusData = event.sales_data.find(
+								(s) => s.campus === student.campus
+							);
+							if (!campusData) {
+								return res.status(400).json({ message: "Invalid campus" });
+							}
+
+							campusData.unitsSold += 1;
+							campusData.totalRevenue += Number.parseInt(item.sub_total);
+
+							event.totalUnitsSold += 1;
+							event.totalRevenueAll += Number.parseInt(item.sub_total);
+							event.save();
+						}
+
+						if (merchToGet && merchToGet.category === "ict-congress") {
+							await Event.findOneAndUpdate(
+								{
+									eventId: merchId,
+									"attendees.id_number": { $ne: successfulOrder.id_number },
+								},
+								{
+									$push: {
+										attendees: {
+											id_number: successfulOrder.id_number,
+											name: successfulOrder.student_name,
+											email: successfulOrder.email,
+											course: successfulOrder.course,
+											year: successfulOrder.year,
+											campus: student.campus,
+											isAttended: false,
+											shirtSize: sizes.length > 0 ? sizes[0] : null,
+											shirtPrice: merchToGet.price,
+										},
+									},
+								},
+								{ upsert: true }
+							);
+						}
+					}
+				})
+			);
     }
 
-    // Render the email template
+    // Render and send the email
     const emailTemplate = await ejs.renderFile(
-      path.join(__dirname, "../templates/appr-order-receipt.ejs"), // Path to the ejs file
+      path.join(__dirname, "../templates/appr-order-receipt.ejs"),
       {
         reference_code: successfulOrder.reference_code,
         transaction_date: format(
@@ -277,7 +367,6 @@ router.put("/approve-order", authenticateToken, async (req, res) => {
       }
     );
 
-    // Send Email
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
@@ -288,14 +377,14 @@ router.put("/approve-order", authenticateToken, async (req, res) => {
 
     const mailOptions = {
       from: process.env.EMAIL,
-      to: student.email, // Use the student's email
+      to: student.email,
       subject: "Your Order Receipt from PSITS - UC Main",
       html: emailTemplate,
       attachments: [
         {
           filename: "psits.jpg",
           path: path.join(__dirname, "../src/psits.jpg"),
-          cid: "logo", // Same CID as used in the EJS template
+          cid: "logo",
         },
       ],
     };
@@ -304,18 +393,53 @@ router.put("/approve-order", authenticateToken, async (req, res) => {
       if (error) {
         return res.status(500).json({ message: "Error sending email", error });
       } else {
-        console.log("Email sent: " + info.response);
+        //console.log("Email sent: " + info.response);
         return res
           .status(200)
           .json({ message: "Order approved and email sent" });
       }
     });
   } catch (error) {
-    console.error("Error occurred:", error); // Log the error details with context
+    console.error("Error occurred:", error);
     res.status(500).json({
       message: "An error occurred while approving the order",
       error: error.message,
     });
+  }
+});
+
+router.get("/get-all-pending-counts", authenticateToken, async (req, res) => {
+  try {
+    const pendingOrders = await Orders.find({ order_status: "Pending" });
+    const productCounts = {};
+
+    pendingOrders.forEach((order) => {
+      order.items.forEach((item) => {
+        if (!productCounts[item.product_name]) {
+          productCounts[item.product_name] = {
+            total: 0,
+            yearCounts: [0, 0, 0, 0],
+          };
+        }
+        productCounts[item.product_name].total += item.quantity;
+
+        if (order.year >= 1 && order.year <= 4) {
+          productCounts[item.product_name].yearCounts[order.year - 1] +=
+            item.quantity;
+        }
+      });
+    });
+
+    const result = Object.keys(productCounts).map((productName) => ({
+      product_name: productName,
+      total: productCounts[productName].total,
+      yearCounts: productCounts[productName].yearCounts,
+    }));
+
+    res.status(200).json({ data: result });
+  } catch (error) {
+    console.error("Error fetching pending orders:", error);
+    res.status(500).json("Internal Server Error");
   }
 });
 

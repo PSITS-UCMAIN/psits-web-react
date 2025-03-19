@@ -1,7 +1,10 @@
+import axios from "axios";
+import { motion } from "framer-motion";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   membership,
-  studentDeletion,
   renewAllStudent,
+  studentDeletion,
 } from "../../../api/admin";
 import backendConnection from "../../../api/backendApi";
 import { getInformationData } from "../../../authentication/Authentication";
@@ -14,9 +17,6 @@ import { higherPosition } from "../../../components/tools/clientTools";
 import { ConfirmActionType } from "../../../enums/commonEnums";
 import { showToast } from "../../../utils/alertHelper";
 import EditMember from "./EditMember";
-import axios from "axios";
-import { motion } from "framer-motion";
-import React, { useState, useEffect } from "react";
 
 const Membership = () => {
   const [data, setData] = useState([]);
@@ -37,17 +37,18 @@ const Membership = () => {
 
   const user = getInformationData();
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const result = await membership();
-      setData(result);
-      setFilteredData(result);
+      setData(result ? result : []);
+      setFilteredData(result ? result : []);
       setLoading(false);
     } catch (error) {
       console.error("Error fetching data: ", error);
+      window.location.reload();
       setLoading(false);
     }
-  };
+  });
 
   const handleRenewStudent = () => {
     if (renewAllStudent()) {
@@ -85,7 +86,7 @@ const Membership = () => {
           },
         }
       );
-      console.log(response.data.message);
+      // console.log(response.data.message);
       showToast("success", "Student updated successfully!");
     } catch (error) {
       console.error("Error updating student:", error);

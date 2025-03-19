@@ -57,7 +57,6 @@ const MissionVision = () => {
   return (
     <section className="py-10 md:py-20 bg-gray-100">
       <div className="container mx-auto flex flex-col lg:flex-row gap-8 lg:gap-16">
-        
         {/* UC Mission & Vision */}
         <motion.div
           className="p-6 sm:p-8 lg:p-12 bg-gradient-to-r from-primary to-[#f2f2f2] text-white relative overflow-hidden"
@@ -79,12 +78,16 @@ const MissionVision = () => {
           </motion.h2>
           {ucMissionVision.map((item, index) => (
             <motion.div key={index} className="mb-6" variants={itemVariants}>
-              <h3 className="text-xl sm:text-2xl font-semibold mb-3">{item.type}</h3>
-              <p className="text-base sm:text-lg leading-relaxed">{item.text}</p>
+              <h3 className="text-xl sm:text-2xl font-semibold mb-3">
+                {item.type}
+              </h3>
+              <p className="text-base sm:text-lg leading-relaxed">
+                {item.text}
+              </p>
             </motion.div>
           ))}
         </motion.div>
-        
+
         {/* CCS Mission & Vision */}
         <motion.div
           className="p-6 sm:p-8 lg:p-12 bg-gradient-to-r from-secondary to-[#f2f2f2] text-dark relative overflow-hidden"
@@ -94,9 +97,9 @@ const MissionVision = () => {
           viewport={{ once: true }}
         >
           <img
-            src={ccsImage}
+            src={ucImage}
             className="absolute opacity-10 -right-32 -bottom-32 w-2/3 lg:w-1/2"
-            alt="CCS Logo"
+            alt="UC Logo"
           />
           <motion.h2
             className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-6 border-b-2 border-success pb-3"
@@ -106,12 +109,15 @@ const MissionVision = () => {
           </motion.h2>
           {ccsMissionVision.map((item, index) => (
             <motion.div key={index} className="mb-6" variants={itemVariants}>
-              <h3 className="text-xl sm:text-2xl font-semibold mb-3 text-success">{item.type}</h3>
-              <p className="text-base sm:text-lg leading-relaxed whitespace-pre-line">{item.text}</p>
+              <h3 className="text-xl sm:text-2xl font-semibold mb-3 text-success">
+                {item.type}
+              </h3>
+              <p className="text-base sm:text-lg leading-relaxed whitespace-pre-line">
+                {item.text}
+              </p>
             </motion.div>
           ))}
         </motion.div>
-        
       </div>
     </section>
   );

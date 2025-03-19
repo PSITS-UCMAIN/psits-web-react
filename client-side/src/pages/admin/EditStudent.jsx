@@ -10,7 +10,7 @@ const token = sessionStorage.getItem("Token");
 
 function EditStudent() {
 	const student = JSON.parse(getStudentData());
-	console.log(student);
+	// console.log(student);
 
 	const [formData, setFormData] = useState({
 		id_number: student.id_number,

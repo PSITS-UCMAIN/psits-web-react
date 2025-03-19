@@ -8,7 +8,10 @@ import ButtonsComponent from "../../../components/Custom/ButtonsComponent";
 import TableComponent from "../../../components/Custom/TableComponent";
 import ConfirmationModal from "../../../components/common/modal/ConfirmationModal";
 import FormButton from "../../../components/forms/FormButton";
-import { higherPosition } from "../../../components/tools/clientTools";
+import {
+  higherPosition,
+  higherOfficers,
+} from "../../../components/tools/clientTools";
 import { ConfirmActionType } from "../../../enums/commonEnums";
 import { showToast } from "../../../utils/alertHelper";
 import EditOfficer from "../EditOfficer";
@@ -66,6 +69,7 @@ const AllOfficers = () => {
     setIsLoading(true);
     try {
       editOfficerApi(updatedMember);
+      fetchData();
     } catch (error) {
       console.error("Error updating officer:", error);
     }
@@ -100,7 +104,7 @@ const AllOfficers = () => {
 
   const handleConfirmDeletion = async () => {
     setIsLoading(true);
-    console.log(studentIdToBeDeleted);
+    // console.log(studentIdToBeDeleted);
     try {
       const id_number = studentIdToBeDeleted;
 
@@ -202,24 +206,28 @@ const AllOfficers = () => {
       selector: (row) => row.position,
       sortable: true,
     },
-
     {
+      key: "campus",
+      label: "Campus",
+      selector: (row) => row.campus,
+      sortable: true,
+    },
+
+    higherOfficers() && {
       key: "actions",
       label: "",
       cell: (row) => (
         <ButtonsComponent>
-          {higherPosition() && (
-            <FormButton
-              type="button"
-              text="Change"
-              onClick={() => handleChangePassword(row.id_number)}
-              icon={<i className="fas fa-key" />} // Simple icon
-              styles="flex items-center space-x-2 bg-gray-200 text-gray-800 rounded-md px-3 py-1.5 transition duration-150 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400"
-              textClass="text-gray-800"
-              whileHover={{ scale: 1.02, opacity: 0.95 }}
-              whileTap={{ scale: 0.98, opacity: 0.9 }}
-            />
-          )}
+          <FormButton
+            type="button"
+            text="Change"
+            onClick={() => handleChangePassword(row.id_number)}
+            icon={<i className="fas fa-key" />} // Simple icon
+            styles="flex items-center space-x-2 bg-gray-200 text-gray-800 rounded-md px-3 py-1.5 transition duration-150 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400"
+            textClass="text-gray-800"
+            whileHover={{ scale: 1.02, opacity: 0.95 }}
+            whileTap={{ scale: 0.98, opacity: 0.9 }}
+          />
 
           <FormButton
             type="button"
@@ -251,10 +259,9 @@ const AllOfficers = () => {
       <div className="py-4 ">
         <button
           onClick={() => setViewAdd(true)}
-          className="bg-gray-500 text-white p-2 rounded hover:bg-gray-400"
-          disabled
+          className="bg-blue-500 text-white p-2 rounded hover:bg-blue-400"
         >
-          Disabled
+          Add Officers
         </button>
       </div>
 

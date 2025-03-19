@@ -2,8 +2,7 @@ import React, { useState, useEffect } from "react";
 import "../../App.css";
 import TableComponent from "../../components/Custom/TableComponent";
 import { deletedStudent, studentRestore } from "../../api/admin";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+
 import ConfirmationModal from "../../components/common/modal/ConfirmationModal";
 import { ConfirmActionType } from "../../enums/commonEnums";
 import { showToast } from "../../utils/alertHelper";

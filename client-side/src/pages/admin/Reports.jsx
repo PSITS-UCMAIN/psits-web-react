@@ -28,6 +28,7 @@ const Reports = () => {
   const [salesData, setSalesData] = useState({});
   const [confirmModal, setConfirmModal] = useState(false);
   const [deleteId, setDeleteId] = useState("");
+  const [productDeleteId, setProductDeleteId] = useState("");
   const [deleteName, setDeleteName] = useState("");
 
   const [filterID, setFilterID] = useState("");
@@ -42,6 +43,7 @@ const Reports = () => {
   const [filterBatch, setFilterBatch] = useState("");
   const [filterSize, setFilterSize] = useState("");
   const [filterColor, setFilterColor] = useState("");
+  const [getData, setGetData] = useState([]);
 
   const userData = getInformationData();
 
@@ -74,6 +76,11 @@ const Reports = () => {
   };
 
   const handleConfirmModal = (id, name) => {
+    const product = getData.find((order) =>
+      order.order_details.some((detail) => detail._id === id)
+    );
+    setProductDeleteId(product._id);
+
     setDeleteId(id);
     setDeleteName(name);
     setConfirmModal(true);
@@ -86,7 +93,7 @@ const Reports = () => {
 
   const handleDeleteReport = async () => {
     //logic
-    if (await deleteReports(deleteId, deleteName)) {
+    if (await deleteReports(productDeleteId,deleteId, deleteName)) {
       handleHideConfirmModal();
       fetchMerchandiseData();
     }
@@ -147,12 +154,15 @@ const Reports = () => {
       const allSalesData = data
         ? data.flatMap((sales) => sales.sales_data || [])
         : [];
-
+      // console.dir(data, { depth: null }); // This will properly display the full object structure
+      // console.dir(allOrderDetails, { depth: null });
+      // console.dir(filteredOrderDetails, { depth: null });
+      setGetData(data);
       setMerchandiseData(filteredOrderDetails);
       setFilteredMerchandiseData(filteredOrderDetails);
-      setProductNames(data);
+      setProductNames(filteredOrderDetails);
       setSalesData(allSalesData);
-      console.log(allOrderDetails);
+      // console.log(allOrderDetails);
     } catch (error) {
       console.error("Error fetching merchandise data:", error);
     }
@@ -235,7 +245,7 @@ const Reports = () => {
               new Date(formattedDate(filterDateTo))
         );
 
-        console.log(filteredData);
+        // console.log(filteredData);
       }
 
       if (filterBatch) {
@@ -274,7 +284,7 @@ const Reports = () => {
       setSalesData({});
     }
   };
-  console.log("This is filter batch" + filterBatch);
+  // console.log("This is filter batch" + filterBatch);
   const handleFilter = () => {
     if (activeTab === 0) {
       applyFilter(membershipData, setFilteredMembershipData);
@@ -463,7 +473,9 @@ const Reports = () => {
     size: row.size?.[0]?.$each?.[0] || "",
     variation: row.variation?.[0]?.$each?.[0] || "",
   }));
-
+  const uniqueProductNames = Array.from(
+    new Set(productNames.map((detail) => detail.product_name))
+  );
   return (
     <div className="container mx-auto p-4">
       <Tabs selectedIndex={activeTab} onSelect={(index) => setActiveTab(index)}>
@@ -527,7 +539,6 @@ const Reports = () => {
                   });
                 }}
               >
-                {/* TODO: Log (Done) */}
                 Export CSV
               </button>
             </CSVLink>
@@ -601,7 +612,6 @@ const Reports = () => {
                   });
                 }}
               >
-                {/* TODO: Log (Done) */}
                 Export CSV
               </button>
             </CSVLink>
@@ -649,13 +659,12 @@ const Reports = () => {
                     onChange={(e) => {
                       setFilterProductName(e.target.value);
                       setFilterBatch("");
-                      changes;
                     }}
                   >
                     <option value="">Select a Product</option>
-                    {productNames.map((product) => (
-                      <option key={product._id} value={product.name}>
-                        {product.name}
+                    {uniqueProductNames.map((name, index) => (
+                      <option key={index} value={name}>
+                        {name}
                       </option>
                     ))}
                   </select>

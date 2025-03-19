@@ -15,7 +15,7 @@ const Profile = () => {
     email: user.email,
     course: user.course,
     year: user.year,
-
+    campus: user.campus,
     position: user.position,
   });
 
@@ -89,6 +89,16 @@ const Profile = () => {
                 id="position"
                 value={profile.position}
                 name="position"
+                onChange={handleChange}
+                styles="w-full p-2 text-sm border border-gray-300 rounded-md"
+                disabled={!isEditable}
+              />
+              <FormInput
+                label="Campus"
+                type="text"
+                id="campus"
+                value={profile.campus}
+                name="campus"
                 onChange={handleChange}
                 styles="w-full p-2 text-sm border border-gray-300 rounded-md"
                 disabled={!isEditable}

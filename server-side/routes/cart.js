@@ -50,7 +50,7 @@ router.post("/add-cart", authenticateToken, async (req, res) => {
         if (itemIndex > -1) {
           student.cart[itemIndex].quantity = existingCart.quantity + quantity;
           await student.save();
-          console.log("Cart updated successfully");
+   
           res
             .status(200)
             .json({ message: "Added Item into the cart successfully" });
