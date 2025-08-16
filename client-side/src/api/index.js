@@ -19,25 +19,24 @@ export const login = async (formData) => {
         "Token",
         response.status === 200 ? response.data.token : ""
       );
-     
 
-      return (
-        (sessionStorage.getItem("Token") !== "" ||
-          sessionStorage.getItem("Token")) !== null && {
-          role: response.data.role,
-          campus: response.data.campus,
-          token: response.data.token,
-          message: response.data.message,
-        }
-      );
+      return {
+        role: response.data.role,
+        campus: response.data.campus,
+        token: response.data.token,
+        message: response.data.message,
+      };
     } else {
       showToast("error", response.data.message);
+      return false;
     }
   } catch (error) {
     if (error.response && error.response.data) {
       showToast("error", error.response.data.message || "An error occurred");
+      return false;
     } else {
       showToast("error", "An error occurred");
+      return false;
     }
   }
 };

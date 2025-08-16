@@ -78,7 +78,6 @@ router.post("/login", loginLimiter, async (req, res) => {
       expiresIn: role === "Admin" ? "4h" : "10m",
     });
 
- 
     if (role === "Admin") {
       const log = new Log({
         admin: users.name,
@@ -89,7 +88,12 @@ router.post("/login", loginLimiter, async (req, res) => {
       await log.save();
     }
 
-    return res.json({ message: "Signed in successfully", role, token, campus });
+    return res.status(200).json({
+      message: "Signed in successfully",
+      role,
+      token,
+      campus,
+    });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "An error occurred", error });

@@ -105,9 +105,14 @@ const Login = () => {
               window.location.href = `/${data.role.toLowerCase()}/dashboard`;
             }
           } else {
+          
             attemptAuthentication();
             setRemainingTime(60);
           }
+        } else {
+         
+          attemptAuthentication();
+          setRemainingTime(60);
         }
       } else {
         showToast(
