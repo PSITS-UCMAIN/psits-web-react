@@ -1,5 +1,5 @@
 import {
-  getAllStudentOfficers,
+ 
   editOfficerApi,
   roleRemove,
 } from "../../../api/admin";

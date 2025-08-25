@@ -38,6 +38,7 @@ const AllOfficers = () => {
   const fetchData = async () => {
     try {
       const result = await getAllOfficers();
+    
       setData(result ? result : []);
       setFilteredData(result ? result : []);
       setLoading(false);

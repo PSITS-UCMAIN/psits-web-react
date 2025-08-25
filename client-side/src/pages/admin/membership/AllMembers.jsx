@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   membership,
-  renewAllStudent,
+  revokeAllStudent,
   studentDeletion,
   approveMembership,
 } from "../../../api/admin";
@@ -64,7 +64,7 @@ const Membership = () => {
   });
 
   const handleRenewStudent = () => {
-    if (renewAllStudent()) {
+    if (revokeAllStudent()) {
       setRenewStudent(false);
     }
   };

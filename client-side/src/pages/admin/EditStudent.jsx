@@ -44,7 +44,7 @@ function EditStudent() {
 		setIsLoading(true);
 
 		try {
-			const response = await fetch(`${backendConnection()}/api/editedStudent`, {
+			const response = await fetch(`${backendConnection()}/api/students/edited-student`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",

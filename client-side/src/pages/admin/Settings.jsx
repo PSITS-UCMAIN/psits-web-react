@@ -6,7 +6,7 @@ import {
   executiveConditionalAccess,
   adminConditionalAccess,
 } from "../../components/tools/clientTools";
-import { renewAllStudent } from "../../api/admin";
+import { revokeAllStudent } from "../../api/admin";
 import ConfirmationModal from "../../components/common/modal/ConfirmationModal";
 import { ConfirmActionType } from "../../enums/commonEnums";
 import FormInput from "../../components/forms/FormInput";
@@ -53,7 +53,7 @@ const Settings = () => {
     setRenewStudentStatus(true);
   };
   const handleRenewStudent = async () => {
-    if (await renewAllStudent()) {
+    if (await revokeAllStudent()) {
       setRenewStudentStatus(false);
       fetchUsers();
     }

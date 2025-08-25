@@ -1,4 +1,4 @@
-import { getOrderDate } from "../../../api/admin";
+import { getDailySales } from "../../../api/admin";
 import { Chart as ChartJS, Title, Tooltip, Legend, ArcElement } from "chart.js";
 import React, { useState, useEffect } from "react";
 import { Pie } from "react-chartjs-2";
@@ -30,7 +30,7 @@ const PieChart = () => {
       try {
         setLoading(true);
         setError(null);
-        const result = await getOrderDate();
+        const result = await getDailySales();
 
         // Validate the response structure
         if (!Array.isArray(result)) {
@@ -45,8 +45,8 @@ const PieChart = () => {
 
         // Check required fields exist in each item
         const isValidData = result.every(
-          (item) => 
-            item.product_name !== undefined && 
+          (item) =>
+            item.product_name !== undefined &&
             item.totalQuantity !== undefined &&
             item.totalSubtotal !== undefined
         );
@@ -94,15 +94,15 @@ const PieChart = () => {
   const options = {
     responsive: true,
     plugins: {
-      legend: { 
+      legend: {
         position: "top",
         labels: {
           padding: 20,
           boxWidth: 12,
           font: {
-            size: 12
-          }
-        }
+            size: 12,
+          },
+        },
       },
       tooltip: {
         callbacks: {
@@ -110,7 +110,9 @@ const PieChart = () => {
             if (!chartData?.subtotal) return `${context.label}: ${context.raw}`;
             const index = context.dataIndex;
             const subtotal = chartData.subtotal[index] || 0;
-            return `${context.label}: ${context.raw} orders | Subtotal: ₱${subtotal.toFixed(2)}`;
+            return `${context.label}: ${
+              context.raw
+            } orders | Subtotal: ₱${subtotal.toFixed(2)}`;
           },
         },
       },
@@ -122,23 +124,17 @@ const PieChart = () => {
       <h2 className="text-sm sm:text-xl text-[#074873] mb-4">
         Daily Sales Distribution
       </h2>
-      
+
       {loading ? (
         <div className="flex justify-center items-center h-64">
           <p>Loading chart data...</p>
           <InfinitySpin width="200" color="#3B82F6" />
         </div>
       ) : error ? (
-        <div className="text-red-500 p-4 bg-red-50 rounded">
-          {error}
-        </div>
+        <div className="text-red-500 p-4 bg-red-50 rounded">{error}</div>
       ) : chartData ? (
         <div className="max-w-full mx-auto" style={{ height: "400px" }}>
-          <Pie 
-            data={chartData} 
-            options={options} 
-            height={400}
-          />
+          <Pie data={chartData} options={options} height={400} />
         </div>
       ) : (
         <div className="p-4 bg-gray-50 rounded">

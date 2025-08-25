@@ -55,7 +55,7 @@ export const deletedStudent = async () => {
 export const getCountStudent = async () => {
   try {
     const response = await axios.get(
-      `${backendConnection()}/api/get-students-count`,
+      `${backendConnection()}/api/admin/get-students-count`,
       {
         headers: {
           "Content-Type": "application/json",
@@ -79,7 +79,7 @@ export const getCountStudent = async () => {
 export const getCountActiveMemberships = async () => {
   try {
     const response = await axios.get(
-      `${backendConnection()}/api/get-active-membership-count`,
+      `${backendConnection()}/api/admin/get-active-membership-count`,
       {
         headers: {
           "Content-Type": "application/json",
@@ -102,7 +102,7 @@ export const getCountActiveMemberships = async () => {
 export const membershipRequest = async () => {
   try {
     const response = await axios.get(
-      `${backendConnection()}/api/membershipRequest`,
+      `${backendConnection()}/api/admin/membership-request`,
       {
         headers: {
           "Content-Type": "application/json",
@@ -122,10 +122,10 @@ export const membershipRequest = async () => {
   }
 };
 
-export const renewAllStudent = async () => {
+export const revokeAllStudent = async () => {
   try {
     const response = await axios.put(
-      `${backendConnection()}/api/renew-student`,
+      `${backendConnection()}/api/admin/revoke-student`,
       {},
       {
         headers: {
@@ -152,7 +152,7 @@ export const renewAllStudent = async () => {
 export const approveMembership = async (formData) => {
   try {
     const response = await axios.post(
-      `${backendConnection()}/api/approve-membership`,
+      `${backendConnection()}/api/admin/approve-membership`,
       formData,
       {
         headers: {
@@ -183,7 +183,7 @@ export const approveMembership = async (formData) => {
 export const merchCreated = async () => {
   try {
     const response = await axios.get(
-      `${backendConnection()}/api/merchandise-created`,
+      `${backendConnection()}/api/admin/merchandise-created`,
       {
         headers: {
           "Content-Type": "application/json",
@@ -204,7 +204,7 @@ export const merchCreated = async () => {
 export const placedOrders = async () => {
   try {
     const response = await axios.get(
-      `${backendConnection()}/api/placed-orders`,
+      `${backendConnection()}/api/admin/placed-orders`,
       {
         headers: {
           "Content-Type": "application/json",
@@ -244,12 +244,15 @@ export const renewStudent = async () => {
 
 export const membershipHistory = async () => {
   try {
-    const response = await axios.get(`${backendConnection()}/api/history`, {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    const response = await axios.get(
+      `${backendConnection()}/api/admin/history`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
 
     return response.data;
   } catch (error) {
@@ -474,7 +477,7 @@ export const addMerchandise = async (formData) => {
 export const getDashboardStats = async () => {
   try {
     const response = await axios.get(
-      `${backendConnection()}/api/dashboard-stats`,
+      `${backendConnection()}/api/admin/dashboard-stats`,
       {
         headers: {
           "Content-Type": "application/json",
@@ -493,10 +496,10 @@ export const getDashboardStats = async () => {
   }
 };
 
-export const getOrderDate = async () => {
+export const getDailySales = async () => {
   try {
     const response = await axios.get(
-      `${backendConnection()}/api/get-order-date`,
+      `${backendConnection()}/api/admin/get-daily-sales`,
       {
         headers: {
           "Content-Type": "application/json",
@@ -550,7 +553,7 @@ export const deleteReports = async (product_id, id, merchName) => {
 export const getAllMembers = async () => {
   try {
     const response = await axios.get(
-      `${backendConnection()}/api/get-all-members`,
+      `${backendConnection()}/api/admin/get-all-members`,
 
       {
         headers: {
@@ -578,7 +581,7 @@ export const getAllMembers = async () => {
 export const getAllOfficers = async () => {
   try {
     const response = await axios.get(
-      `${backendConnection()}/api/get-all-officers`,
+      `${backendConnection()}/api/admin/get-all-officers`,
 
       {
         headers: {
@@ -588,7 +591,6 @@ export const getAllOfficers = async () => {
       }
     );
     if (response.status === 200) {
-      // console.log(response.data.data);
       return response.data.data;
     }
   } catch (error) {
@@ -601,110 +603,6 @@ export const getAllOfficers = async () => {
   }
 };
 
-export const getAllStudentOfficers = async () => {
-  try {
-    const response = await axios.get(
-      `${backendConnection()}/api/get-all-student-officers`,
-
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-    if (response.status === 200) {
-      // console.log(response.data.data);
-      return response.data.data;
-    }
-  } catch (error) {
-    if (error.response && error.response.data) {
-      //showToast("error", error.response.data.message || "An error occurred");
-    } else {
-      //showToast("error", "An error occurred");
-    }
-    console.error("Error:", error);
-  }
-};
-
-//TODO:
-//get-all-developers
-export const getAllDevelopers = async () => {
-  try {
-    const response = await axios.get(
-      `${backendConnection()}/api/get-all-developers`,
-
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-    if (response.status === 200) {
-      // console.log(response.data.data);
-      return response.data.data;
-    }
-  } catch (error) {
-    if (error.response && error.response.data) {
-    }
-    console.error("Error:", error);
-  }
-};
-//TODO:
-//get-all-media
-export const getAllMedia = async () => {
-  try {
-    const response = await axios.get(
-      `${backendConnection()}/api/get-all-media`,
-
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-    if (response.status === 200) {
-      // console.log(response.data.data);
-      return response.data.data;
-    }
-  } catch (error) {
-    if (error.response && error.response.data) {
-      //showToast("error", error.response.data.message || "An error occurred");
-    } else {
-      //showToast("error", "An error occurred");
-    }
-    console.error("Error:", error);
-  }
-};
-//TODO:
-//get-all-volunteers
-export const getAllVolunteers = async () => {
-  try {
-    const response = await axios.get(
-      `${backendConnection()}/api/get-all-volunteers`,
-
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-    if (response.status === 200) {
-      // console.log(response.data.data);
-      return response.data.data;
-    }
-  } catch (error) {
-    if (error.response && error.response.data) {
-      //showToast("error", error.response.data.message || "An error occurred");
-    } else {
-      //showToast("error", "An error occurred");
-    }
-    console.error("Error:", error);
-  }
-};
 //TODO:remove role officer
 
 export const roleRemove = async (id_number) => {
@@ -734,7 +632,7 @@ export const roleRemove = async (id_number) => {
 export const getSuspendOfficers = async () => {
   try {
     const response = await axios.get(
-      `${backendConnection()}/api/get-suspend-officers`,
+      `${backendConnection()}/api/admin/get-suspend-officers`,
 
       {
         headers: {
@@ -760,7 +658,7 @@ export const getSuspendOfficers = async () => {
 export const editOfficerApi = async (updatedMember) => {
   try {
     const response = await axios.post(
-      `${backendConnection()}/api/editOfficer`,
+      `${backendConnection()}/api/admin/edit-officer`,
       updatedMember,
       {
         headers: {
@@ -888,10 +786,11 @@ export const fetchAdminLogs = async () => {
 export const fetchStudentName = async (id_number) => {
   try {
     const response = await axios.get(
-      `${backendConnection()}/api/admin/search-student/${id_number}`,
+      `${backendConnection()}/api/admin/search_student/${id_number}`,
       {
         headers: {
-          Authorization: `Bearer ${sessionStorage.getItem("Token")}`,
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
       }
     );

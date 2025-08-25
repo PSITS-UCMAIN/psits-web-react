@@ -5,7 +5,10 @@ import { Link } from "react-router-dom";
 import { getEvents, removeEvent } from "../../../api/event";
 import { getInformationData } from "../../../authentication/Authentication";
 import ConfirmationModal from "../../../components/common/modal/ConfirmationModal";
-import { adminConditionalAccess, formattedDate } from "../../../components/tools/clientTools";
+import {
+  adminConditionalAccess,
+  formattedDate,
+} from "../../../components/tools/clientTools";
 import { ConfirmActionType } from "../../../enums/commonEnums";
 import AddEvent from "./AddEvent";
 
@@ -45,6 +48,7 @@ function Events() {
       setIsLoading(false);
     }
   };
+
   useEffect(() => {
     handleGetEvents();
   }, []);
@@ -110,66 +114,65 @@ function Events() {
                     {formattedDate(event.eventDate)}
                   </p>
                   <div className="flex flex-col gap-1 p-2 items-center justify-center">
-                      <div className="w-full h-full">
+                    <div className="w-full h-full">
+                      <Link
+                        to={`/admin/attendance/${event.eventId}`}
+                        className="h-full"
+                      >
+                        <button
+                          className="w-full h-full bg-[#002E48] hover:bg-[#013e61] text-white text-sm font-medium py-2 px-4 rounded-md cursor-pointer hover:scale-105 transition-transform duration-200"
+                          tabIndex="0"
+                        >
+                          View
+                        </button>
+                      </Link>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 w-full justify-center ">
+                      <div className="h-full w-full rounded-md">
                         <Link
-                          to={`/admin/attendance/${event.eventId}`}
+                          to={`/admin/statistics/${event.eventId}`}
                           className="h-full"
                         >
                           <button
-                            className="w-full h-full bg-[#002E48] hover:bg-[#013e61] text-white text-sm font-medium py-2 px-4 rounded-md cursor-pointer hover:scale-105 transition-transform duration-200"
-                            tabIndex="0"
+                            className="overflow-hidden w-full h-full border border-[#002E48] bg-white hover:bg-[#013e61] hover:text-white text-[#002E48] text-sm font-medium py-2 px-4 rounded-md cursor-pointer hover:scale-105 transition-transform duration-200 flex-row items-center justify-center"
+                            tabIndex="1"
                           >
-                            View
+                            Statistics
                           </button>
                         </Link>
                       </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 w-full justify-center ">
-                        <div className="h-full w-full rounded-md">
+                      <div className="h-full w-full rounded-md">
+                        {admin.campus === "UC-Main" && (
                           <Link
-                            to={`/admin/statistics/${event.eventId}`}
+                            to={`/admin/raffle/${event.eventId}`}
                             className="h-full"
                           >
                             <button
-                              className="overflow-hidden w-full h-full border border-[#002E48] bg-white hover:bg-[#013e61] hover:text-white text-[#002E48] text-sm font-medium py-2 px-4 rounded-md cursor-pointer hover:scale-105 transition-transform duration-200 flex-row items-center justify-center"
-                              tabIndex="1"
+                              className="overflow-hidden w-full h-full border border-[#002E48] bg-white hover:bg-[#013e61] hover:text-white text-[#002E48] text-sm font-medium py-2 px-4 rounded-md cursor-pointer transition-colors duration-200 hover:scale-105"
+                              tabIndex="2"
                             >
-                              Statistics
+                              Raffle
                             </button>
                           </Link>
-                        </div>
-                        <div className="h-full w-full rounded-md">
-                          {admin.campus === "UC-Main" && (
-                            <Link
-                              to={`/admin/raffle/${event.eventId}`}
-                              className="h-full"
-                            >
-                              <button
-                                className="overflow-hidden w-full h-full border border-[#002E48] bg-white hover:bg-[#013e61] hover:text-white text-[#002E48] text-sm font-medium py-2 px-4 rounded-md cursor-pointer transition-colors duration-200 hover:scale-105"
-                                tabIndex="2"
-                              >
-                                Raffle
-                              </button>
-                            </Link>
-                          )}
-                        </div>
-                      </div>
-                      <div className="h-full w-full rounded-md bg-cyan-500">
-                        {adminConditionalAccess() && (
-                          <>
-                            <button
-                              className="w-full h-full border border-[#6d0000] bg-white hover:bg-[#860000] hover:text-white text-[#920000] text-sm font-medium py-2 px-4 rounded-md cursor-pointer transition-colors duration-200 hover:scale-105"
-                              tabIndex="3"
-                              onClick={() =>
-                                handleOpenConfirmDeletion(event.eventId)
-                              }
-                            >
-                              Delete
-                            </button>
-                          </>
                         )}
                       </div>
-
+                    </div>
+                    <div className="h-full w-full rounded-md bg-cyan-500">
+                      {adminConditionalAccess() && (
+                        <>
+                          <button
+                            className="w-full h-full border border-[#6d0000] bg-white hover:bg-[#860000] hover:text-white text-[#920000] text-sm font-medium py-2 px-4 rounded-md cursor-pointer transition-colors duration-200 hover:scale-105"
+                            tabIndex="3"
+                            onClick={() =>
+                              handleOpenConfirmDeletion(event.eventId)
+                            }
+                          >
+                            Delete
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               </motion.div>

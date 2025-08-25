@@ -7,12 +7,15 @@ const token = sessionStorage.getItem("Token");
 
 export const getEvents = async () => {
   try {
-    const response = await axios.get(`${backendConnection()}/api/events`, {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    const response = await axios.get(
+      `${backendConnection()}/api/events/get-all-event`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
 
     return response.data;
   } catch (error) {
@@ -25,7 +28,30 @@ export const getEvents = async () => {
     }
   }
 };
+export const createEvent = async (data) => {
+  try {
+    const response = await axios.post(
+      `${backendConnection()}/api/events/create-event`,
+      data,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
 
+    return response.data;
+  } catch (error) {
+    if (error.response && error.response.data) {
+      window.location.reload();
+      return false;
+    } else {
+      console.log("error", "An error occurred");
+      return false;
+    }
+  }
+};
 //getAttendee
 
 export const getAttendees = async (id) => {
