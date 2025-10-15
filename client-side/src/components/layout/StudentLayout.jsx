@@ -13,7 +13,7 @@ const StudentLayout = () => {
   const [label, setLabel] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isYearUpdated, setIsYearUpdated] = useState(false)
-  const [isModalOpen, setIsModalOpen] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -52,11 +52,15 @@ const StudentLayout = () => {
   }
 
   useEffect(() => {
+    let isFetchYearChecked = false
     const fetchYearUpdated = async () => {
       setIsYearUpdated(await isStudentYearUpdated(userData.id_number))
+      isFetchYearChecked = true
     }
-
     fetchYearUpdated()
+    if (isFetchYearChecked) {
+      setIsModalOpen(true)
+    }
   }, []);
 
   return (
