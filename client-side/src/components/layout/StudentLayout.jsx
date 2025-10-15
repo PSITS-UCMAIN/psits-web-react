@@ -3,24 +3,26 @@ import { Outlet, useLocation } from "react-router-dom";
 import AsideBar from "../common/navbar/AsideBar";
 import ProfileHeader from "../ProfileHeader";
 import { getInformationData } from "../../authentication/Authentication";
-import { isStudentYearUpdated, updateStudentYearLevelForCurrentYear } from "../../api/students";
+import {
+  isStudentYearUpdated,
+  updateStudentYearLevelForCurrentYear,
+} from "../../api/students";
 import { showToast } from "../../utils/alertHelper";
-import ForcedInputModal from '../common/modal/ForcedInputModal'
+import ForcedInputModal from "../common/modal/ForcedInputModal";
 
 const StudentLayout = () => {
   const location = useLocation();
-  const userData = getInformationData();
   const [label, setLabel] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isYearUpdated, setIsYearUpdated] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false)
 
+  const userData = getInformationData();
   useEffect(() => {
     const pathParts = location.pathname.split("/");
     const extractedLabel = pathParts[2];
     setLabel(
-      extractedLabel === "profile" ? "Account Settings" : extractedLabel
     );
   }, [location]);
 
@@ -30,12 +32,11 @@ const StudentLayout = () => {
   const navItems = [
     { text: "Dashboard", icon: "fas fa-tachometer-alt", path: "dashboard" },
     { text: "Merchandise", icon: "fas fa-boxes", path: "merchandise" },
-    
     { text: "Cart", icon: "fas fa-shopping-cart", path: "cart" },
     { text: "Orders", icon: "fas fa-clipboard-list", path: "orders" },
     { text: "Events", icon: "fas fa-calendar-alt", path: "events" },
     { text: "Resources", icon: "fas fa-book-open", path: "resources" },
-  ]; 
+  ]
   
   // Update year level before proceeding to site
   const handleUpdateYearLevel = async (idNumber, year) => {
@@ -52,25 +53,23 @@ const StudentLayout = () => {
   }
 
   useEffect(() => {
-    let isFetchYearChecked = false
     const fetchYearUpdated = async () => {
-      setIsYearUpdated(await isStudentYearUpdated(userData.id_number))
-      isFetchYearChecked = true
-    }
-    fetchYearUpdated()
-    if (isFetchYearChecked) {
+      setIsYearUpdated(await isStudentYearUpdated(userData.id_number));
       setIsModalOpen(true)
-    }
+    };
+    fetchYearUpdated();
   }, []);
 
   return (
     <div className="min-h-screen relative">
-      {!isYearUpdated && <ForcedInputModal studentIdNumber={userData.id_number}  isOpen={isModalOpen} onSubmit={handleUpdateYearLevel} loading={loading} />}
-      <AsideBar
-        navItems={navItems}
-        isSidebarOpen={isSidebarOpen}
-        setIsSidebarOpen={setIsSidebarOpen}
-      />
+      {!isYearUpdated && (
+        <ForcedInputModal
+          studentIdNumber={userData.id_number}
+          isOpen={isModalOpen}
+          onSubmit={handleUpdateYearLevel}
+          loading={loading}
+        />
+      )}
       <ProfileHeader label={label} toggleSidebar={toggleSidebar} />
       <main className="lg:ml-[15rem] min-h-main-md px-4 sm:px-6 md:px-8 lg:px-10 xl:px-12">
         <Outlet />

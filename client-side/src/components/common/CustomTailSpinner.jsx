@@ -10,6 +10,10 @@ export default function CustomTailSpinner() {
             ariaLabel="tail-spin-loading"
         />
     )
+<<<<<<< HEAD
 }
 
 // might wanna add different sizes for this loading spinner
+=======
+}
+>>>>>>> feat/update-student-year-level-2

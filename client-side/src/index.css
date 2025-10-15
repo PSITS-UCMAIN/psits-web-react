@@ -11,6 +11,10 @@
   .disabled {
     @apply bg-gray-400 cursor-not-allowed hover:!bg-gray-400 hover:!cursor-not-allowed
   }
+<<<<<<< HEAD
+=======
+
+>>>>>>> feat/update-student-year-level-2
   ::selection {
     @apply bg-secondary text-primary
   }
