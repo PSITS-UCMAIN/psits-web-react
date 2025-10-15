@@ -14,7 +14,6 @@ export interface IAttendee {
   course: string;
   year: number;
   campus: string;
-  requirements: IAttendeeRequirements;
   attendance: IAttendanceSession;
   confirmedBy: string;
   shirtSize: string;
@@ -23,10 +22,4 @@ export interface IAttendee {
   raffleIsWinner: boolean;
   transactBy: string;
   transactDate: Date | null;
-}
-
-export interface IAttendeeRequirements {
-  insurance: boolean;
-  prelim_payment: boolean;
-  midterm_payment: boolean;
 }

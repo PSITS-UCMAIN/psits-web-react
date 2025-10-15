@@ -5,7 +5,7 @@ import mongoose, { Types } from "mongoose";
 import { IEvent } from "../models/event.interface";
 import { getSgDate } from "../custom_function/date.formatter";
 import { ISessionConfig } from "../models/event.interface";
-import { IAttendanceSession, IAttendee, IAttendeeRequirements } from "../models/attendee.interface";
+import { IAttendanceSession, IAttendee } from "../models/attendee.interface";
 
 export const createManualEventController = async (
   req: Request,
@@ -275,11 +275,6 @@ export const updateAttendancePerSessionController = async (
           course: course || "Unknown",
           year: year || 1,
           campus,
-          requirements: {
-            insurance: false,
-            prelim_payment: false,
-            midterm_payment: false
-          },
           attendance: {
             morning: { attended: false, timestamp: null },
             afternoon: { attended: false, timestamp: null },
@@ -553,7 +548,6 @@ export const addAttendeeController = async (req: Request, res: Response) => {
       course,
       year,
       campus,
-      requirements,
       email,
       shirt_size,
       shirt_price,
@@ -561,12 +555,6 @@ export const addAttendeeController = async (req: Request, res: Response) => {
       admin,
       merchId,
     } = req.body;
-
-    const safeRequirements = {
-      insurance: Boolean(requirements?.insurance) ?? false,
-      prelim_payment: Boolean(requirements?.prelim_payment) ?? false,
-      midterm_payment: Boolean(requirements?.midterm_payment) ?? false,
-    };
 
     const event = await Event.findOne({ eventId: merchId });
     if (!event) {
@@ -603,7 +591,6 @@ export const addAttendeeController = async (req: Request, res: Response) => {
       shirtPrice: shirt_price,
       transactBy: admin,
       transactDate: new Date(),
-      requirements: safeRequirements,
       attendance: {
         morning: {
           attended: false,
@@ -816,79 +803,6 @@ export const removeAttendanceController = async (
     res.json({ message: "Attendee removed successfully" });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
-
-// api/events/:eventId/attendees/:id_number/requirements
-export const updateAttendeeRequirementsController = async (
-  req: Request,
-  res: Response
-) => {
-  const { eventId, id_number } = req.params;
-  const { insurance, prelim_payment, midterm_payment } = req.body;
-
-  try {
-    // Validate ObjectId
-    if (!mongoose.Types.ObjectId.isValid(eventId)) {
-      return res.status(400).json({ message: "Invalid event ID" });
-    }
-
-    const event = await Event.findOne({ eventId: new mongoose.Types.ObjectId(eventId) });
-    if (!event) {
-      return res.status(404).json({ message: "Event not found" });
-    }
-
-    // Find attendee by id_number (you may also want to check campus if needed)
-    const attendee = event.attendees.find(
-      (att) => att.id_number === id_number
-    );
-
-    if (!attendee) {
-      return res.status(404).json({ message: "Attendee not found" });
-    }
-
-    // Validate incoming requirement values (must be boolean or convertible)
-    const updates: Partial<IAttendeeRequirements> = {};
-
-    if (insurance !== undefined) {
-      if (typeof insurance !== "boolean") {
-        return res.status(400).json({ message: "'insurance' must be a boolean" });
-      }
-      updates.insurance = insurance;
-    }
-
-    if (prelim_payment !== undefined) {
-      if (typeof prelim_payment !== "boolean") {
-        return res.status(400).json({ message: "'prelim_payment' must be a boolean" });
-      }
-      updates.prelim_payment = prelim_payment;
-    }
-
-    if (midterm_payment !== undefined) {
-      if (typeof midterm_payment !== "boolean") {
-        return res.status(400).json({ message: "'midterm_payment' must be a boolean" });
-      }
-      updates.midterm_payment = midterm_payment;
-    }
-
-    if (Object.keys(updates).length === 0) {
-      return res.status(400).json({ message: "No valid requirement fields provided to update" });
-    }
-
-    // Apply updates
-    Object.assign(attendee.requirements, updates);
-
-    // Mark as modified so Mongoose saves nested changes
-    event.markModified("attendees");
-    await event.save();
-
-    res.status(200).json({
-      message: "Attendee requirements updated successfully",
-      requirements: attendee.requirements,
-    });
-  } catch (error) {
-    console.error("Error updating attendee requirements:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 };

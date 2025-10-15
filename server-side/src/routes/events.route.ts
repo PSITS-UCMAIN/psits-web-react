@@ -21,7 +21,6 @@ import {
   getEventStatisticsController,
   removeEventController,
   removeAttendanceController,
-  updateAttendeeRequirementsController,
 } from "../controllers/event.controller";
 import dotenv from "dotenv";
 dotenv.config();
@@ -137,13 +136,5 @@ router.post(
   admin_authenticate,
   removeAttendanceController
 );
-
-// Update event attendee's requirements
-// Request body: insurance (boolean), prelim_payment (boolean), midterm_payment (boolean)
-router.put(
-  "/:eventId/attendees/:id_number/requirements",
-  admin_authenticate,
-  updateAttendeeRequirementsController
-)
 
 export default router;
