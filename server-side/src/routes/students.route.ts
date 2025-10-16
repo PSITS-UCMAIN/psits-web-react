@@ -88,20 +88,16 @@ router.get(
   fetchSpecificMembershipHistoryController
 );
 
-<<<<<<< HEAD
-
-=======
->>>>>>> feat/update-student-year-level-2
 router.put(
   "/students/edit-year-level/:id_number",
   both_authenticate,
   editStudentYearLevel
-)
+);
 
 router.get(
   "/students/is-year-updated/:id_number",
   both_authenticate,
   isYearUpdatedController
-)
+);
 
 export default router;

@@ -12,13 +12,14 @@ import ForcedInputModal from "../common/modal/ForcedInputModal";
 
 const StudentLayout = () => {
   const location = useLocation();
+  const userData = getInformationData();
   const [label, setLabel] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isYearUpdated, setIsYearUpdated] = useState(false)
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [loading, setLoading] = useState(false)
+  const [isYearUpdated, setIsYearUpdated] = useState(undefined);
+  const [hasFetchedYearUpdated, setHasFetchedYearUpdated] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(true);
+  const [loading, setLoading] = useState(false);
 
-  const userData = getInformationData();
   useEffect(() => {
     const pathParts = location.pathname.split("/");
     const extractedLabel = pathParts[2];
@@ -36,40 +37,58 @@ const StudentLayout = () => {
     { text: "Orders", icon: "fas fa-clipboard-list", path: "orders" },
     { text: "Events", icon: "fas fa-calendar-alt", path: "events" },
     { text: "Resources", icon: "fas fa-book-open", path: "resources" },
-  ]
-  
-  // Update year level before proceeding to site
+  ];
+
   const handleUpdateYearLevel = async (idNumber, year) => {
-    setLoading(true)
+    setLoading(true);
     try {
-      await updateStudentYearLevelForCurrentYear(idNumber, year)
-      showToast('success', 'Your year level has been updated. You may proceed to use the site normally.')
-      setIsModalOpen(false)
-    } catch(error) {
-      showToast('error', error.response.data?.message || 'An error has occurred while updating your year level.')
+      await updateStudentYearLevelForCurrentYear(idNumber, year);
+      showToast(
+        "success",
+        "Your year level has been updated. You may proceed to use the site normally."
+      );
+      setIsModalOpen(false);
+    } catch (error) {
+      showToast(
+        "error",
+        error.response.data?.message ||
+          "An error has occurred while updating your year level."
+      );
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
     const fetchYearUpdated = async () => {
-      setIsYearUpdated(await isStudentYearUpdated(userData.id_number));
-      setIsModalOpen(true)
+      try {
+        const result = await isStudentYearUpdated(userData.id_number);
+        setIsYearUpdated(result);
+      } catch (error) {
+        console.error("Error fetching year updated:", error);
+      } finally {
+        setHasFetchedYearUpdated(true);
+      }
     };
     fetchYearUpdated();
   }, []);
 
   return (
     <div className="min-h-screen relative">
-      {!isYearUpdated && (
-        <ForcedInputModal
-          studentIdNumber={userData.id_number}
-          isOpen={isModalOpen}
-          onSubmit={handleUpdateYearLevel}
-          loading={loading}
-        />
-      )}
+      {hasFetchedYearUpdated &&
+        (isYearUpdated === false || isYearUpdated == null) && (
+          <ForcedInputModal
+            studentIdNumber={userData.id_number}
+            isOpen={isModalOpen}
+            onSubmit={handleUpdateYearLevel}
+            loading={loading}
+          />
+        )}
+      <AsideBar
+        navItems={navItems}
+        isSidebarOpen={isSidebarOpen}
+        setIsSidebarOpen={setIsSidebarOpen}
+      />
       <ProfileHeader label={label} toggleSidebar={toggleSidebar} />
       <main className="lg:ml-[15rem] min-h-main-md px-4 sm:px-6 md:px-8 lg:px-10 xl:px-12">
         <Outlet />

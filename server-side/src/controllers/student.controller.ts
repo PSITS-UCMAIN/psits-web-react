@@ -419,8 +419,4 @@ export const isYearUpdatedController = async (req: Request, res: Response) => {
     console.error("Error updating student year level:", error);
     return res.status(500).json({ message: "Internal Server Error." });
   }
-<<<<<<< HEAD
 };
-=======
-};
->>>>>>> feat/update-student-year-level-2
