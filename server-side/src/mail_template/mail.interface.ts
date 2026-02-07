@@ -28,3 +28,6 @@ export interface IForgotPasswordData {
   url: string;
   token: string;
 }
+
+export interface ICertificateData {
+}

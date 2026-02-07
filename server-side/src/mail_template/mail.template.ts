@@ -1,7 +1,7 @@
 import ejs from "ejs";
 import path from "path";
 import nodemailer from "nodemailer";
-import { IMembershipRequest, IOrderReceipt, IForgotPasswordData } from "./mail.interface";
+import { IMembershipRequest, IOrderReceipt, IForgotPasswordData, ICertificateData } from "./mail.interface";
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -18,7 +18,7 @@ export const membershipRequestReceipt = async (
   studenteEmail: string
 ) => {
   const emailTemplate = await ejs.renderFile(
-    path.join(__dirname, "../assets/appr-membership-receipt.ejs"),
+    "@/assets/appr-membership-receipt.ejs",
     data
   );
 
@@ -30,7 +30,7 @@ export const membershipRequestReceipt = async (
     attachments: [
       {
         filename: "psits.jpg",
-        path: path.join(__dirname, "../assets/psits.jpg"),
+        path: "@/assets/psits.jpg",
         cid: "logo",
       },
     ],
@@ -51,16 +51,16 @@ export const orderReceipt = async (
   studentEmail: string
 ) => {
   const emailTemplate = await ejs.renderFile(
-    path.join(__dirname, "../assets/appr-order-receipt.ejs"),
+    "@/assets/appr-order-receipt.ejs",
     data
   );
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: process.env.EMAIL,
-      pass: process.env.PASSWORD_APP_EMAIL,
-    },
-  });
+  // const transporter = nodemailer.createTransport({
+  //   service: "gmail",
+  //   auth: {
+  //     user: process.env.EMAIL,
+  //     pass: process.env.PASSWORD_APP_EMAIL,
+  //   },
+  // });
 
   const mailOptions = {
     from: process.env.EMAIL,
@@ -70,7 +70,7 @@ export const orderReceipt = async (
     attachments: [
       {
         filename: "psits.jpg",
-        path: path.join(__dirname, "../assets/psits.jpg"),
+        path: "@/assets/psits.jpg",
         cid: "logo",
       },
     ],
@@ -130,7 +130,7 @@ export const forgotPasswordMail = async (
   studentMail: string,
 ) => {
   const emailTemplate = await ejs.renderFile(
-    path.join(__dirname, "../assets/reset-password-form.ejs"),
+    "@/assets/reset-password-form.ejs",
     data
   )
 
@@ -150,3 +150,38 @@ export const forgotPasswordMail = async (
     return { status: true, message: "Email Sent" };
   });
 };
+
+export const certificateMail = async (
+  data: ICertificateData,
+  eventName: string,
+  studentMail: string,
+) => {
+  
+  const emailTemplate = await ejs.renderFile(
+    "@/assets/pdf-ejs/certificate.ejs",
+    data
+  )
+
+  const mailOptions = {
+    from: process.env.EMAIL,
+    to: studentMail,
+    subject: `Congratulations for Attending ${eventName}!`,
+    html: emailTemplate,
+    // attachments: [
+    //   {
+    //     filename: "psits.jpg",
+    //     path: "@/assets/psits.jpg",
+    //     cid: "logo",
+    //   },
+    // ],
+  }
+
+  transporter.sendMail(mailOptions, (err, info) => {
+    if (err) {
+      console.error("Error sending email:", err.message);
+      return { status: false, message: "Error sending email" };
+    }
+    console.log("Success sent email for ", studentMail);
+    return { status: true, message: "Email Sent" };
+  })
+}
