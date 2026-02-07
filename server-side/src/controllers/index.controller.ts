@@ -188,7 +188,7 @@ export const forgotPasswordController = async (req: Request, res: Response) => {
       expiresIn: "10m",
     });
 
-    await forgotPasswordMail(req.body.email, url, token);
+    await forgotPasswordMail({url, token}, req.body.email);
 
     res.status(200).json({ message: "Email sent successfully! Please check your email for further instructions." });
   } catch (err) {

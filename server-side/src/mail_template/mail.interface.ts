@@ -23,3 +23,8 @@ export interface IOrderReceipt {
   cash: number;
   total: number;
 }
+
+export interface IForgotPasswordData {
+  url: string;
+  token: string;
+}
