@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        .container {
+            text-align: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .signee-section {
+            margin-top: 50px;
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+        }
+
+        .signee-item {
+            min-width: 200px;
+        }
+
+        .signature-line {
+            border-top: 1px solid #000;
+            margin-top: 40px;
+            padding-top: 5px;
+        }
+
+        .designation {
+            font-size: 0.8em;
+            color: #666;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="logo-container">
+            <img src="cid:psits_logo" alt="PSITS Logo" />
+            <img src="cid:ccs_logo" alt="CCS Logo" />
+            <img src="cid:uc_logo" alt="UC Logo" />
+        </div>
+        <h2>Certificate of Participation</h2>
+        <p>This is to certify that</p>
+        <h1><%= student_name %></h1>
+        <p>has participated in the</p>
+        <p><%= event_name %></p>
+        <p>held on</p>
+        <p><%= event_date %></p>
+        <p>from</p>
+        <p><%= event_start_time %></p>
+        <p>to</p>
+        <p><%= event_end_time %></p>
+        <p>at</p>
+        <p><%= event_venue %></p>
+
+        <!-- Extra Details -->
+        <% if (locals.extra_details && extra_details.length > 0) { %>
+        <div class="extra-details">
+            <% extra_details.forEach(function(detail) { %>
+            <p><strong><%= detail.key %>:</strong> <%= detail.value %></p>
+            <% }); %>
+        </div>
+        <% } %>
+
+        <!-- Dynamic Signee Section -->
+        <div class="signee-section">
+            <% signees.forEach(function(signee) { %>
+            <div class="signee-item">
+                <div class="signature-line">
+                    <strong><%= signee.name %></strong>
+                </div>
+                <div class="designation"><%= signee.designation %></div>
+            </div>
+            <% }); %>
+        </div>
+    </div>
+</body>
+
+</html>

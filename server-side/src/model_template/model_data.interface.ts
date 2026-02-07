@@ -3,6 +3,7 @@ import { Document } from "mongoose";
 export interface IAdminModelData {
   id_number: string;
   name: string;
+  rfid?: string;
   email?: string;
   course: string;
   year: string;

@@ -15,12 +15,6 @@
       "node",
       "express"
     ],
-    "baseUrl": "./src",
-    "paths": {
-      "@/*": [
-        "*"
-      ],
-    }
   },
   "include": [
     "src",

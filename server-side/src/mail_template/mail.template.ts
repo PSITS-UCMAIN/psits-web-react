@@ -18,7 +18,7 @@ export const membershipRequestReceipt = async (
   studenteEmail: string
 ) => {
   const emailTemplate = await ejs.renderFile(
-    "@/assets/appr-membership-receipt.ejs",
+    path.join(__dirname, "../assets/ejs/appr-membership-receipt.ejs"),
     data
   );
 
@@ -30,7 +30,7 @@ export const membershipRequestReceipt = async (
     attachments: [
       {
         filename: "psits.jpg",
-        path: "@/assets/psits.jpg",
+        path: path.join(__dirname, "../assets/images/etc/psits.jpg"),
         cid: "logo",
       },
     ],
@@ -51,7 +51,7 @@ export const orderReceipt = async (
   studentEmail: string
 ) => {
   const emailTemplate = await ejs.renderFile(
-    "@/assets/appr-order-receipt.ejs",
+    path.join(__dirname, "../assets/ejs/appr-order-receipt.ejs"),
     data
   );
   // const transporter = nodemailer.createTransport({
@@ -70,7 +70,7 @@ export const orderReceipt = async (
     attachments: [
       {
         filename: "psits.jpg",
-        path: "@/assets/psits.jpg",
+        path: path.join(__dirname, "../assets/images/etc/psits.jpg"),
         cid: "logo",
       },
     ],
@@ -130,7 +130,7 @@ export const forgotPasswordMail = async (
   studentMail: string,
 ) => {
   const emailTemplate = await ejs.renderFile(
-    "@/assets/reset-password-form.ejs",
+    path.join(__dirname, "../assets/ejs/reset-password-form.ejs"),
     data
   )
 
@@ -158,7 +158,7 @@ export const certificateMail = async (
 ) => {
   
   const emailTemplate = await ejs.renderFile(
-    "@/assets/pdf-ejs/certificate.ejs",
+    path.join(__dirname, "../assets/ejs/pdf-ejs/certificate.ejs"),
     data
   )
 
@@ -167,13 +167,23 @@ export const certificateMail = async (
     to: studentMail,
     subject: `Congratulations for Attending ${eventName}!`,
     html: emailTemplate,
-    // attachments: [
-    //   {
-    //     filename: "psits.jpg",
-    //     path: "@/assets/psits.jpg",
-    //     cid: "logo",
-    //   },
-    // ],
+    attachments: [
+      {
+        filename: "psits_small.png",
+        path: path.join(__dirname, "../assets/images/logos/psits_small.png"),
+        cid: "psits_logo",
+      },
+      {
+        filename: "ccs_small.png",
+        path: path.join(__dirname, "../assets/images/logos/ccs_logo.png"),
+        cid: "ccs_logo",
+      },
+      {
+        filename: "uc_small.png",
+        path: path.join(__dirname, "../assets/images/logos/uc_logo.png"),
+        cid: "uc_logo",
+      },
+    ],
   }
 
   transporter.sendMail(mailOptions, (err, info) => {

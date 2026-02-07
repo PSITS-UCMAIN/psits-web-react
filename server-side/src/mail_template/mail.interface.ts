@@ -29,5 +29,19 @@ export interface IForgotPasswordData {
   token: string;
 }
 
-export interface ICertificateData {
+export interface ISignee {
+  name: string;
+  designation: string;
 }
+
+export interface ICertificateData {
+  student_name: string;
+  event_name: string;
+  event_date: string;
+  event_start_time: string;
+  event_end_time: string;
+  event_venue: string;
+  signees: ISignee[];
+  extra_details?: { key: string; value: string }[];
+}
+
