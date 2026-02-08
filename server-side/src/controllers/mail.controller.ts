@@ -1,12 +1,7 @@
 import { Request, Response } from "express";
-import { certificateMail } from "../../mail_template/mail.template";
+import { certificateMail } from "../mail_template/mail.template";
 
-/*
-* This controller is only for testing purposes.
-* It is not used in the production environment.
-*/
-
-export const sendCertEJSTestController = async (req: Request, res: Response) => {
+export const sendCertParticipationController = async (req: Request, res: Response) => {
     try {
         const { data, studentEmail } = req.body;
         if (!data ||

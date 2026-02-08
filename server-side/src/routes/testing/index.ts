@@ -4,7 +4,7 @@ import { previewEJSController } from "../../controllers/testing/preview.controll
 
 const router = Router()
 
-router.use("/mail", sendMailRoutes)
+router.use("/email", sendMailRoutes)
 router.post("/ejs/preview", previewEJSController)
 
 export default router

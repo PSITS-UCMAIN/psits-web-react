@@ -42,6 +42,6 @@ export interface ICertificateData {
   event_end_time: string;
   event_venue: string;
   signees: ISignee[];
-  extra_details?: { key: string; value: string }[];
+  images_path?: { [key: string]: string };
 }
 

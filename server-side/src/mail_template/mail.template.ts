@@ -3,6 +3,7 @@ import path from "path";
 import nodemailer from "nodemailer";
 import { IMembershipRequest, IOrderReceipt, IForgotPasswordData, ICertificateData } from "./mail.interface";
 import dotenv from "dotenv";
+import { generatePDFFromEJS } from "./utils/generate-pdf-from-ejs";
 dotenv.config();
 
 const transporter = nodemailer.createTransport({
@@ -153,45 +154,45 @@ export const forgotPasswordMail = async (
 
 export const certificateMail = async (
   data: ICertificateData,
-  eventName: string,
-  studentMail: string,
+  studentEmail: string,
 ) => {
-  
-  const emailTemplate = await ejs.renderFile(
-    path.join(__dirname, "../assets/ejs/pdf-ejs/certificate.ejs"),
-    data
-  )
+  try {
+    const pdfBuffer = await generatePDFFromEJS(
+      "ejs/pdf-ejs/certificate.ejs",
+      data
+    )
 
-  const mailOptions = {
-    from: process.env.EMAIL,
-    to: studentMail,
-    subject: `Congratulations for Attending ${eventName}!`,
-    html: emailTemplate,
-    attachments: [
-      {
-        filename: "psits_small.png",
-        path: path.join(__dirname, "../assets/images/logos/psits_small.png"),
-        cid: "psits_logo",
-      },
-      {
-        filename: "ccs_small.png",
-        path: path.join(__dirname, "../assets/images/logos/ccs_logo.png"),
-        cid: "ccs_logo",
-      },
-      {
-        filename: "uc_small.png",
-        path: path.join(__dirname, "../assets/images/logos/uc_logo.png"),
-        cid: "uc_logo",
-      },
-    ],
-  }
+    const emailTemplate = await ejs.renderFile(
+      path.join(__dirname, "../assets/ejs/cert-participation-mail-body.ejs"),
+      data
+    )
 
-  transporter.sendMail(mailOptions, (err, info) => {
-    if (err) {
-      console.error("Error sending email:", err.message);
-      return { status: false, message: "Error sending email" };
+    const fileName = `${data.student_name}-CERT.pdf`.toUpperCase()
+
+    const mailOptions = {
+      from: process.env.EMAIL,
+      to: studentEmail,
+      subject: `Congratulations for Attending ${data.event_name}!`,
+      html: emailTemplate,
+      attachments: [
+        {
+          filename: fileName,
+          content: Buffer.from(pdfBuffer),
+          contentType: "application/pdf",
+        },
+      ],
     }
-    console.log("Success sent email for ", studentMail);
-    return { status: true, message: "Email Sent" };
-  })
+
+    transporter.sendMail(mailOptions, (err, info) => {
+      if (err) {
+        console.error("Error sending email:", err.message);
+        return { status: false, message: "Error sending email" };
+      }
+      console.log("Success sent email for ", studentEmail);
+      return { status: true, message: "Email Sent" };
+    })
+  } catch (err: any) {
+    console.error("Unexpected errors when attempting to send/process certificate email: ", err.message)
+    throw err
+  }
 }

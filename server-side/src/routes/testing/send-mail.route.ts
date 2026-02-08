@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { sendCertEJSTestController } from "../../controllers/testing/send-mail.controller";
 
-const router = Router()
+const sendMailRoutes = Router()
 
-router.post("/cert-custom", sendCertEJSTestController)
+sendMailRoutes.post("/cert-participation", sendCertEJSTestController)
 
-export default router
+export default sendMailRoutes

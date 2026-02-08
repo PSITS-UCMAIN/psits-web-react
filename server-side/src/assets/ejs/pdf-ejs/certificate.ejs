@@ -280,11 +280,13 @@
 
         <div class="content">
             <!-- Logos Header -->
+            <% if (images_path) { %>
             <div class="logos">
-                <img src="cid:uc_logo" alt="UC Logo">
-                <img src="cid:ccs_logo" alt="CCS Logo">
-                <img src="cid:psits_logo" alt="PSITS Logo">
+                <img src="<%= uc_logo %>" alt="UC Logo">
+                <img src="<%= ccs_logo %>" alt="CCS Logo">
+                <img src="<%= psits_logo %>" alt="PSITS Logo">
             </div>
+            <% } %>
 
             <!-- Header Titles -->
             <h1 class="main-title">CERTIFICATE</h1>

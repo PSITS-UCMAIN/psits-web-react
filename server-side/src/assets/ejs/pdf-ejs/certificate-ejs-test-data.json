@@ -1,5 +1,6 @@
 {
-    "templatePath": "pdf-ejs/certificate.ejs",
+    "templatePath": "ejs/pdf-ejs/certificate.ejs",
+    "studentEmail": "raileyalin@gmail.com",
     "data": {
         "student_name": "Ram Railey B. Alin",
         "event_name": "CCS Workshop",
@@ -8,6 +9,11 @@
         "event_end_time": "12:00 PM",
         "event_venue_specific": "Room 540",
         "event_venue": "University of Cebu - Main Campus",
+        "images_path": {
+            "uc_logo": "images/logos/uc_logo.png",
+            "ccs_logo": "images/logos/ccs_logo.png",
+            "psits_logo": "images/logos/psits_logo.png"
+        },
         "signees": [
             {
                 "name": "NEIL A. BASABE, MIT",
