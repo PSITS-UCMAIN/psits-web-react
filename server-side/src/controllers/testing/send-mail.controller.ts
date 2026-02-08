@@ -1,12 +1,22 @@
 import { Request, Response } from "express";
 import { certificateMail } from "../../mail_template/mail.template";
-import { ICertificateData } from "../../mail_template/mail.interface";
 
 export const sendCertEJSTestController = async (req: Request, res: Response) => {
     try {
         const { data, event_name, student_email } = req.body;
         // Need to add error trapping
-        if (!data || !event_name || !student_email) {
+        if (!data ||
+            !event_name ||
+            !student_email ||
+            !data.student_name ||
+            !data.event_name ||
+            !data.event_date ||
+            !data.event_start_time ||
+            !data.event_end_time ||
+            !data.event_venue ||
+            !data.signees
+            // !data.extra_details
+        ) {
             return res.status(400).json({ message: "Missing required fields" });
         }
 

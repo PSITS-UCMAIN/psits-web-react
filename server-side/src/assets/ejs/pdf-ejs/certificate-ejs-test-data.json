@@ -1,0 +1,26 @@
+{
+    "templatePath": "pdf-ejs/certificate.ejs",
+    "data": {
+        "student_name": "Ram Railey B. Alin",
+        "event_name": "CCS Workshop",
+        "event_date": "December 13, 2025",
+        "event_start_time": "8:00 AM",
+        "event_end_time": "12:00 PM",
+        "event_venue_specific": "Room 540",
+        "event_venue": "University of Cebu - Main Campus",
+        "signees": [
+            {
+                "name": "NEIL A. BASABE, MIT",
+                "designation": "UC-Main CCS Dean"
+            },
+            {
+                "name": "MARLOU C. TADLIP, PhD",
+                "designation": "UC-PT CCS Dean"
+            },
+            {
+                "name": "JOHN A. DOE",
+                "designation": "UC-LM CCS Dean"
+            }
+        ]
+    }
+}
