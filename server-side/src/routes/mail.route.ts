@@ -3,6 +3,6 @@ import { sendCertParticipationController } from "../controllers/mail.controller"
 
 const router = Router()
 
-router.post("/send-cert-participation", sendCertParticipationController)
+// Add mail routes here
 
 export default router

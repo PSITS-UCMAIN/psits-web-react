@@ -3,3 +3,8 @@ node_modules/
 dist/
 build/
 .DS_Store
+
+# Ignore testing routes
+server-side/src/routes/testing/
+server-side/src/controllers/testing/
+server-side/assets/test_data/
