@@ -41,7 +41,11 @@ export interface ICertificateData {
   event_start_time: string;
   event_end_time: string;
   event_venue: string;
+  event_venue_specific: string;
   signees: ISignee[];
-  images_path?: { [key: string]: string };
+  images?: { [key: string]: string };
+  /**
+   * Note: Use relative path to /assets. e.g. images/logo.png
+   */
 }
 

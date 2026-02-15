@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import ejs from "ejs";
 import path from "path";
 import { toBase64 } from "../../mail_template/utils/to-base64";
+import { ICertificateData } from "../../mail_template/mail.interface";
 
 /**
  * Controller to preview any EJS template.
@@ -10,15 +11,21 @@ import { toBase64 } from "../../mail_template/utils/to-base64";
  * - data: object (the data to inject into the template)
  * 
  * Note:
- * Does not handle cid or images
+ * Images must be stored within the "images" key within data
  */
-export const previewEJSController = async (req: Request, res: Response) => {
-    const { templatePath, data } = req.body;
 
-    if (data.images_path) {
+export const previewEJSController = async (req: Request, res: Response) => {
+    const { templatePath, data }: {
+        templatePath: string;
+        data: ICertificateData;
+    } = req.body;
+
+    // Image handling
+    if (data.images) {
         try {
-            for (const [key, value] of Object.entries(data.images_path)) {
-                data[key] = await toBase64(
+            // Replace file path with base64 value
+            for (const [key, value] of Object.entries(data.images)) {
+                data.images[key] = await toBase64(
                     path.join(__dirname, "../../assets", value as string)
                 )
             }
@@ -28,7 +35,9 @@ export const previewEJSController = async (req: Request, res: Response) => {
                 <div style="font-family: sans-serif; padding: 20px; color: #721c24; background: #f8d7da; border: 1px solid #f5c6cb;">
                     <h2>Error rendering template</h2>
                     <p><strong>Path:</strong> ${templatePath}</p>
-                    <p><strong>Message:</strong> ${err.message}</p>
+                    <p><strong>Message:</strong> 
+                        <pre>${err.message}</pre>
+                    </p>
                 </div>
             `);
         }
@@ -51,7 +60,9 @@ export const previewEJSController = async (req: Request, res: Response) => {
             <div style="font-family: sans-serif; padding: 20px; color: #721c24; background: #f8d7da; border: 1px solid #f5c6cb;">
                 <h2>Error rendering template</h2>
                 <p><strong>Path:</strong> ${templatePath}</p>
-                <p><strong>Message:</strong> ${err.message}</p>
+                <p><strong>Message:</strong> 
+                    <pre>${err.message}</pre>
+                </p>
             </div>
         `);
     }

@@ -9,7 +9,7 @@
         "event_end_time": "12:00 PM",
         "event_venue_specific": "Room 540",
         "event_venue": "University of Cebu - Main Campus",
-        "images_path": {
+        "images": {
             "uc_logo": "images/logos/uc_logo.png",
             "ccs_logo": "images/logos/ccs_logo.png",
             "psits_logo": "images/logos/psits_logo.png"

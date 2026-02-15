@@ -1,6 +1,6 @@
 import { Router } from "express";
 import sendMailRoutes from "./send-mail.route";
-import { previewEJSController } from "../../controllers/testing/preview.controller";
+import { previewEJSController } from "../../controllers/testing/ejs-preview.controller";
 
 const router = Router()
 
