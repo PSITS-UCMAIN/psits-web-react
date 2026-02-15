@@ -40,7 +40,7 @@ export interface ICertificateData {
   event_date: string;
   event_start_time: string;
   event_end_time: string;
-  event_venue: string;
+  event_venue?: string;
   event_venue_specific: string;
   signees: ISignee[];
   images?: { [key: string]: string };
