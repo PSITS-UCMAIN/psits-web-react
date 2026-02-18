@@ -104,6 +104,11 @@ export const studentAndAdminOrderController = async (
     const { promo_name, promo_discount, items, admin } = req.body;
     const both = req.both;
 
+    // Detailed logging
+    console.log("DEBUG: Full req.body ->", JSON.stringify(req.body, null, 2));
+    console.log("DEBUG: typeof items ->", typeof items);
+    console.log("DEBUG: isArray(items) ->", Array.isArray(items));
+
     const itemsArray = Array.isArray(items) ? items : [items];
 
     const hasMissingFields = !itemsArray.length;
