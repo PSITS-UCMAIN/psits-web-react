@@ -1,5 +1,10 @@
-#ignore .env
+node_modules/
 .env
-/node_modules
-/dist
-/src/scripts
+dist/
+build/
+.DS_Store
+
+# Ignore testing routes
+src/routes/testing/
+src/controllers/testing/
+src/assets/test_data/
