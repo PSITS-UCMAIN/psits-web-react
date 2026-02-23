@@ -9,7 +9,7 @@ import fs from "fs"
 */
 export const pngToBase64 = async (filePath: string) => {
     const bitmap = fs.readFileSync(filePath)
-    return `data:image/png;base64,${bitmap.toString('base64')}`
+    return `data:image/png;base64,${bitmap.toString("base64")}`
 }
 
 /*
@@ -20,5 +20,5 @@ export const pngToBase64 = async (filePath: string) => {
 */
 export const ttfToBase64 = async(filePath: string) => {
     const bitmap = fs.readFileSync(filePath)
-    return `data:font/ttf;base64,${bitmap.toString('base64')}`
+    return `data:font/ttf;base64,${bitmap.toString("base64")}`
 }

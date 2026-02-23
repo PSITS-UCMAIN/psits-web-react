@@ -44,9 +44,8 @@ export interface ICertificateData {
   event_venue_specific: string;
   signees: ISignee[];
   images?: { [key: string]: string };
-  fonts: { [key: string]: string };  // Required
+  fonts: { [key: string]: string }; // Required
   /**
    * Note: Use relative path to /assets. e.g. images/logo.png
    */
 }
-

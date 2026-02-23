@@ -1,38 +1,75 @@
-import puppeteer from "puppeteer";
-import ejs from "ejs"
-import path from "path"
-import { pngToBase64, ttfToBase64 } from "./to-base64"
+import puppeteer, { PDFOptions } from "puppeteer";
+import ejs from "ejs";
+import path from "path";
+import { pngToBase64, ttfToBase64 } from "../../utils/to-base64";
 import { ICertificateData } from "../mail.interface";
+import { Extensions } from "../../utils/path-normalizer";
+import {
+  normalizeFinalPath,
+  isFilenameExtensionsAny,
+} from "../../utils/path-normalizer";
 
-export const generatePDFFromEJS = async (templatePath: string, data: ICertificateData) => {
-    if (data.images) {
-        for (const [key, value] of Object.entries(data.images)) {
-            data.images[key] = await pngToBase64(path.join(__dirname, "../../assets", value as string))
-        }
+const ASSETS_BASE_DIR = path.resolve(__dirname, "../../assets");
+const pdfConfig: PDFOptions = {
+  format: "A4",
+  landscape: true,
+  printBackground: true,
+};
+
+export const validateAndFinalizeFilePath = (
+  basePath: string,
+  relativePath: string,
+  allowedExtensions: Extensions[]
+): string => {
+  const finalPath = normalizeFinalPath(basePath, relativePath);
+  if (!isFilenameExtensionsAny(finalPath, allowedExtensions)) {
+    throw new Error(
+      "This file extension is not allowed for this implementation"
+    );
+  }
+  return finalPath;
+};
+
+export const generatePDFFromEJS = async (
+  templatePath: string,
+  data: ICertificateData
+) => {
+  if (data.images) {
+    for (const [key, value] of Object.entries(data.images)) {
+      const allowedExtensions: Extensions[] = [Extensions.png];
+      const imagePath = validateAndFinalizeFilePath(
+        ASSETS_BASE_DIR,
+        value,
+        allowedExtensions
+      );
+      data.images[key] = await pngToBase64(imagePath);
     }
+  }
 
-    if (data.fonts) {
-        for (const [key, value] of Object.entries(data.fonts)) {
-            data.fonts[key] = await ttfToBase64(path.join(__dirname, "../../assets", value as string))
-        }
+  if (data.fonts) {
+    for (const [key, value] of Object.entries(data.fonts)) {
+      const allowedExtensions: Extensions[] = [Extensions.ttf];
+      const fontPath = validateAndFinalizeFilePath(
+        ASSETS_BASE_DIR,
+        value,
+        allowedExtensions
+      );
+      data.fonts[key] = await ttfToBase64(fontPath);
     }
+  }
 
-    const ejsTemplate = await ejs.renderFile(
-        path.join(__dirname, "../../assets", templatePath),
-        data
-    ) as string
+  const ejsTemplate = (await ejs.renderFile(
+    path.join(ASSETS_BASE_DIR, templatePath),
+    data
+  )) as string;
 
-    const browser = await puppeteer.launch({ headless: true })
-    const page = await browser.newPage()
+  const browser = await puppeteer.launch({ headless: true });
+  const page = await browser.newPage();
 
-    await page.setContent(ejsTemplate, { waitUntil: "networkidle0" })
+  await page.setContent(ejsTemplate, { waitUntil: "networkidle0" });
 
-    const pdfBuffer = await page.pdf({
-        format: 'A4',
-        landscape: true,
-        printBackground: true
-    })
+  const pdfBuffer = await page.pdf(pdfConfig);
 
-    await browser.close()
-    return pdfBuffer
-}
+  await browser.close();
+  return pdfBuffer;
+};

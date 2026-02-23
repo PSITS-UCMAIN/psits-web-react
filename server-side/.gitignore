@@ -9,4 +9,4 @@ src/routes/testing/
 src/controllers/testing/
 src/assets/test_data/
 
-src/scripts/
+src/scripts/output

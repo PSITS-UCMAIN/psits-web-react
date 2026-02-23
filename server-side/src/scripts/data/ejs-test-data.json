@@ -1,0 +1,33 @@
+{
+    "student_name": "[NAME]",
+    "event_name": "[EVENT_NAME]",
+    "event_date": "[DATE]",
+    "event_start_time": "[TIME]",
+    "event_end_time": "[TIME]",
+    "event_venue_specific": "[VENUE]",
+    "event_venue": "[VENUE]",
+    "images": {
+        "uc_logo": "images/logos/uc_logo.png",
+        "ccs_logo": "images/logos/ccs_logo.png",
+        "psits_logo": "images/logos/psits_logo.png"
+    },
+    "fonts": {
+        "alexbrush": "ejs/fonts/AlexBrush-Regular.ttf",
+        "cinzel": "ejs/fonts/Cinzel-VariableFont_wght.ttf",
+        "montserrat": "ejs/fonts/Montserrat-VariableFont_wght.ttf"
+    },
+    "signees": [
+        {
+            "name": "[NAME]",
+            "designation": "[DESIGNATION]"
+        },
+        {
+            "name": "[NAME]",
+            "designation": "[DESIGNATION]"
+        },
+        {
+            "name": "[NAME]",
+            "designation": "[DESIGNATION]"
+        }
+    ]
+}

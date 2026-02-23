@@ -1,7 +1,12 @@
 import ejs from "ejs";
 import path from "path";
 import nodemailer from "nodemailer";
-import { IMembershipRequest, IOrderReceipt, IForgotPasswordData, ICertificateData } from "./mail.interface";
+import {
+  IMembershipRequest,
+  IOrderReceipt,
+  IForgotPasswordData,
+  ICertificateData,
+} from "./mail.interface";
 import dotenv from "dotenv";
 import { generatePDFFromEJS } from "./utils/generate-pdf-from-ejs";
 dotenv.config();
@@ -55,13 +60,6 @@ export const orderReceipt = async (
     path.join(__dirname, "../assets/ejs/appr-order-receipt.ejs"),
     data
   );
-  // const transporter = nodemailer.createTransport({
-  //   service: "gmail",
-  //   auth: {
-  //     user: process.env.EMAIL,
-  //     pass: process.env.PASSWORD_APP_EMAIL,
-  //   },
-  // });
 
   const mailOptions = {
     from: process.env.EMAIL,
@@ -128,12 +126,12 @@ export const attendeeRegistrationMail = async (data: {
 
 export const forgotPasswordMail = async (
   data: IForgotPasswordData,
-  studentMail: string,
+  studentMail: string
 ) => {
   const emailTemplate = await ejs.renderFile(
     path.join(__dirname, "../assets/ejs/reset-password-form.ejs"),
     data
-  )
+  );
 
   const mailOptions = {
     from: process.env.EMAIL,
@@ -152,25 +150,25 @@ export const forgotPasswordMail = async (
   });
 };
 
-/** 
- * Sends an autmated certificate of participation to a single email 
-*/
+/**
+ * Sends an autmated certificate of participation to a single email
+ */
 export const certificateOfParticipationEmail = async (
   data: ICertificateData,
-  studentEmail: string,
+  studentEmail: string
 ) => {
   try {
     const pdfBuffer = await generatePDFFromEJS(
       "ejs/pdf-ejs/certificate.ejs",
       data
-    )
+    );
 
     const emailTemplate = await ejs.renderFile(
       path.join(__dirname, "../assets/ejs/cert-participation-mail-body.ejs"),
       data
-    )
+    );
 
-    const fileName = `${data.student_name}-CERT.pdf`.toUpperCase()
+    const fileName = `${data.student_name}-CERT.pdf`.toUpperCase();
 
     const mailOptions = {
       from: process.env.EMAIL,
@@ -184,20 +182,23 @@ export const certificateOfParticipationEmail = async (
           contentType: "application/pdf",
         },
       ],
-    }
+    };
 
     return new Promise((resolve, reject) => {
       transporter.sendMail(mailOptions, (err, info) => {
         if (err) {
           console.error("Error sending email:", err.message);
-          resolve({ status: false, message: "Error sending email" })
+          resolve({ status: false, message: "Error sending email" });
         } else {
-          resolve({ status: true, message: "Email Sent" })
+          resolve({ status: true, message: "Email Sent" });
         }
-      })
-    })
+      });
+    });
   } catch (err: any) {
-    console.error("Unexpected errors when attempting to send/process certificate email: ", err.message)
-    throw err
+    console.error(
+      "Unexpected errors when attempting to send/process certificate email: ",
+      err.message
+    );
+    throw err;
   }
-}
+};
