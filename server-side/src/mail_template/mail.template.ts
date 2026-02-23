@@ -190,7 +190,10 @@ export const certificateOfParticipationEmail = async (
           console.error("Error sending email:", err.message);
           resolve({ status: false, message: "Error sending email" });
         } else {
-          resolve({ status: true, message: "Email Sent" });
+          resolve({
+            status: true,
+            message: `Cert of participation for ${data.student_name} Sent`,
+          });
         }
       });
     });

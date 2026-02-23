@@ -8,8 +8,11 @@ import { validateAndFinalizeFilePath } from "../mail_template/utils/generate-pdf
 const ROOT_DIR = path.resolve(__dirname, "..");
 const ASSETS_BASE_DIR = path.resolve(ROOT_DIR, "assets");
 
-/*
- ** Generate html output based on ejs file and test data
+/**
+ * Generate html output based on ejs file and test data.
+ * This script is reusable, simply supply the proper arguments.
+ * @param templatePath
+ * @param testDataPath
  */
 async function runPreview(templatePath: string, testDataPath: string) {
   const fullTemplatePath = normalizeFinalPath(ROOT_DIR, templatePath);
