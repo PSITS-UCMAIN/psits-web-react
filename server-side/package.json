@@ -45,6 +45,7 @@
     "@types/node": "^24.3.0",
     "cors": "^2.8.5",
     "nodemon": "^3.1.10",
+    "prettier": "3.8.1",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.9.2"

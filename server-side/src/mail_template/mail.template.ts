@@ -152,7 +152,10 @@ export const forgotPasswordMail = async (
   });
 };
 
-export const certificateMail = async (
+/** 
+ * Sends an autmated certificate of participation to a single email 
+*/
+export const certificateOfParticipationEmail = async (
   data: ICertificateData,
   studentEmail: string,
 ) => {
@@ -183,13 +186,15 @@ export const certificateMail = async (
       ],
     }
 
-    transporter.sendMail(mailOptions, (err, info) => {
-      if (err) {
-        console.error("Error sending email:", err.message);
-        return { status: false, message: "Error sending email" };
-      }
-      console.log("Success sent email for ", studentEmail);
-      return { status: true, message: "Email Sent" };
+    return new Promise((resolve, reject) => {
+      transporter.sendMail(mailOptions, (err, info) => {
+        if (err) {
+          console.error("Error sending email:", err.message);
+          resolve({ status: false, message: "Error sending email" })
+        } else {
+          resolve({ status: true, message: "Email Sent" })
+        }
+      })
     })
   } catch (err: any) {
     console.error("Unexpected errors when attempting to send/process certificate email: ", err.message)

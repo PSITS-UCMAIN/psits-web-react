@@ -1,15 +1,22 @@
 import puppeteer from "puppeteer";
 import ejs from "ejs"
 import path from "path"
-import { toBase64 } from "./to-base64"
+import { pngToBase64, ttfToBase64 } from "./to-base64"
 import { ICertificateData } from "../mail.interface";
 
 export const generatePDFFromEJS = async (templatePath: string, data: ICertificateData) => {
     if (data.images) {
         for (const [key, value] of Object.entries(data.images)) {
-            data.images[key] = await toBase64(path.join(__dirname, "../../assets", value as string))
+            data.images[key] = await pngToBase64(path.join(__dirname, "../../assets", value as string))
         }
     }
+
+    if (data.fonts) {
+        for (const [key, value] of Object.entries(data.fonts)) {
+            data.fonts[key] = await ttfToBase64(path.join(__dirname, "../../assets", value as string))
+        }
+    }
+
     const ejsTemplate = await ejs.renderFile(
         path.join(__dirname, "../../assets", templatePath),
         data
