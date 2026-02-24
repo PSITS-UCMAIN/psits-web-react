@@ -33,7 +33,7 @@
         }
       ]
     },
-    "studentEmail": "raileyalin@gmail.com"
+    "studentEmail": "[EMAIL]"
   },
   {
     "studentData": {
@@ -69,7 +69,7 @@
         }
       ]
     },
-    "studentEmail": "raileyalin@gmail.com"
+    "studentEmail": "[EMAIL]"
   },
   {
     "studentData": {
@@ -105,6 +105,6 @@
         }
       ]
     },
-    "studentEmail": "raileyalin@gmail.com"
+    "studentEmail": "[EMAIL]"
   }
 ]
