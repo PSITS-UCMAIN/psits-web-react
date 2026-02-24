@@ -2,7 +2,7 @@ import puppeteer, { PDFOptions } from "puppeteer";
 import ejs from "ejs";
 import path from "path";
 import { pngToBase64, ttfToBase64 } from "../../utils/to-base64";
-import { ICertificateData } from "../mail.interface";
+import { TCertificateData } from "../mail.interface";
 import { Extensions } from "../../utils/path-normalizer";
 import {
   normalizeFinalPath,
@@ -32,7 +32,7 @@ export const validateAndFinalizeFilePath = (
 
 export const generatePDFFromEJS = async (
   templatePath: string,
-  data: ICertificateData
+  data: TCertificateData
 ) => {
   if (data.images) {
     for (const [key, value] of Object.entries(data.images)) {
@@ -58,9 +58,12 @@ export const generatePDFFromEJS = async (
     }
   }
 
+  // const start = performance.now();
+
   const ejsTemplate = (await ejs.renderFile(
     path.join(ASSETS_BASE_DIR, templatePath),
-    data
+    data,
+    { cache: true }
   )) as string;
 
   const browser = await puppeteer.launch({ headless: true });
@@ -71,5 +74,8 @@ export const generatePDFFromEJS = async (
   const pdfBuffer = await page.pdf(pdfConfig);
 
   await browser.close();
+
+  // const end = performance.now();
+  // console.log(`Time elapsed converting ejs to pdf: ${end - start}ms`);
   return pdfBuffer;
 };

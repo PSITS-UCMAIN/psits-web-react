@@ -1,4 +1,6 @@
 import { ICart } from "../models/cart.interface";
+import { CertificateDataSchema, SigneeSchema } from "./mail.schema";
+import { z } from "zod";
 
 export interface IMembershipRequest {
   name: string;
@@ -29,23 +31,8 @@ export interface IForgotPasswordData {
   token: string;
 }
 
-export interface ISignee {
-  name: string;
-  designation: string;
-}
-
-export interface ICertificateData {
-  student_name: string;
-  event_name: string;
-  event_date: string;
-  event_start_time: string;
-  event_end_time: string;
-  event_venue?: string;
-  event_venue_specific: string;
-  signees: ISignee[];
-  images?: { [key: string]: string };
-  fonts: { [key: string]: string }; // Required
-  /**
-   * Note: Use relative path to /assets. e.g. images/logo.png
-   */
-}
+/**
+ * Note: Use relative path to /assets. e.g. images/logo.png
+ */
+export type TCertificateData = z.infer<typeof CertificateDataSchema>;
+export type TSignee = z.infer<typeof SigneeSchema>;

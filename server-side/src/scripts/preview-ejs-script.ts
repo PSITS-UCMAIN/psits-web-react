@@ -4,6 +4,7 @@ import ejs from "ejs";
 import { pngToBase64, ttfToBase64 } from "../utils/to-base64";
 import { Extensions, normalizeFinalPath } from "../utils/path-normalizer";
 import { validateAndFinalizeFilePath } from "../mail_template/utils/generate-pdf-from-ejs";
+import { CertificateDataSchema } from "../mail_template/mail.schema";
 
 const ROOT_DIR = path.resolve(__dirname, "..");
 const ASSETS_BASE_DIR = path.resolve(ROOT_DIR, "assets");
@@ -24,6 +25,7 @@ async function runPreview(templatePath: string, testDataPath: string) {
       throw new Error(`Data file not found: ${fullTestDataPath}`);
 
     const data = JSON.parse(fs.readFileSync(fullTestDataPath, "utf-8"));
+    const parsedData = CertificateDataSchema.parse(data);
 
     if (data.images) {
       for (const [key, value] of Object.entries(data.images)) {
@@ -49,7 +51,9 @@ async function runPreview(templatePath: string, testDataPath: string) {
       }
     }
 
-    const html = (await ejs.renderFile(fullTemplatePath, data)) as string;
+    const html = (await ejs.renderFile(fullTemplatePath, data, {
+      cache: true,
+    })) as string;
     fs.writeFileSync(outputPath, html);
 
     console.log("EJS preview HTML file successfully generated.");

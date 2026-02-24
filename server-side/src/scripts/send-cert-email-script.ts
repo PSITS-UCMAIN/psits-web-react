@@ -3,13 +3,17 @@ import fs from "fs";
 
 require("dotenv").config({ path: path.resolve(__dirname, "../../.env") });
 
-import { ICertificateData } from "../mail_template/mail.interface";
+import { TCertificateData } from "../mail_template/mail.interface";
 import { certificateOfParticipationEmail } from "../mail_template/mail.template";
+import { CertificateDataSchema } from "../mail_template/mail.schema";
 
 /**
  * Generate automated certs and sending an email payload to target email
  */
-async function sendCertEmail(testDataPath: string, studentEmail: string) {
+export async function sendCertEmail(
+  testDataPath: string,
+  studentEmail: string
+) {
   const root = path.resolve(__dirname, "..");
   const fullDataPath = path.join(root, testDataPath);
 
@@ -18,35 +22,20 @@ async function sendCertEmail(testDataPath: string, studentEmail: string) {
 
   const data = JSON.parse(
     fs.readFileSync(fullDataPath, "utf-8")
-  ) as ICertificateData;
+  ) as TCertificateData;
 
-  if (
-    !data ||
-    !studentEmail ||
-    !data.student_name ||
-    !data.event_name ||
-    !data.event_date ||
-    !data.event_start_time ||
-    !data.event_end_time ||
-    !data.event_venue_specific ||
-    !data.images ||
-    !data.fonts ||
-    !data.signees
-  ) {
-    throw Error("Some required fields in data are missing.");
-  }
+  if (!studentEmail) throw Error("The studentEmail argument is required.");
+  if (!data) throw Error("Failed to parse data from the provided path.");
 
-  const res = (await certificateOfParticipationEmail(data, studentEmail)) as {
+  const parsedData = CertificateDataSchema.parse(data);
+
+  const res = (await certificateOfParticipationEmail(
+    parsedData,
+    studentEmail
+  )) as {
     status: boolean;
     message: string;
   };
-
-  if (res.status) {
-    console.log(res.message);
-  } else {
-    console.log(res.message);
-  }
-
   return res;
 }
 

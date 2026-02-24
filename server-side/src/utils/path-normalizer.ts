@@ -21,26 +21,36 @@ export function isFilenameExtensionsAny(
   return extensions.some((ext) => fileExt === ext.toLowerCase());
 }
 
+export function isFilePathAbsolute(filePath: string) {
+  if (!path.isAbsolute(filePath)) {
+    throw new Error("Base path must be an absolute path.");
+  }
+
+  if (!fs.existsSync(filePath)) {
+    throw new Error("Base path does not exist.");
+  }
+
+  if (!fs.statSync(filePath).isDirectory()) {
+    throw new Error("Base path is not a directory.");
+  }
+
+  return filePath;
+}
+
+/**
+ * Normalizes and safely joins an absolute path with a relative path
+ */
 export const normalizeFinalPath = (
   basePath: string,
   filePath: string
 ): string => {
-  if (!path.isAbsolute(basePath)) {
-    throw Error("Base path must be an absolute path.");
-  }
-
-  if (!fs.existsSync(basePath)) {
-    throw Error("Base path does not exist.");
-  }
-
-  if (!fs.statSync(basePath).isDirectory()) {
-    throw Error("Base path is not a directory.");
-  }
-
   const normalizedPath = normalizeBackwardSlashes(filePath);
   const fullPath = path.resolve(basePath, normalizedPath);
-  if (!fullPath.startsWith(basePath, +path.sep)) {
-    throw Error("Invalid file path.");
+
+  isFilePathAbsolute(basePath);
+
+  if (!fullPath.startsWith(basePath + path.sep)) {
+    throw new Error("Invalid file path.");
   }
 
   return fullPath;

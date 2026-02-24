@@ -5,10 +5,11 @@ import {
   IMembershipRequest,
   IOrderReceipt,
   IForgotPasswordData,
-  ICertificateData,
+  TCertificateData,
 } from "./mail.interface";
 import dotenv from "dotenv";
 import { generatePDFFromEJS } from "./utils/generate-pdf-from-ejs";
+import { CertificateDataSchema } from "./mail.schema";
 dotenv.config();
 
 const transporter = nodemailer.createTransport({
@@ -154,26 +155,29 @@ export const forgotPasswordMail = async (
  * Sends an autmated certificate of participation to a single email
  */
 export const certificateOfParticipationEmail = async (
-  data: ICertificateData,
+  data: TCertificateData,
   studentEmail: string
 ) => {
   try {
+    const parsedData = CertificateDataSchema.parse(data);
+
     const pdfBuffer = await generatePDFFromEJS(
       "ejs/pdf-ejs/certificate.ejs",
-      data
+      parsedData
     );
 
     const emailTemplate = await ejs.renderFile(
       path.join(__dirname, "../assets/ejs/cert-participation-mail-body.ejs"),
-      data
+      parsedData,
+      { cache: true }
     );
 
-    const fileName = `${data.student_name}-CERT.pdf`.toUpperCase();
+    const fileName = `${parsedData.student_name}-CERT.pdf`.toUpperCase();
 
     const mailOptions = {
       from: process.env.EMAIL,
       to: studentEmail,
-      subject: `Congratulations for Attending ${data.event_name}!`,
+      subject: `Congratulations for Attending ${parsedData.event_name}!`,
       html: emailTemplate,
       attachments: [
         {
@@ -192,7 +196,7 @@ export const certificateOfParticipationEmail = async (
         } else {
           resolve({
             status: true,
-            message: `Cert of participation for ${data.student_name} Sent`,
+            message: `Cert of participation for ${parsedData.student_name} Sent`,
           });
         }
       });
