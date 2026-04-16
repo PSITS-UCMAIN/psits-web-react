@@ -59,9 +59,14 @@ class PaginatedList<T> {
    * @param pageNumber - Current 1-based page number.
    * @param pageSize - Items per page (used to compute `totalPages`).
    */
-  constructor(items: T[], count: number, pageNumber: number, pageSize: number) {
+  constructor(
+    items: T[] = [],
+    count: number = 0,
+    pageNumber: number = 1,
+    pageSize: number = 1
+  ) {
     this.totalCount = count;
-    this.totalPages = pageSize > 0 ? Math.ceil(count / pageSize) : 0;
+    this.totalPages = pageSize > 0 ? Math.ceil(count / pageSize) : 1;
     this.pageNumber = Math.min(
       Math.max(1, pageNumber),
       Math.max(1, this.totalPages)
@@ -103,8 +108,8 @@ class PaginatedList<T> {
    */
   public static async createAsync<T>(
     query: IPaginationQuery<T>,
-    pageNumber: number,
-    pageSize: number
+    pageNumber: number = 1,
+    pageSize: number = 50
   ): Promise<PaginatedList<T>> {
     const { model, filter, select, sort } = query;
 
