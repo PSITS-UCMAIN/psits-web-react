@@ -59,15 +59,8 @@ class PaginatedList<T> {
     constructor(items: T[], count: number, pageNumber: number, pageSize: number) {
         this.totalCount = count;
         this.totalPages = pageSize > 0 ? Math.ceil(count / pageSize) : 0;
-        this.pageNumber = Math.min(Math.max(1, pageNumber), PaginatedList.maxPageNumber(this.totalPages));
+        this.pageNumber = Math.min(Math.max(1, pageNumber), Math.max(1, this.totalPages));
         this.items = items;
-    }
-
-    /**
-     * Helper method for getting max page number.
-     */
-    private static maxPageNumber(totalPages: number): number {
-        return Math.max(1, totalPages);
     }
 
     /**
