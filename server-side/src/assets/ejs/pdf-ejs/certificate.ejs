@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Certificate of Participation</title>
+    <!-- Importing Premium Fonts -->
+    <!-- <link
+        href="https://fonts.googleapis.com/css2?family=Alex+Brush&family=Cinzel:wght@700&family=Montserrat:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400&display=swap"
+        rel="stylesheet"> -->
+
+    <style>
+        /* A4 Landscape Dimensions */
+        @page {
+            size: A4 landscape;
+            margin: 0;
+        }
+
+        @font-face {
+            font-family: 'Alex Brush';
+            src: url('<%= fonts.alexbrush %>') format('truetype');
+        }
+
+        @font-face {
+            font-family: 'Cinzel';
+            src: url('<%= fonts.cinzel %>') format('truetype');
+        }
+
+
+        @font-face {
+            font-family: 'Montserrat';
+            src: url('<%= fonts.montserrat %>') format('truetype');
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-print-color-adjust: exact;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #f0f0f0;
+            font-family: 'Montserrat', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .certificate-wrapper {
+            width: 297mm;
+            height: 210mm;
+            background-color: #ffffff;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+        }
+
+        /* --- Background Pattern --- */
+        .bg-pattern {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #ffffff;
+            background-image:
+                linear-gradient(45deg, #f8f9fa 25%, transparent 25%),
+                linear-gradient(-45deg, #f8f9fa 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, #f8f9fa 75%),
+                linear-gradient(-45deg, transparent 75%, #f8f9fa 75%);
+            background-size: 40px 40px;
+            background-position: 0 0, 0 20px, 20px 20px, 20px 0;
+            opacity: 0.6;
+            z-index: 0;
+        }
+
+        /* --- Corner Decorations --- */
+        .decor {
+            position: absolute;
+            z-index: 1;
+        }
+
+        .decor-top-left {
+            top: -50px;
+            left: -50px;
+            width: 450px;
+            height: 350px;
+            background: linear-gradient(135deg, #002b7f 0%, #0056b3 100%);
+            clip-path: polygon(0 0, 100% 0, 60% 40%, 0 100%);
+        }
+
+        .decor-top-left-pattern {
+            top: -20px;
+            left: -20px;
+            width: 400px;
+            height: 300px;
+            background-image: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.05) 0px, rgba(255, 255, 255, 0.05) 2px, transparent 2px, transparent 15px);
+            clip-path: polygon(0 0, 100% 0, 50% 50%, 0 80%);
+        }
+
+        .decor-top-left-white {
+            top: 0;
+            left: 0;
+            width: 500px;
+            height: 200px;
+            background: rgba(255, 255, 255, 0.8);
+            clip-path: ellipse(80% 50% at 20% 0%);
+        }
+
+        /* Reduced height bottom decors */
+        .decor-bottom-right {
+            bottom: -60px;
+            right: -60px;
+            width: 500px;
+            height: 300px;
+            background: linear-gradient(225deg, #002b7f 0%, #0056b3 100%);
+            clip-path: polygon(100% 100%, 0 100%, 60% 90%, 100% 0%);
+        }
+
+        .decor-bottom-left {
+            bottom: -50px;
+            left: -50px;
+            width: 400px;
+            height: 250px;
+            background: linear-gradient(45deg, #002b7f 0%, #0056b3 100%);
+            clip-path: polygon(0 100%, 0 0, 30% 90%, 100% 100%);
+        }
+
+        .decor-bottom-pattern {
+            bottom: 0px;
+            left: 0px;
+            width: 100%;
+            height: 40px;
+            background: rgba(0, 43, 127, 0.9);
+            clip-path: ellipse(60% 100% at 50% 100%);
+            background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 25%, transparent 25%), linear-gradient(225deg, rgba(255, 255, 255, 0.1) 25%, transparent 25%);
+            background-size: 50px 50px;
+        }
+
+        /* --- Content Layout --- */
+        .content {
+            position: relative;
+            z-index: 10;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20mm 30mm;
+            text-align: center;
+        }
+
+        /* Logos */
+        .logos {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 30px;
+            align-items: center;
+        }
+
+        .logos img {
+            height: 80px;
+            width: auto;
+            object-fit: contain;
+        }
+
+        /* Main Heading */
+        .main-title {
+            font-family: 'Cinzel', serif;
+            font-size: 56pt;
+            color: #1a3a5f;
+            margin: 0;
+            letter-spacing: 5px;
+            line-height: 1;
+        }
+
+        .sub-title {
+            font-size: 16pt;
+            letter-spacing: 6px;
+            color: #1a3a5f;
+            font-weight: 600;
+            margin-top: 5px;
+            margin-bottom: 40px;
+            text-transform: uppercase;
+        }
+
+        /* Certification Line */
+        .certify-line {
+            font-size: 12pt;
+            text-transform: uppercase;
+            font-style: italic;
+            letter-spacing: 2px;
+            color: #333;
+            margin-bottom: 40px;
+            font-weight: 400;
+        }
+
+        /* Recipient Name */
+        .recipient-name {
+            font-family: 'Alex Brush', cursive;
+            font-size: 55pt;
+            color: #1a3a5f;
+            /* margin-top: 10px; */
+            min-width: 60%;
+            padding: 0px;
+            margin: 0px;
+        }
+
+        .name-box {
+            position: relative;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+        }
+
+        /* Divider Line */
+        .divider {
+            width: 80%;
+            height: 1px;
+            background-color: #1a3a5f;
+            margin: 5px 0;
+            opacity: 0.5;
+            position: absolute;
+            top: 70px;
+        }
+
+        /* Description */
+        .description {
+            font-size: 13pt;
+            color: #444;
+            max-width: 85%;
+            line-height: 1.8;
+            margin-top: 10px;
+        }
+
+        .bold {
+            font-weight: 700;
+            color: #1a3a5f;
+        }
+
+        /* --- Signees --- */
+        .signees {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: auto;
+            padding-bottom: 10px;
+        }
+
+        .signee-box {
+            width: 30%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .signee-line {
+            width: 80%;
+            border-top: 1.5px solid #1a3a5f;
+            margin-bottom: 8px;
+            padding-top: 8px;
+            font-weight: 700;
+            font-size: 11pt;
+            color: #1a3a5f;
+        }
+
+        .signee-signature img {
+            height: 80px;
+            object-fit: contain;
+            margin-bottom: 8px;
+            display: block;
+            transform: translateY(30px);
+        }
+
+        .signee-role {
+            font-size: 9pt;
+            font-style: italic;
+            text-transform: uppercase;
+            color: #666;
+            letter-spacing: 1px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="certificate-wrapper">
+        <div class="bg-pattern"></div>
+
+        <!-- Corner Decors -->
+        <div class="decor decor-top-left"></div>
+        <div class="decor decor-top-left-pattern"></div>
+        <div class="decor decor-top-left-white"></div>
+        <div class="decor decor-bottom-right"></div>
+        <div class="decor decor-bottom-left"></div>
+        <div class="decor decor-bottom-pattern"></div>
+
+        <div class="content">
+            <!-- Logos Header -->
+            <% if (images && images.main_logo) { %>
+            <div class="logos">
+                <img src="<%= images.main_logo %>" alt="Logos">
+            </div>
+            <% } %>
+
+            <!-- Header Titles -->
+            <h1 class="main-title">CERTIFICATE</h1>
+            <div class="sub-title">of Participation</div>
+
+            <!-- Certification Text -->
+            <div class="certify-line">This is to certify that:</div>
+
+            <!-- Name of Participant -->
+            <div class="name-box">
+                <div class="recipient-name"><%= student_name %></div>
+                <div class="divider"></div>
+            </div>
+
+            <!-- Event Description -->
+            <div class="description">
+                Has successfully participated in the <span class="bold"><%= event_name %></span>
+                <% if (typeof event_theme !== 'undefined' && event_theme) { %>
+                with the theme <span class="bold">"<%= event_theme %>"</span>
+                <% } %>
+                held on <span class="bold"><%= event_date %></span>, from <span
+                    class="bold"><%= event_start_time %></span> to <span class="bold"><%= event_end_time %></span>
+                at <span class="bold"><%= event_venue_specific %></span><% if (event_venue) { %>,
+                <%= event_venue %><% } %>.
+            </div>
+
+            <!-- Signees Section -->
+            <div class="signees">
+                <% for (let i = 0; i < signees.length; i++) { %>
+                    <div class="signee-box">
+                        <% if (signees[i].e_sig && images && images[signees[i].e_sig]) { %>
+                        <div class="signee-signature">
+                            <img src="<%= images[signees[i].e_sig] %>" alt="signature" />
+                        </div>
+                        <% } %>
+                        <div class="signee-line"><%= signees[i].name %></div>
+                        <div class="signee-role"><%= signees[i].designation %></div>
+                    </div>
+                    <% } %>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

@@ -1,0 +1,49 @@
+[
+  {
+    "studentData": {
+      "student_name": "Jan Lorenz Laroco",
+      "event_name": "12th UC CCS ICT Congress 2026",
+      "event_theme": "Innovating the Future: Empowering Society Through Intelligent Technologies",
+      "event_date": "April 22, 2026",
+      "event_start_time": "12:00 PM",
+      "event_end_time": "6:00 PM",
+      "event_venue_specific": "New Cebu Colosseum",
+      "event_venue": "Sanciangko St., Cebu City",
+      "images": {
+        "main_logo": "images/etc/all_logos-removebg-preview.png",
+        "esig_basabe": "images/etc/neil_basabbe-removebg-preview.png",
+        "esig_tanquis": "images/etc/janette_tanquis-removebg-preview.png",
+        "esig_ortega": "images/etc/eric_ortega-removebg-preview.png",
+        "esig_petalver": "images/etc/carlo_petalver-removebg-preview.png"
+      },
+      "fonts": {
+        "alexbrush": "ejs/fonts/AlexBrush-Regular.ttf",
+        "cinzel": "ejs/fonts/Cinzel-VariableFont_wght.ttf",
+        "montserrat": "ejs/fonts/Montserrat-VariableFont_wght.ttf"
+      },
+      "signees": [
+        {
+          "name": "Neil A. Basabe, MIT",
+          "designation": "Dean, UC-Main College of Computer Studies",
+          "e_sig": "esig_basabe"
+        },
+        {
+          "name": "Dr. Janette Tanquis",
+          "designation": "Dean, UC-LM College of Computer Studies",
+          "e_sig": "esig_tanquis"
+        },
+        {
+          "name": "Eric Ortega",
+          "designation": "Dean, UC-Banilad College of Computer Studies",
+          "e_sig": "esig_ortega"
+        },
+        {
+          "name": "Carlo D. Petalver, MIT",
+          "designation": "Dean, UC-PT College of Computer Studies",
+          "e_sig": "esig_petalver"
+        }
+      ]
+    },
+    "studentEmail": "[EMAIL]"
+  }
+]

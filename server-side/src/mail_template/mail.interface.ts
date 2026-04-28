@@ -1,4 +1,6 @@
 import { ICart } from "../models/cart.interface";
+import { CertificateDataSchema, SigneeSchema } from "./mail.schema";
+import { z } from "zod";
 
 export interface IMembershipRequest {
   name: string;
@@ -23,3 +25,9 @@ export interface IOrderReceipt {
   cash: number;
   total: number;
 }
+
+/**
+ * Note: Use relative path to /assets. e.g. images/logo.png
+ */
+export type TCertificateData = z.infer<typeof CertificateDataSchema>;
+export type TSignee = z.infer<typeof SigneeSchema>;

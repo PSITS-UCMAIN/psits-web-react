@@ -1,7 +1,14 @@
 import ejs from "ejs";
 import path from "path";
 import nodemailer from "nodemailer";
-import { IMembershipRequest, IOrderReceipt } from "./mail.interface";
+import {
+  IMembershipRequest,
+  IOrderReceipt,
+  TCertificateData,
+} from "./mail.interface";
+// dynamic imports for schema and PDF generator are used below to avoid
+// circular import issues at runtime
+
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -171,4 +178,66 @@ export const forgotPasswordMail = async (
     console.log("Success sent email for ", studentMail);
     return { status: true, message: "Email Sent" };
   });
+};
+
+/**
+ * Sends an autmated certificate of participation to a single email
+ */
+export const certificateOfParticipationEmail = async (
+  data: TCertificateData,
+  studentEmail: string
+) => {
+  try {
+    const { CertificateDataSchema } = await import("./mail.schema");
+    const { generatePDFFromEJS } = await import("./utils/generate-pdf-from-ejs");
+
+    const parsedData = CertificateDataSchema.parse(data);
+
+    const pdfBuffer = await generatePDFFromEJS(
+      "ejs/pdf-ejs/certificate.ejs",
+      parsedData
+    );
+
+    const emailTemplate = await ejs.renderFile(
+      path.join(__dirname, "../assets/ejs/cert-participation-mail-body.ejs"),
+      parsedData,
+      { cache: true }
+    );
+
+    const fileName = `${parsedData.student_name}-CERT.pdf`.toUpperCase();
+
+    const mailOptions = {
+      from: process.env.EMAIL,
+      to: studentEmail,
+      subject: `Congratulations for Attending ${parsedData.event_name}!`,
+      html: emailTemplate,
+      attachments: [
+        {
+          filename: fileName,
+          content: Buffer.from(pdfBuffer),
+          contentType: "application/pdf",
+        },
+      ],
+    };
+
+    return new Promise((resolve, reject) => {
+      transporter.sendMail(mailOptions, (err, info) => {
+        if (err) {
+          console.error("Error sending email:", err.message);
+          resolve({ status: false, message: "Error sending email" });
+        } else {
+          resolve({
+            status: true,
+            message: `Cert of participation for ${parsedData.student_name} Sent`,
+          });
+        }
+      });
+    });
+  } catch (err: any) {
+    console.error(
+      "Unexpected errors when attempting to send/process certificate email: ",
+      err.message
+    );
+    throw err;
+  }
 };
