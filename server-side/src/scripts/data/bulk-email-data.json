@@ -7,7 +7,7 @@
       "event_date": "April 22, 2026",
       "event_start_time": "12:00 PM",
       "event_end_time": "6:00 PM",
-      "event_venue_specific": "New Cebu Colosseum",
+      "event_venue_specific": "New Cebu Coliseum",
       "event_venue": "Sanciangko St., Cebu City",
       "images": {
         "main_logo": "images/etc/all_logos-removebg-preview.png",
@@ -47,3 +47,4 @@
     "studentEmail": "[EMAIL]"
   }
 ]
+
