@@ -2,7 +2,30 @@ import { Request, Response, NextFunction } from "express";
 import { EligibleCertificate } from "../models/eligibleCertificate.model";
 import { Student } from "../models/student.model";
 import { Attendee } from "../models/attendee.model";
+import { Event } from "../models/event.model";
 import { Types } from "mongoose";
+
+const escapeRegex = (value: string) =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const findStudentByIdNumber = async (rawIdNumber: string) => {
+  const normalized = String(rawIdNumber ?? "").trim().toLowerCase();
+  const baseIdNumber = normalized.split("-")[0]?.trim() ?? "";
+
+  // Try exact matches first against both possible fields (studentId and id_number)
+  let student = await Student.findOne({ studentId: normalized });
+  if (!student) {
+    student = await Student.findOne({ id_number: normalized });
+  }
+
+  // If exact not found, try matching by base (digits before any dash)
+  if (!student && baseIdNumber) {
+    const regex = new RegExp(`^${escapeRegex(baseIdNumber)}(?:-.*)?$`, "i");
+    student = await Student.findOne({ studentId: regex }) || (await Student.findOne({ id_number: regex }));
+  }
+
+  return student;
+};
 
 /**
  * Add one or multiple eligible certificates
@@ -31,7 +54,7 @@ export const addEligibleCertificates = async (
 
     for (const attendeeId of attendeeIds) {
       try {
-        // Validate ObjectId format
+        // attendeeId may be either a Student._id (preferred) or an Event.attendees._id (embedded attendee id).
         if (!Types.ObjectId.isValid(attendeeId)) {
           results.errors.push({
             attendeeId,
@@ -40,9 +63,30 @@ export const addEligibleCertificates = async (
           continue;
         }
 
-        // Get student details for denormalization
-        const student = await Student.findById(attendeeId);
-        if (!student) {
+        // Try finding a Student document by this id first
+        let student = await Student.findById(attendeeId);
+        let resolvedStudentId = null as null | typeof student;
+
+        if (student) {
+          resolvedStudentId = student;
+        } else {
+          // If not a Student._id, try to resolve it as an Event.attendees._id -> find attendee subdoc to get id_number
+          const eventDoc = await Event.findOne(
+            { _id: new Types.ObjectId(eventId), "attendees._id": new Types.ObjectId(attendeeId) },
+            { "attendees.$": 1 }
+          );
+
+          if (eventDoc && eventDoc.attendees && eventDoc.attendees.length > 0) {
+            const attendeeSub = (eventDoc.attendees as any)[0];
+            const idNumber = attendeeSub.id_number;
+            if (idNumber) {
+              student = await findStudentByIdNumber(idNumber);
+              if (student) resolvedStudentId = student;
+            }
+          }
+        }
+
+        if (!resolvedStudentId) {
           results.errors.push({
             attendeeId,
             reason: "Student not found",
@@ -50,17 +94,20 @@ export const addEligibleCertificates = async (
           continue;
         }
 
-        // Create eligible certificate record
+        const finalStudent = resolvedStudentId as any;
+        const studentObjectId = finalStudent._id.toString();
+
+        // Create eligible certificate record using the Student._id as attendeeId
         const eligibleCert = new EligibleCertificate({
-          evaluationId: `${eventId}-${attendeeId}`,
+          evaluationId: `${eventId}-${studentObjectId}`,
           eventId: new Types.ObjectId(eventId),
-          attendeeId: new Types.ObjectId(attendeeId),
-          studentIdNumber: (student as any).id_number,
+          attendeeId: new Types.ObjectId(studentObjectId),
+          studentIdNumber: finalStudent.id_number,
           createdBy: createdBy || "admin",
         });
 
         await eligibleCert.save();
-        results.added.push(attendeeId);
+        results.added.push(studentObjectId);
       } catch (error: any) {
         if (error.code === 11000) {
           // Duplicate key error
@@ -103,17 +150,61 @@ export const removeEligibleCertificates = async (
       });
     }
 
-    const objectIdAttendees = attendeeIds.map((id) => new Types.ObjectId(id));
+    // Resolve provided attendeeIds to Student._id values when possible.
+    const resolvedStudentIds: any[] = [];
+    const notFound: string[] = [];
 
-    const result = await EligibleCertificate.deleteMany({
+    for (const id of attendeeIds) {
+      if (!Types.ObjectId.isValid(id)) {
+        notFound.push(id);
+        continue;
+      }
+      // Try as Student._id first
+      const student = await Student.findById(id);
+      if (student) {
+        resolvedStudentIds.push(student._id);
+        continue;
+      }
+
+      // Otherwise try to find attendee subdoc in event and map by id_number
+      const eventDoc = await Event.findOne(
+        { _id: new Types.ObjectId(eventId), "attendees._id": new Types.ObjectId(id) },
+        { "attendees.$": 1 }
+      );
+      if (eventDoc && eventDoc.attendees && eventDoc.attendees.length > 0) {
+        const attendeeSub = (eventDoc.attendees as any)[0];
+        const idNumber = attendeeSub.id_number;
+        if (idNumber) {
+          const studentByNum = await findStudentByIdNumber(idNumber);
+          if (studentByNum) {
+            resolvedStudentIds.push(studentByNum._id);
+            continue;
+          }
+        }
+      }
+
+      notFound.push(id);
+    }
+
+    if (resolvedStudentIds.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: `Removed 0 eligible certificates`,
+        deletedCount: 0,
+        notFound,
+      });
+    }
+
+    const objectIdAttendees = resolvedStudentIds.map((id) => new Types.ObjectId(id));
+    const result = await EligibleCertificate.deleteMany({
       eventId: new Types.ObjectId(eventId),
       attendeeId: { $in: objectIdAttendees },
     });
-
-    return res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: `Removed ${result.deletedCount} eligible certificates`,
       deletedCount: result.deletedCount,
+      notFound,
     });
   } catch (error) {
     next(error);
@@ -188,10 +279,22 @@ export const bulkCheckEligibility = async (
       duplicates: [] as { studentId: string; attendeeId: string }[],
     };
 
-    for (const studentId of studentIdNumbers) {
+    // Helper to keep only digits from input (removes commas and other chars)
+    const sanitizeStudentId = (s: unknown): string => String(s ?? "").replace(/\D/g, "").trim();
+
+    for (const studentIdRaw of studentIdNumbers) {
+      const studentId = sanitizeStudentId(studentIdRaw);
+      if (!studentId) {
+        results.invalid.push({
+          studentId: String(studentIdRaw),
+          reason: "Invalid student ID format",
+        });
+        continue;
+      }
+
       try {
-        // Find student by student ID number
-        const student = await Student.findOne({ studentId: studentId.trim() });
+        // Find student by sanitized student ID number
+        const student = await findStudentByIdNumber(studentId);
         if (!student) {
           results.invalid.push({
             studentId,
@@ -200,10 +303,11 @@ export const bulkCheckEligibility = async (
           continue;
         }
 
-        // Check if student attended the event
-        const attendee = await Attendee.findOne({
-          eventId: new Types.ObjectId(eventId),
-          studentId: student._id,
+        // Check if student attended the event — attendees are embedded in Event.attendees
+        const idNumberToMatch = String((student as any).id_number ?? "").trim();
+        const attendee = await Event.findOne({
+          _id: new Types.ObjectId(eventId),
+          attendees: { $elemMatch: { id_number: new RegExp(`^${escapeRegex(idNumberToMatch)}$`, "i") } },
         });
 
         if (!attendee) {
@@ -261,10 +365,12 @@ export const importEligibleCertificatesFromCSV = async (
   next: NextFunction
 ) => {
   try {
+    const logPrefix = "[eligibleCertificate][csv-import]";
     const { eventId } = req.body;
     const file = req.file;
 
     if (!eventId) {
+      console.warn(`${logPrefix} missing eventId in request body`);
       return res.status(400).json({
         success: false,
         message: "eventId is required",
@@ -272,20 +378,52 @@ export const importEligibleCertificatesFromCSV = async (
     }
 
     if (!file) {
+      console.warn(`${logPrefix} missing CSV file for eventId=${eventId}`);
       return res.status(400).json({
         success: false,
         message: "CSV file is required",
       });
     }
 
+    console.log(
+      `${logPrefix} start eventId=${eventId} filename=${file.originalname} size=${file.size}`
+    );
+
     // Parse CSV content
     const csvContent = file.buffer.toString("utf-8");
     const lines = csvContent.split(/\r?\n/).filter((line) => line.trim());
 
-    // Extract student ID numbers (assuming single column, no header)
-    const studentIdNumbers = lines.map((line) => line.trim()).filter(Boolean);
+    // Extract and sanitize student ID numbers (allow optional suffix like -ucmn, -ucpt, -uclm, -ucb)
+    const sanitizeStudentId = (s: string): string => {
+      const raw = String(s ?? "").trim();
+      if (!raw) return "";
+      // remove surrounding quotes, whitespace and stray commas
+      const cleaned = raw.replace(/^["'\s]+|["'\s]+$|,/g, "").trim();
+      const m = cleaned.match(/^(\d+)(?:-([A-Za-z]+))?$/);
+      if (!m) {
+        // fallback: extract leading digits only
+        const d = cleaned.match(/(\d+)/);
+        return d ? d[1] : "";
+      }
+      const digits = m[1];
+      const suffix = m[2] ? `-${m[2].toLowerCase()}` : "";
+      // allow only known campus suffixes, otherwise drop suffix
+      const allowed = new Set(["ucmn", "ucpt", "uclm", "ucb"]);
+      return suffix && !allowed.has(m[2].toLowerCase()) ? digits : digits + suffix;
+    };
+
+    const studentIdNumbers = lines
+      .map((line) => sanitizeStudentId(line))
+      .filter(Boolean);
+
+    console.log(
+      `${logPrefix} parsed csv lines=${lines.length} sanitizedIds=${studentIdNumbers.length}`
+    );
 
     if (studentIdNumbers.length === 0) {
+      console.warn(
+        `${logPrefix} no valid student IDs extracted from CSV for eventId=${eventId}`
+      );
       return res.status(400).json({
         success: false,
         message: "CSV file is empty or invalid",
@@ -305,8 +443,12 @@ export const importEligibleCertificatesFromCSV = async (
 
     for (const studentId of studentIdNumbers) {
       try {
-        const student = await Student.findOne({ studentId: studentId.trim() });
+        const student = await findStudentByIdNumber(studentId);
         if (!student) {
+          console.log(
+            `${logPrefix} validation not-found studentId=${studentId} eventId=${eventId}`
+          );
+
           validationResults.invalid.push({
             studentId,
             reason: "Student ID not found in system",
@@ -314,12 +456,17 @@ export const importEligibleCertificatesFromCSV = async (
           continue;
         }
 
-        const attendee = await Attendee.findOne({
-          eventId: new Types.ObjectId(eventId),
-          studentId: student._id,
+        // Attendees are stored as subdocuments in Event.attendees; check there for a matching id_number
+        const idNumberToMatch = String((student as any).id_number ?? "").trim();
+        const attendee = await Event.findOne({
+          _id: new Types.ObjectId(eventId),
+          attendees: { $elemMatch: { id_number: new RegExp(`^${escapeRegex(idNumberToMatch)}$`, "i") } },
         });
 
         if (!attendee) {
+          console.log(
+            `${logPrefix} validation not-attendee studentId=${studentId} eventId=${eventId}`
+          );
           validationResults.invalid.push({
             studentId,
             reason: "Student did not attend this event",
@@ -333,6 +480,9 @@ export const importEligibleCertificatesFromCSV = async (
         });
 
         if (existingEligible) {
+          console.log(
+            `${logPrefix} validation duplicate studentId=${studentId} attendeeId=${student._id.toString()}`
+          );
           validationResults.duplicates.push({
             studentId,
             attendeeId: student._id.toString(),
@@ -353,6 +503,10 @@ export const importEligibleCertificatesFromCSV = async (
       }
     }
 
+    console.log(
+      `${logPrefix} validation summary valid=${validationResults.valid.length} invalid=${validationResults.invalid.length} duplicates=${validationResults.duplicates.length}`
+    );
+
     // Import valid students
     const importResults = {
       imported: 0,
@@ -372,12 +526,19 @@ export const importEligibleCertificatesFromCSV = async (
         await eligibleCert.save();
         importResults.imported++;
       } catch (error: any) {
+        console.error(
+          `${logPrefix} import save failed studentId=${validStudent.studentId} reason=${error.message || "Failed to save"}`
+        );
         importResults.errors.push({
           studentId: validStudent.studentId,
           reason: error.message || "Failed to save",
         });
       }
     }
+
+    console.log(
+      `${logPrefix} response summary imported=${importResults.imported} invalid=${validationResults.invalid.length} duplicates=${validationResults.duplicates.length} errors=${importResults.errors.length}`
+    );
 
     return res.status(200).json({
       success: true,
