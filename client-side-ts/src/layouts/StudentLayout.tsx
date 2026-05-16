@@ -47,6 +47,17 @@ export const StudentLayout: React.FC = () => {
 
             <li>
               <NavLink
+                to="certificates"
+                className={({ isActive }) =>
+                  `pb-3 ${isActive ? 'border-b-4 border-sky-400' : 'border-b-4 border-transparent'}`
+                }
+              >
+                Event Certificates
+              </NavLink>
+            </li>
+
+            <li>
+              <NavLink
                 to="account-settings"
                 className={({ isActive }) =>
                   `pb-3 ${isActive || isIndexRoute ? 'border-b-4 border-sky-400' : 'border-b-4 border-transparent'}`
