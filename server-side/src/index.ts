@@ -1,11 +1,23 @@
 import dotenv from "dotenv";
 import mongoose from "mongoose";
 import cron from "node-cron";
+import dns from "node:dns";
 
 import { checkPromos } from "./custom_function/check_promo";
 import { createApp } from "./app";
 
 dotenv.config();
+
+// Force DNS servers to avoid Windows SRV ECONNREFUSED issues (see https://alexbevi.com/blog/2023/11/13/querysrv-errors-when-connecting-to-mongodb-atlas/)
+if (process.env.FORCE_DNS !== "false") {
+  try {
+    dns.setServers(["1.1.1.1", "8.8.8.8"]);
+    console.log('Set DNS servers to 1.1.1.1,8.8.8.8 for Atlas SRV lookups');
+  } catch (err) {
+    console.warn('Failed to set DNS servers:', err);
+  }
+}
+
 
 const app = createApp();
 
