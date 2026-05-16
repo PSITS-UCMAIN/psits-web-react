@@ -9,10 +9,11 @@ import { createApp } from "./app";
 dotenv.config();
 
 // Force DNS servers to avoid Windows SRV ECONNREFUSED issues (see https://alexbevi.com/blog/2023/11/13/querysrv-errors-when-connecting-to-mongodb-atlas/)
-if (process.env.FORCE_DNS !== "false") {
+// Only apply this workaround when running against the local/test database name `psits-test`.
+if ((process.env.DB_NAME ?? "psits-test") === "psits-test" && process.env.FORCE_DNS !== "false") {
   try {
     dns.setServers(["1.1.1.1", "8.8.8.8"]);
-    console.log('Set DNS servers to 1.1.1.1,8.8.8.8 for Atlas SRV lookups');
+    console.log('Set DNS servers to 1.1.1.1,8.8.8.8 for Atlas SRV lookups (applied for psits-test)');
   } catch (err) {
     console.warn('Failed to set DNS servers:', err);
   }

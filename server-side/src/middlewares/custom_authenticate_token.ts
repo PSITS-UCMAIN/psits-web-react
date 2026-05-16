@@ -72,7 +72,17 @@ export const student_authenticate = (
 
   jwt.verify(token, token_key, async (err: any, decoded: any) => {
     if (err) {
+      // Log verify error for debugging (do not log the token itself)
+      console.error('[student_authenticate] JWT verify error:', err && err.message ? err.message : err);
       return res.status(403).json({ message: "Forbidden" });
+    }
+
+    // Log decoded user identifier for debugging (avoid printing entire token)
+    try {
+      const decodedUserIdNum = decoded?.user?.id_number;
+      console.log('[student_authenticate] decoded user id_number:', decodedUserIdNum);
+    } catch (logErr) {
+      console.error('[student_authenticate] failed to read decoded payload', logErr);
     }
 
     try {

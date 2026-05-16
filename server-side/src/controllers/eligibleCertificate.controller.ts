@@ -370,24 +370,19 @@ export const importEligibleCertificatesFromCSV = async (
     const file = req.file;
 
     if (!eventId) {
-      console.warn(`${logPrefix} missing eventId in request body`);
-      return res.status(400).json({
-        success: false,
-        message: "eventId is required",
-      });
+    return res.status(400).json({
+      success: false,
+      message: "eventId is required",
+    });
     }
 
     if (!file) {
-      console.warn(`${logPrefix} missing CSV file for eventId=${eventId}`);
       return res.status(400).json({
         success: false,
         message: "CSV file is required",
       });
     }
 
-    console.log(
-      `${logPrefix} start eventId=${eventId} filename=${file.originalname} size=${file.size}`
-    );
 
     // Parse CSV content
     const csvContent = file.buffer.toString("utf-8");
@@ -416,14 +411,8 @@ export const importEligibleCertificatesFromCSV = async (
       .map((line) => sanitizeStudentId(line))
       .filter(Boolean);
 
-    console.log(
-      `${logPrefix} parsed csv lines=${lines.length} sanitizedIds=${studentIdNumbers.length}`
-    );
 
     if (studentIdNumbers.length === 0) {
-      console.warn(
-        `${logPrefix} no valid student IDs extracted from CSV for eventId=${eventId}`
-      );
       return res.status(400).json({
         success: false,
         message: "CSV file is empty or invalid",
@@ -445,9 +434,6 @@ export const importEligibleCertificatesFromCSV = async (
       try {
         const student = await findStudentByIdNumber(studentId);
         if (!student) {
-          console.log(
-            `${logPrefix} validation not-found studentId=${studentId} eventId=${eventId}`
-          );
 
           validationResults.invalid.push({
             studentId,
@@ -464,9 +450,6 @@ export const importEligibleCertificatesFromCSV = async (
         });
 
         if (!attendee) {
-          console.log(
-            `${logPrefix} validation not-attendee studentId=${studentId} eventId=${eventId}`
-          );
           validationResults.invalid.push({
             studentId,
             reason: "Student did not attend this event",
@@ -480,9 +463,6 @@ export const importEligibleCertificatesFromCSV = async (
         });
 
         if (existingEligible) {
-          console.log(
-            `${logPrefix} validation duplicate studentId=${studentId} attendeeId=${student._id.toString()}`
-          );
           validationResults.duplicates.push({
             studentId,
             attendeeId: student._id.toString(),
@@ -503,9 +483,6 @@ export const importEligibleCertificatesFromCSV = async (
       }
     }
 
-    console.log(
-      `${logPrefix} validation summary valid=${validationResults.valid.length} invalid=${validationResults.invalid.length} duplicates=${validationResults.duplicates.length}`
-    );
 
     // Import valid students
     const importResults = {
@@ -526,9 +503,6 @@ export const importEligibleCertificatesFromCSV = async (
         await eligibleCert.save();
         importResults.imported++;
       } catch (error: any) {
-        console.error(
-          `${logPrefix} import save failed studentId=${validStudent.studentId} reason=${error.message || "Failed to save"}`
-        );
         importResults.errors.push({
           studentId: validStudent.studentId,
           reason: error.message || "Failed to save",
@@ -536,9 +510,6 @@ export const importEligibleCertificatesFromCSV = async (
       }
     }
 
-    console.log(
-      `${logPrefix} response summary imported=${importResults.imported} invalid=${validationResults.invalid.length} duplicates=${validationResults.duplicates.length} errors=${importResults.errors.length}`
-    );
 
     return res.status(200).json({
       success: true,
