@@ -27,6 +27,7 @@ setInterval(() => {
  * Get all eligible certificates for authenticated student
  * GET /api/certificates/eligible
  * Requires student authentication
+ * Also returns the student's id_number as `studentIdNumber`
  */
 export const getEligibleCertificatesForStudent = async (
   req: Request,
@@ -34,8 +35,9 @@ export const getEligibleCertificatesForStudent = async (
   next: NextFunction
 ) => {
   try {
-    // Extract student ID from authenticated request
-    const studentId = (req as any).user?.id || (req as any).user?._id;
+    // Read student identity from authV2 middleware (req.userV2)
+    const studentId = (req as any).userV2?.sub;
+    const studentIdNumber = (req as any).userV2?.idNumber || null;
     
     if (!studentId) {
       return res.status(401).json({
@@ -52,6 +54,7 @@ export const getEligibleCertificatesForStudent = async (
     return res.status(200).json({
       success: true,
       count: eligibleCerts.length,
+      studentIdNumber,
       data: eligibleCerts,
     });
   } catch (error) {
@@ -72,9 +75,8 @@ export const generateCertificate = async (
   next: NextFunction
 ) => {
   try {
-    // Extract student ID from authenticated request
-    // Assuming auth middleware sets req.user with student data
-    const studentId = (req as any).user?.id || (req as any).user?._id;
+    // Extract student ID from authV2 middleware (req.userV2)
+    const studentId = (req as any).userV2?.sub;
     
     if (!studentId) {
       return res.status(401).json({
