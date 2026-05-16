@@ -150,7 +150,7 @@ export const forgotPasswordMail = async (
               </p>
               <div style="text-align: center; margin: 40px 0;">
                 <a
-                  href="${url}${token}" 
+                  href="${url}${token}"
                   style="display: inline-block; padding: 20px 25px; color: #fff; background-color: #007bff; text-decoration: none; border-radius: 5px; font-size: 24px;">
                   Reset Password
                 </a>
@@ -189,7 +189,8 @@ export const certificateOfParticipationEmail = async (
 ) => {
   try {
     const { CertificateDataSchema } = await import("./mail.schema");
-    const { generatePDFFromEJS } = await import("./utils/generate-pdf-from-ejs");
+    const { generatePDFFromEJS } =
+      await import("./utils/generate-pdf-from-ejs");
 
     const parsedData = CertificateDataSchema.parse(data);
 

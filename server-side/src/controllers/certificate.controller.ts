@@ -15,7 +15,7 @@ const CLEANUP_INTERVAL = 10 * 60 * 1000; // 10 minutes in milliseconds
 setInterval(() => {
   const now = Date.now();
   const cutoff = now - CLEANUP_INTERVAL;
-  
+
   for (const [studentId, timestamp] of cooldownStore.entries()) {
     if (timestamp < cutoff) {
       cooldownStore.delete(studentId);
@@ -38,7 +38,7 @@ export const getEligibleCertificatesForStudent = async (
     // Read student identity from authV2 middleware (req.userV2)
     const studentId = (req as any).userV2?.sub;
     const studentIdNumber = (req as any).userV2?.idNumber || null;
-    
+
     if (!studentId) {
       return res.status(401).json({
         success: false,
@@ -77,7 +77,7 @@ export const generateCertificate = async (
   try {
     // Extract student ID from authV2 middleware (req.userV2)
     const studentId = (req as any).userV2?.sub;
-    
+
     if (!studentId) {
       return res.status(401).json({
         success: false,
@@ -147,7 +147,7 @@ export const generateCertificate = async (
       event_date: "April 22, 2026",
       event_start_time: "12:00 PM",
       event_end_time: "6:00 PM",
-      event_venue_specific: "New Cebu Colosseum",
+      event_venue_specific: "New Cebu Coliseum",
       event_venue: "Sanciangko St., Cebu City",
       images: {
         main_logo: "images/etc/all_logos-removebg-preview.png",

@@ -1,7 +1,7 @@
 [
   {
     "studentData": {
-      "student_name": "Jan Lorenz Laroco",
+      "student_name": "[Student]",
       "event_name": "12th UC CCS ICT Congress 2026",
       "event_theme": "Innovating the Future: Empowering Society Through Intelligent Technologies",
       "event_date": "April 22, 2026",
@@ -23,22 +23,22 @@
       },
       "signees": [
         {
-          "name": "Neil A. Basabe, MIT",
+          "name": "[UC-Main Dean]",
           "designation": "Dean, UC-Main College of Computer Studies",
           "e_sig": "esig_basabe"
         },
         {
-          "name": "Dr. Janette Tanquis",
+          "name": "[UC-LM Dean]",
           "designation": "Dean, UC-LM College of Computer Studies",
           "e_sig": "esig_tanquis"
         },
         {
-          "name": "Eric Ortega",
+          "name": "[UC-Banilad Dean]",
           "designation": "Dean, UC-Banilad College of Computer Studies",
           "e_sig": "esig_ortega"
         },
         {
-          "name": "Carlo D. Petalver, MIT",
+          "name": "[UC-PT Dean]",
           "designation": "Dean, UC-PT College of Computer Studies",
           "e_sig": "esig_petalver"
         }
@@ -47,4 +47,3 @@
     "studentEmail": "[EMAIL]"
   }
 ]
-
