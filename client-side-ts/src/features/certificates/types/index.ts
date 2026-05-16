@@ -1,19 +1,19 @@
-export interface EligibleCertificate {
-  _id: string;
-  evaluationId: string;
-  eventId: string;
-  attendeeId: string;
-  studentIdNumber?: string;
-  createdAt: string;
-  createdBy?: string;
-}
-
 export interface CertificateEvent {
   _id: string;
   name: string;
   date: string;
   venue: string;
-  isEligible: boolean;
+  isEligible?: boolean;
+}
+
+export interface EligibleCertificate {
+  _id: string;
+  evaluationId: string;
+  eventId: string | CertificateEvent;
+  attendeeId: string;
+  studentIdNumber?: string;
+  createdAt: string;
+  createdBy?: string;
 }
 
 export interface GenerateCertificateResponse {
