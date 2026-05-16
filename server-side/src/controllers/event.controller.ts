@@ -180,21 +180,56 @@ export const getAllEventsAndAttendeesController = async (
   const { id } = req.params;
 
   try {
-    const eventId = new Types.ObjectId(id);
-    const merchData = await Merch.findById({ _id: eventId });
+    // Try to find the Event by its _id first (frontend should pass event._id)
+    let eventDoc = await Event.findById(id).lean();
 
-    const attendees = await Event.find({ eventId }).lean();
-    const hydratedEvents = await hydrateEventsAttendance(attendees);
-
-    if (attendees) {
-      res
-        .status(200)
-        .json({ data: hydratedEvents, merch_data: merchData ? merchData : {} });
-    } else {
-      res.status(500).json({ message: "No attendees" });
+    // Defensive fallback: if not found, the client may have sent a different id (e.g., EligibleCertificate._id or event.eventId). Try to resolve.
+    if (!eventDoc) {
+      // If id looks like an ObjectId, try to resolve as EligibleCertificate._id -> derive eventId
+      if (Types.ObjectId.isValid(id)) {
+        try {
+          const eligible = await (await import('../models/eligibleCertificate.model')).EligibleCertificate.findById(id).lean();
+          if (eligible && eligible.eventId) {
+            eventDoc = await Event.findById(eligible.eventId).lean();
+          }
+        } catch (e) {
+          // ignore and proceed to next fallback
+        }
+      }
     }
+
+    // Final fallback: maybe the client passed event.eventId (custom field). Try finding by eventId field.
+    if (!eventDoc) {
+      try {
+        if (Types.ObjectId.isValid(id)) {
+          eventDoc = await Event.findOne({ eventId: new Types.ObjectId(id) }).lean();
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    if (!eventDoc) {
+      return res.status(404).json({ message: "Event not found" });
+    }
+
+    // merchData references the merch by eventDoc.eventId (if present)
+    let merchData = null;
+    if (eventDoc.eventId) {
+      try {
+        merchData = await Merch.findById(eventDoc.eventId);
+      } catch (e) {
+        merchData = null;
+      }
+    }
+
+    // hydrate attendance for a single event
+    const hydratedEvents = await hydrateEventsAttendance([eventDoc]);
+
+    return res.status(200).json({ data: hydratedEvents, merch_data: merchData ? merchData : {} });
   } catch (error) {
     console.error(error);
+    res.status(500).json({ message: "Error fetching event attendees" });
   }
 };
 
