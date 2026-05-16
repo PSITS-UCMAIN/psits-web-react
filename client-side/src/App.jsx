@@ -70,6 +70,7 @@ import Logs from "./pages/admin/Logs";
 import Community from "./pages/Community";
 import Events from "./pages/Events";
 import DocumentationManagement from "./pages/admin/documentation/DocumentationManagement";
+import EligibleCertificates from "./pages/admin/EligibleCertificates";
 
 import StudentPaidOrders from "./pages/students/orders/PaidOrders";
 import StudentPendingOrder from "./pages/students/orders/PendingOrders";
@@ -136,6 +137,10 @@ const App = () => {
           <Route
             path="events/"
             element={<PrivateRouteAdmin element={AdminEvents} />}
+          />
+          <Route
+            path="certificates"
+            element={<PrivateRouteAdmin element={EligibleCertificates} />}
           />
           <Route
             path="attendance/:eventId"

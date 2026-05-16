@@ -58,6 +58,7 @@ const AdminLayout = () => {
           { text: "Members", icon: "fas fa-user-tie", path: "officers" },
           { text: "Students", icon: "fas fa-users", path: "students" },
           { text: "Events", icon: "fas fa-calendar-alt", path: "events" },
+          { text: "Certificates", icon: "fas fa-certificate", path: "certificates" },
           { text: "Merchandise", icon: "fas fa-boxes", path: "merchandise" },
         { text: "Orders", icon: "fas fa-shopping-cart", path: "orders" },
            { text: "Refund", icon: "fas fa-money-bill-wave", path: "refund" },

@@ -1249,3 +1249,171 @@ export const updateStudent = async (
     throw error;
   }
 };
+
+// Certificate Eligibility Management APIs
+
+/**
+ * Add eligible certificates for students
+ * @param {string} eventId - Event ID
+ * @param {string[]} attendeeIds - Array of student ObjectIds
+ * @param {string} createdBy - Admin who added the records
+ */
+export const addEligibleCertificates = async (eventId, attendeeIds, createdBy = "admin") => {
+  try {
+    const response = await axios.post(
+      `${backendConnection()}/api/admin/eligible-certificates`,
+      { eventId, attendeeIds, createdBy },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionStorage.getItem("Token")}`,
+        },
+      }
+    );
+
+    if (response.status === 200) {
+      showToast("success", response.data.message);
+      return response.data;
+    }
+  } catch (error) {
+    if (error.response && error.response.data) {
+      showToast("error", error.response.data.message || "An error occurred");
+    } else {
+      showToast("error", "An error occurred");
+    }
+    console.error("Error adding eligible certificates:", error);
+    throw error;
+  }
+};
+
+/**
+ * Remove eligible certificates for students
+ * @param {string} eventId - Event ID
+ * @param {string[]} attendeeIds - Array of student ObjectIds
+ */
+export const removeEligibleCertificates = async (eventId, attendeeIds) => {
+  try {
+    const response = await axios.delete(
+      `${backendConnection()}/api/admin/eligible-certificates`,
+      {
+        data: { eventId, attendeeIds },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionStorage.getItem("Token")}`,
+        },
+      }
+    );
+
+    if (response.status === 200) {
+      showToast("success", response.data.message);
+      return response.data;
+    }
+  } catch (error) {
+    if (error.response && error.response.data) {
+      showToast("error", error.response.data.message || "An error occurred");
+    } else {
+      showToast("error", "An error occurred");
+    }
+    console.error("Error removing eligible certificates:", error);
+    throw error;
+  }
+};
+
+/**
+ * Get all eligible certificates for an event
+ * @param {string} eventId - Event ID
+ */
+export const getEligibleCertificatesByEvent = async (eventId) => {
+  try {
+    const response = await axios.get(
+      `${backendConnection()}/api/admin/eligible-certificates/event/${eventId}`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionStorage.getItem("Token")}`,
+        },
+      }
+    );
+
+    if (response.status === 200) {
+      return response.data;
+    }
+  } catch (error) {
+    if (error.response && error.response.data) {
+      showToast("error", error.response.data.message || "An error occurred");
+    } else {
+      showToast("error", "An error occurred");
+    }
+    console.error("Error fetching eligible certificates:", error);
+    throw error;
+  }
+};
+
+/**
+ * Bulk check eligibility before adding
+ * @param {string} eventId - Event ID
+ * @param {string[]} studentIdNumbers - Array of student ID numbers
+ */
+export const bulkCheckEligibility = async (eventId, studentIdNumbers) => {
+  try {
+    const response = await axios.post(
+      `${backendConnection()}/api/admin/eligible-certificates/bulk-check`,
+      { eventId, studentIdNumbers },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionStorage.getItem("Token")}`,
+        },
+      }
+    );
+
+    if (response.status === 200) {
+      return response.data;
+    }
+  } catch (error) {
+    if (error.response && error.response.data) {
+      showToast("error", error.response.data.message || "An error occurred");
+    } else {
+      showToast("error", "An error occurred");
+    }
+    console.error("Error checking eligibility:", error);
+    throw error;
+  }
+};
+
+/**
+ * Import eligible certificates from CSV file
+ * @param {string} eventId - Event ID
+ * @param {File} csvFile - CSV file with student ID numbers
+ */
+export const importEligibleCertificatesFromCSV = async (eventId, csvFile) => {
+  try {
+    const formData = new FormData();
+    formData.append("eventId", eventId);
+    formData.append("file", csvFile);
+
+    const response = await axios.post(
+      `${backendConnection()}/api/admin/eligible-certificates/import-csv`,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          Authorization: `Bearer ${sessionStorage.getItem("Token")}`,
+        },
+      }
+    );
+
+    if (response.status === 200) {
+      showToast("success", response.data.message);
+      return response.data;
+    }
+  } catch (error) {
+    if (error.response && error.response.data) {
+      showToast("error", error.response.data.message || "An error occurred");
+    } else {
+      showToast("error", "An error occurred");
+    }
+    console.error("Error importing certificates from CSV:", error);
+    throw error;
+  }
+};
