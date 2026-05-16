@@ -3,3 +3,9 @@ node_modules/
 dist/
 build/
 .DS_Store
+.agents/memory/
+.agents/notes/
+.bob/memory/
+.bob/notes/
+.github/memory/
+.github/notes/
