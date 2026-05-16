@@ -1,5 +1,5 @@
 import { Navigate, Outlet } from "react-router-dom";
-import { useRef } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/features/auth";
 import type { Campus } from "@/features/auth/types/auth.types";
 import { showToast } from "@/utils/alertHelper";
@@ -31,7 +31,18 @@ export default function ProtectedRoute({
   redirectTo = "/auth/login",
 }: ProtectedRouteProps) {
   const { user, isAuthenticated, isLoading } = useAuth();
-  const hasShownCampusUnauthorizedToast = useRef(false);
+  const [hasShownCampusUnauthorizedToast, setHasShownCampusUnauthorizedToast] = useState(false);
+
+  useEffect(() => {
+    if (allowedCampuses && user && !allowedCampuses.includes(user.campus)) {
+      if (campusUnauthorizedToastMessage && !hasShownCampusUnauthorizedToast) {
+        showToast("error", campusUnauthorizedToastMessage);
+        const t = setTimeout(() => setHasShownCampusUnauthorizedToast(true), 0);
+        return () => clearTimeout(t);
+      }
+    }
+    return;
+  }, [allowedCampuses, user, campusUnauthorizedToastMessage, hasShownCampusUnauthorizedToast]);
 
   if (isLoading) {
     return (
@@ -51,11 +62,6 @@ export default function ProtectedRoute({
   }
 
   if (allowedCampuses && user && !allowedCampuses.includes(user.campus)) {
-    if (campusUnauthorizedToastMessage && !hasShownCampusUnauthorizedToast.current) {
-      showToast("error", campusUnauthorizedToastMessage);
-      hasShownCampusUnauthorizedToast.current = true;
-    }
-
     // User's campus is not allowed, send to a safe dashboard based on role
     const fallback = user.role === "Admin" ? "/admin/events" : "/";
     return <Navigate to={fallback} replace />;

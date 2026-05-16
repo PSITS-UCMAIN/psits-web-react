@@ -28,6 +28,7 @@ import { PrivacyPolicy } from "./pages/PrivacyPolicy";
 import AccountSettings from "./pages/student/AccountSettings";
 import EventAttendance from "./pages/student/EventAttendance";
 import MyOrders from "./pages/student/MyOrders";
+import CertificatesPage from "./pages/CertificatesPage";
 import { TermsOfCondition } from "./pages/TermsOfCondition";
 import { UnderConstruction } from "./pages/UnderConstruction";
 
@@ -60,6 +61,7 @@ const router = createBrowserRouter([
               { index: true, Component: AccountSettings },
               { path: "event-attendance", Component: EventAttendance },
               { path: "account-settings", Component: AccountSettings },
+              { path: "certificates", Component: CertificatesPage },
               {
                 element: (
                   <StudentCampusRouteGuard allowedCampuses={["UC-Main"]} />
