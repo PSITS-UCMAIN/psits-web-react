@@ -7,8 +7,7 @@ import {
   importEligibleCertificatesFromCSV,
 } from "../../api/admin";
 import { showToast } from "../../utils/alertHelper";
-import { getEvents } from "../../api/events";
-import { getAttendees } from "../../api/events";
+import { getEvents, getAttendees } from "../../api/event";
 
 const EligibleCertificates = () => {
   const [events, setEvents] = useState([]);
@@ -50,8 +49,36 @@ const EligibleCertificates = () => {
     try {
       setIsLoading(true);
       const response = await getAttendees(selectedEvent);
-      if (response && response.data) {
-        setAttendees(response.data);
+      if (response && response.attendees) {
+        // Normalize attendee shape to support both embedded event.attendees and referenced attendee documents.
+        const normalized = response.attendees.map((a) => {
+          // If attendee already has studentId subobject, normalize its fields
+          if (a.studentId && typeof a.studentId === "object") {
+            return {
+              ...a,
+              studentId: {
+                _id: a.studentId._id || a._id || a.studentId.studentId || a.id_number || a._id,
+                studentId: a.studentId.studentId || a.id_number || "",
+                name: a.studentId.name || a.name || "",
+                email: a.studentId.email || a.email || "",
+              },
+              _id: a._id || a.studentId._id || a.id_number,
+            };
+          }
+
+          // Otherwise, map embedded attendee to expected shape
+          return {
+            ...a,
+            _id: a._id || a.id_number, // ensure unique key
+            studentId: {
+              _id: a._id || a.id_number,
+              studentId: a.id_number || "",
+              name: a.name || "",
+              email: a.email || "",
+            },
+          };
+        });
+        setAttendees(normalized);
       }
     } catch (error) {
       console.error("Error fetching attendees:", error);
@@ -73,9 +100,29 @@ const EligibleCertificates = () => {
   };
 
   const isEligible = (attendeeId) => {
-    return eligibleCerts.some(
-      (cert) => cert.attendeeId === attendeeId || cert.attendeeId._id === attendeeId
-    );
+    if (!attendeeId) return false;
+
+    // Try to find the attendee object in current attendees list to extract its student id number (id_number)
+    const attendeeObj = attendees.find((a) => {
+      const candidate = a && a.studentId && a.studentId._id ? String(a.studentId._id) : String(a._id || a.id_number || "");
+      return candidate === String(attendeeId);
+    });
+
+    const attendeeStudentNumber = attendeeObj ? (attendeeObj.studentId && attendeeObj.studentId.studentId ? attendeeObj.studentId.studentId : attendeeObj.id_number || "") : "";
+
+    return eligibleCerts.some((cert) => {
+      if (!cert) return false;
+
+      // If certificate stores the studentIdNumber (preferred), compare by student id number (handles embedded attendees)
+      if (cert.studentIdNumber && attendeeStudentNumber) {
+        return String(cert.studentIdNumber) === String(attendeeStudentNumber);
+      }
+
+      // Fallback: compare by attendeeId (could be raw id or object with _id)
+      const certIdCandidate = cert.attendeeId && (cert.attendeeId._id || cert.attendeeId);
+      if (!certIdCandidate) return false;
+      return String(certIdCandidate) === String(attendeeId);
+    });
   };
 
   const handleSelectAll = () => {
@@ -214,11 +261,20 @@ const EligibleCertificates = () => {
           className="w-full p-2 border rounded"
         >
           <option value="">-- Select an Event --</option>
-          {events.map((event) => (
-            <option key={event._id} value={event._id}>
-              {event.name} - {new Date(event.date).toLocaleDateString()}
-            </option>
-          ))}
+          {events.map((event) => {
+            const eventName = event.eventName || event.name || "Untitled Event";
+            const rawDate = event.eventDate || event.date || "";
+            let formattedDate = "TBA";
+            if (rawDate) {
+              const d = new Date(rawDate);
+              formattedDate = Number.isNaN(d.getTime()) ? String(rawDate) : d.toLocaleDateString();
+            }
+            return (
+              <option key={event._id} value={event._id}>
+                {eventName} - {formattedDate}
+              </option>
+            );
+          })}
         </select>
       </div>
 
