@@ -205,6 +205,25 @@ The server mounts routers explicitly in `server-side/src/index.ts`. There is no 
 | GET    | `/lookup/:id_number`  | `getStudentLookupForAdmin` | `requireAccessTokenV2`, `roleAuthenticateV2(["Admin"])`   | Admin student lookup |
 | GET    | `/profile/:id_number` | `getStudentProfile`        | `requireAccessTokenV2`, `roleAuthenticateV2(["Student"])` | Student profile      |
 
+## Certificate Routes
+
+### `/api/certificates`
+
+| Method | Path         | Handler                              | Auth                   | Notes                                                                                    |
+| ------ | ------------ | ------------------------------------ | ---------------------- | ---------------------------------------------------------------------------------------- |
+| GET    | `/eligible`  | `getEligibleCertificatesForStudent`  | `student_authenticate` | Get all eligible certificates for authenticated student                                  |
+| POST   | `/generate`  | `generateCertificate`                | `student_authenticate` | Generate and download certificate PDF for ICT Congress 2026. 5-minute cooldown enforced. |
+
+### `/api/admin/eligible-certificates`
+
+| Method | Path                | Handler                              | Auth                 | Notes                                                                      |
+| ------ | ------------------- | ------------------------------------ | -------------------- | -------------------------------------------------------------------------- |
+| POST   | `/`                 | `addEligibleCertificates`            | `admin_authenticate` | Add eligible certificates for students. Body: `{ eventId, attendeeIds }`   |
+| DELETE | `/`                 | `removeEligibleCertificates`         | `admin_authenticate` | Remove eligible certificates. Body: `{ eventId, attendeeIds }`             |
+| GET    | `/event/:eventId`   | `getEligibleCertificatesByEvent`     | `admin_authenticate` | Get all eligible certificates for an event with populated student data     |
+| POST   | `/bulk-check`       | `bulkCheckEligibility`               | `admin_authenticate` | Validate students before adding. Body: `{ eventId, studentIdNumbers }`     |
+| POST   | `/import-csv`       | `importEligibleCertificatesFromCSV`  | `admin_authenticate` | Import eligible certificates from CSV file. FormData: `{ eventId, file }`  |
+
 ## Notes
 
 - The V2 auth middleware uses a layered pattern: token verification first, then role authorization, then optional DB-backed verification for sensitive operations.
