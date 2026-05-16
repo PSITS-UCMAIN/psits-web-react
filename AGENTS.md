@@ -12,6 +12,16 @@ Supporting documentation also exists in `docs/` and `server-side/docs/`.
 
 Do not commit generated output from `client-side/dist/`, `client-side/node_modules/`, `client-side-ts/dist/`, `client-side-ts/node_modules/`, `server-side/dist/`, or `server-side/node_modules/`.
 
+## Detailed Standards Reference
+
+For comprehensive coding standards, architecture details, and technical specifications, refer to:
+
+- **`.agents/rules/agent-behavior.md`** - Agent-specific coding rules and boundaries
+- **`.agents/rules/architecture.md`** - Repository layout, API topology, and routing patterns
+- **`.agents/rules/coding-rules.md`** - Naming conventions, import style, function patterns, and TypeScript strictness
+- **`.agents/rules/linting.md`** - ESLint and Prettier configuration details
+- **`.agents/rules/tech-stack.md`** - Complete technology stack and dependencies
+
 ## Working Style
 
 - Make minimal, high-confidence changes. Do not introduce large refactors unless explicitly requested.
