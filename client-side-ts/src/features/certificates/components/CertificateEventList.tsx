@@ -119,7 +119,7 @@ export const CertificateEventList = () => {
 
             <div className="pt-4 border-t">
               <GenerateCertificateButton
-                eventId={cert.eventId}
+                eventId={typeof cert.eventId === "string" ? cert.eventId : cert.eventId?._id}
                 eventName={eventDetails.name}
                 isEligible={true}
               />
