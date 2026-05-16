@@ -6,7 +6,9 @@ import helmet from "helmet";
 import adminRoutes from "./routes/admin.route";
 import authV2Routes from "./routes/authV2.route";
 import cartRoutes from "./routes/cart.route";
+import certificateRoutes from "./routes/certificate.route";
 import documentationRoutes from "./routes/documentation.route";
+import eligibleCertificateRoutes from "./routes/eligibleCertificate.route";
 import eventRoutes from "./routes/events.route";
 import eventsV2Routes from "./routes/eventsV2.route";
 import indexRoutes from "./routes/index.route";
@@ -49,6 +51,8 @@ export const createApp = (): Express => {
   app.use("/api", indexRoutes);
   app.use("/api", studentRoutes);
   app.use("/api/admin", adminRoutes);
+  app.use("/api/admin/eligible-certificates", eligibleCertificateRoutes);
+  app.use("/api/certificates", certificateRoutes);
   app.use("/api/merch", merchRoutes);
   app.use("/api/orders", orderRoutes);
   app.use("/api/cart", cartRoutes);

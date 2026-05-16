@@ -1,4 +1,4 @@
-import { Schema, Document } from "mongoose";
+import mongoose, { Schema, Document } from "mongoose";
 import {
   IAttendanceSessionType,
   IAttendee,
@@ -47,3 +47,5 @@ export const attendeeSchema = new Schema<IAttendeeDocument>({
   transactDate: { type: Date },
   editedBy: { type: [String], default: [] },
 });
+
+export const Attendee = mongoose.model<IAttendeeDocument>('Attendee', attendeeSchema);

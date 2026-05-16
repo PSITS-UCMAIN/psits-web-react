@@ -69,7 +69,7 @@ export const generatePDFFromEJS = async (
   const browser = await puppeteer.launch({ headless: true });
   const page = await browser.newPage();
 
-  await page.setContent(ejsTemplate, { waitUntil: "networkidle0" });
+  await page.setContent(ejsTemplate, { waitUntil: "networkidle0" as any });
 
   const pdfBuffer = await page.pdf(pdfConfig);
 
