@@ -5,7 +5,7 @@ import { Calendar, MapPin, Award, Loader2 } from "lucide-react";
 import { getEligibleCertificates } from "../api/certificateApi";
 import type { EligibleCertificate } from "../types";
 import { GenerateCertificateButton } from "./GenerateCertificateButton";
-import { toast } from "sonner";
+import { showToast } from "@/utils/alertHelper";
 
 export const CertificateEventList = () => {
   const [eligibleCerts, setEligibleCerts] = useState<EligibleCertificate[]>([]);
@@ -26,7 +26,11 @@ export const CertificateEventList = () => {
     } catch (err: any) {
       console.error("Error fetching eligible certificates:", err);
       setError(err.message || "Failed to load certificates");
-      toast.error("Failed to load eligible certificates");
+      if (err?.response?.status === 403) {
+        showToast("error", err.response?.data?.message || "Access Denied. Please login or contact the administrator.");
+      } else {
+        showToast("error", err?.message || "Failed to load eligible certificates");
+      }
     } finally {
       setIsLoading(false);
     }

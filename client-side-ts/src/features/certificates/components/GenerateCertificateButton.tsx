@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Download, Loader2, Clock } from "lucide-react";
 import { generateCertificate } from "../api/certificateApi";
-import { toast } from "sonner";
+import { showToast } from "@/utils/alertHelper";
 
 interface GenerateCertificateButtonProps {
   eventId: string;
@@ -67,7 +67,7 @@ export const GenerateCertificateButton = ({
       const result = await generateCertificate(eventId);
 
       if (result.success) {
-        toast.success("Certificate downloaded successfully!");
+        showToast("success", "Certificate downloaded successfully!");
 
         // Set cooldown (5 minutes from now)
         const cooldownTime = Date.now() + 5 * 60 * 1000;
@@ -79,16 +79,16 @@ export const GenerateCertificateButton = ({
           const cooldownTime = Date.now() + result.retryAfter * 1000;
           setCooldownEnd(cooldownTime);
           localStorage.setItem(`cert-cooldown-${eventId}`, cooldownTime.toString());
-          toast.error(result.message || "Please wait before generating another certificate");
+          showToast("error", result.message || "Please wait before generating another certificate");
         } else if (result.error === "Not eligible") {
-          toast.error("You are not eligible for a certificate for this event");
+          showToast("error", "You are not eligible for a certificate for this event");
         } else {
-          toast.error(result.message || "Failed to generate certificate");
+          showToast("error", result.message || "Failed to generate certificate");
         }
       }
     } catch (error: any) {
       console.error("Error generating certificate:", error);
-      toast.error(error.message || "Failed to generate certificate");
+      showToast("error", error.message || "Failed to generate certificate");
     } finally {
       setIsGenerating(false);
     }

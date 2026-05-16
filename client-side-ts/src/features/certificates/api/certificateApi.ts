@@ -1,8 +1,5 @@
-import axios from "axios";
-import backendConnection from "@/api/backendApi";
+import api from "@/api/axios";
 import type { EligibleCertificate, GenerateCertificateResponse, CertificateApiError } from "../types";
-
-const API_BASE = backendConnection();
 
 /**
  * Get all eligible certificates for the authenticated student
@@ -11,22 +8,13 @@ export const getEligibleCertificates = async (): Promise<
   EligibleCertificate[]
 > => {
   try {
-    const token = sessionStorage.getItem("Token");
-    if (!token) {
-      throw new Error("Authentication required");
-    }
+    const response = await api.get("/api/certificates/eligible");
 
-    const response = await axios.get(`${API_BASE}/api/certificates/eligible`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (response.data.success) {
+    if (response.data?.success) {
       return response.data.data || [];
     }
 
-    throw new Error(response.data.message || "Failed to fetch certificates");
+    throw new Error(response.data?.message || "Failed to fetch certificates");
   } catch (error: any) {
     console.error("Error fetching eligible certificates:", error);
     throw error;
@@ -42,47 +30,32 @@ export const generateCertificate = async (
   eventId: string
 ): Promise<GenerateCertificateResponse> => {
   try {
-    const token = sessionStorage.getItem("Token");
-    if (!token) {
-      throw new Error("Authentication required");
-    }
-
-    const response = await axios.post(
-      `${API_BASE}/api/certificates/generate`,
+    const response = await api.post(
+      "/api/certificates/generate",
       { eventId },
       {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
         responseType: "blob", // Important for PDF download
       }
     );
 
-    // Check if response is a blob (PDF) or JSON error
-    if (response.data instanceof Blob) {
-      // Success - trigger download
-      const blob = new Blob([response.data], { type: "application/pdf" });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `ICT_Congress_2026_Certificate.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+    // Success - response.data should be a Blob (PDF)
+    const blob = new Blob([response.data], { type: "application/pdf" });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `ICT_Congress_2026_Certificate.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
 
-      return {
-        success: true,
-        message: "Certificate downloaded successfully",
-      };
-    }
-
-    // If not a blob, it's an error response
-    throw new Error("Unexpected response format");
+    return {
+      success: true,
+      message: "Certificate downloaded successfully",
+    };
   } catch (error: any) {
     console.error("Error generating certificate:", error);
 
-    // Handle axios error responses
     if (error.response) {
       const status = error.response.status;
 
@@ -106,7 +79,6 @@ export const generateCertificate = async (
         }
       }
 
-      // Handle specific status codes
       if (status === 429) {
         return {
           success: false,
@@ -134,8 +106,7 @@ export const generateCertificate = async (
 
       return {
         success: false,
-        message:
-          error.response.data?.message || "Failed to generate certificate",
+        message: error.response.data?.message || "Failed to generate certificate",
       };
     }
 
