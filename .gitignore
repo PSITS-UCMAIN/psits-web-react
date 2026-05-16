@@ -5,7 +5,11 @@ build/
 .DS_Store
 .agents/memory/
 .agents/notes/
+.agents/plan/
 .bob/memory/
 .bob/notes/
+.bob/.bob-errors/
+.bob/plan/
 .github/memory/
 .github/notes/
+.github/plan/
