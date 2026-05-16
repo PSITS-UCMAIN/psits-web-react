@@ -5,6 +5,10 @@
   "scripts": {
     "dev": "nodemon",
     "build": "tsc && npm run copy-assets",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:module": "vitest run",
     "copy-assets": "node -e \"const fs=require('fs'); fs.cpSync('src/assets','dist/assets',{recursive:true}); \"",
     "start": "node dist/index.js"
   },
@@ -41,13 +45,18 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@types/supertest": "^6.0.3",
+    "@vitest/coverage-v8": "^3.2.4",
     "@types/express": "^5.0.3",
     "@types/multer-s3": "^3.0.3",
     "@types/node": "^24.3.0",
     "cors": "^2.8.5",
+    "mongodb-memory-server": "^10.3.0",
     "nodemon": "^3.1.10",
+    "supertest": "^7.1.4",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
   }
 }
