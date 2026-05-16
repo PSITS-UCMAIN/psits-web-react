@@ -8,7 +8,7 @@ export interface IEligibleCertificateDocument
 export const eligibleCertificateSchema =
   new Schema<IEligibleCertificateDocument>({
     evaluationId: { type: String, required: true },
-    eventId: { type: Schema.Types.ObjectId, ref: "Event", required: true },
+    eventId: { type: Schema.Types.ObjectId, ref: "event", required: true },
     attendeeId: { type: Schema.Types.ObjectId, ref: "Student", required: true },
     studentIdNumber: { type: String }, // Optional: for quick display without populate
     createdAt: { type: Date, default: Date.now },
