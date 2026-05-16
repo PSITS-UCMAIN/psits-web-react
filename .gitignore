@@ -5,7 +5,7 @@ build/
 .DS_Store
 .agents/memory/
 .agents/notes/
-.agents/plan/
+
 .bob/memory/
 .bob/notes/
 .bob/.bob-errors/
