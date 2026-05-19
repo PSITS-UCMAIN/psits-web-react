@@ -79,6 +79,7 @@ For detailed standards, see `.agents/rules/`:
 
 - **Frontend:** `cd client-side-ts && npm run lint && npm run build`
 - **Backend:** `cd server-side && npm run build`
+- **Test infra guide:** See `docs/test-infrastructure.md` for test commands, CI artifact paths, and known gaps. Note: the legacy `client-side/` package.json currently lacks a `test` script and is documented as a gap in that guide.
 
 ## Tech Stack Summary
 

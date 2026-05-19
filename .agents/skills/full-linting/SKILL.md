@@ -8,16 +8,32 @@ user-invocable: true
 
 ## Purpose
 
-This skill performs repo-wide static validation for the active TypeScript frontend in `client-side-ts/` and the backend in `server-side/`.
+This skill performs repo-wide static validation for the active TypeScript frontend in `client-side-ts/` and the backend in `server-side/` and can produce a concise, human-readable linting report saved to docs/test-reports.
 
 It is intended for cases where the user wants a complete linting pass across both app surfaces, with explicit reporting of what was checked, what passed, what failed, and what linting coverage is not detected in the repo.
 
 This skill does not modify source files. Its responsibility is to inspect, run, and report static checks.
 
+It may delegate complex linting orchestration to a `task` agent when both workspaces require parallel execution or when multiple linting layers require coordination.
+
 ## Scope
 
 - `client-side-ts/`: ESLint validation plus TypeScript build validation
 - `server-side/`: lint validation if a lint script/config exists; otherwise TypeScript build validation as the static safety net
+
+## Subagent Delegation Strategy
+
+**Delegate to `task` agent if:**
+- Both workspaces need parallel execution to save time
+- Multiple linting phases need strict sequencing (lint → type-check → coverage)
+- User requires verbose logging or detailed failure diagnostics
+- Linting failures need to be analyzed and triaged at scale
+
+**Handle locally if:**
+- Single workspace linting pass
+- Quick validation (build-only check)
+- No parallel execution needed
+- Simple pass/fail reporting required
 
 ## Required Workflow
 
@@ -70,15 +86,56 @@ If a check fails:
 
 If multiple checks fail, report them in the order they were run.
 
-### Step 5: Report results clearly
+### Step 5: Report results and generate lint report file
 
-Final output must include:
+- Create directory `docs/test-reports/` if it does not exist.
+- Determine today's date (yyyy-mm-dd). Count existing files that match `yyyy-mm-dd-test-report*.md` to choose index (1 for first, 2 for second, etc.).
+- Write a single markdown report file named `yyyy-mm-dd-test-report[index].md` into `docs/test-reports/`.
+- Keep the report concise and human-readable; prefer summary bullets and short paragraphs. Aim for under 150 lines.
 
-- workspace checked
-- commands run
-- pass/fail status for each command
-- any missing lint config or missing lint script
-- any notable errors or warnings
+Required frontmatter at the top of each report (exactly this small block):
+
+# Test Execution Report
+**Date**: yyyy-mm-dd
+**Report ID**: yyyy-mm-dd-test-report[index].md
+**Time Generated**: HH:mm:ss+tz
+
+Report body structure (use these headings and keep each section brief):
+
+Summary
+- One- to three-line summary of overall linting outcome and confidence.
+
+Checks Executed
+- List of workspaces and commands run with status, e.g.:
+  - client-side-ts: `npm run lint` — PASS (0 errors)
+  - client-side-ts: `npm run build` — PASS (no type errors)
+  - server-side: `npm run build` — PASS
+
+Key Findings
+- 3–6 short bullets highlighting the most important observations (e.g., recurring rule violations, type-error hotspots, missing lint config, long-running checks).
+
+Top Issues (if any)
+- For each top issue include: file/line, short description, first error line, likely cause.
+
+Repro Steps
+- Exact commands to reproduce failing check(s) locally (copyable), including working directory and any env notes.
+
+Artifacts & Logs
+- Relative paths to logs, report files, and relevant configuration (e.g., `client-side-ts/eslint.report.json`, `server-side/build.log`).
+
+Replicability Notes
+- Environment specs: Node/npm versions, OS, and any environment variables required.
+
+Recommendations
+- 2–5 actionable next steps (prioritized), e.g., fix top lint rule, add missing lint config to server-side, run `npm run build` in CI, or add a package-level lint script.
+
+Optional: Coverage / Quality Metrics
+- If available, include quick metrics: number of lint errors, warnings, and number of type errors.
+
+Notes on length and tone
+- Keep language plain and neutral.
+- Avoid long output dumps; include only the first relevant line(s) and link to full logs.
+- Target under 150 lines; shorter is better.
 
 ## Decision Rules
 
@@ -92,16 +149,16 @@ Final output must include:
 
 A full linting pass is complete when:
 
-- `client-side-ts/` lint passes
+- `client-side-ts/` lint passes (or reported missing)
 - `client-side-ts/` build passes
 - `server-side/` lint passes if configured, or is reported as not detected if absent
 - `server-side/` build passes
 
 ## Output Style
 
-Use a concise results table when possible.
+Use a concise results table in the CLI summary and write the generated report to `docs/test-reports/` when report generation is enabled.
 
-Example:
+Example CLI summary table:
 
 | Workspace         | Check           | Status       | Notes                |
 | ----------------- | --------------- | ------------ | -------------------- |

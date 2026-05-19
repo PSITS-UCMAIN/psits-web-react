@@ -69,3 +69,7 @@ npm run format:check
 ### Root formatter usage
 
 No root `package.json` script was detected for linting or formatting. Run Prettier from the repository root with the command you need for the files you are touching.
+
+### Test Infrastructure (pointer)
+
+A concise test infrastructure guide was added at `docs/test-infrastructure.md`. It documents how to run backend and active-frontend tests, CI artifact paths, and notes that the legacy `client-side/` workspace currently has no `test` script configured and should be evaluated for a minimal smoke test or migration of tests to `client-side-ts/`.

@@ -21,6 +21,7 @@ For comprehensive coding standards, architecture details, and technical specific
 - **`.agents/rules/coding-rules.md`** - Naming conventions, import style, function patterns, and TypeScript strictness
 - **`.agents/rules/linting.md`** - ESLint and Prettier configuration details
 - **`.agents/rules/tech-stack.md`** - Complete technology stack and dependencies
+- **`docs/test-infrastructure.md`** - Test infrastructure guide: how to run tests locally and in CI; notes that the legacy `client-side/` workspace currently has no tests configured (see Known gaps).
 
 ## Working Style
 
