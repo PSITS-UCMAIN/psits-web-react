@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useState } from "react";
 
 interface RaffleBackgroundProps {
   showConfetti: boolean;
@@ -15,7 +15,7 @@ const confettiItems = Array.from({ length: 72 }, (_, i) => ({
 }));
 
 export const RaffleBackground: React.FC<RaffleBackgroundProps> = ({ showConfetti }) => {
-  const confetti = useRef(confettiItems);
+  const [confetti] = useState(() => confettiItems);
 
   return (
     <>
@@ -37,7 +37,7 @@ export const RaffleBackground: React.FC<RaffleBackgroundProps> = ({ showConfetti
       {/* Confetti */}
       {showConfetti && (
         <div className="absolute inset-0 pointer-events-none overflow-hidden z-[100]">
-          {confetti.current.map(p => (
+          {confetti.map(p => (
             <div key={p.id} className="absolute" style={{
               left: `${p.x}%`, top: "-14px",
               width: p.size, height: p.size,

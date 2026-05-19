@@ -7,6 +7,7 @@ import type { AxiosResponse } from "axios";
 import axios, { AxiosError } from "axios";
 import backendConnection from "../../../api/backendApi";
 import { showToast } from "../../../utils/alertHelper";
+import type { StudentSearchResult, StudentUpdateYearResponse } from "@/types/api";
 
 interface ApiErrorResponse {
   message?: string;
@@ -85,7 +86,7 @@ export const requestMembership = async (id_number: string): Promise<void> => {
     } else {
       showToast("error", response.data.message);
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     handleApiError(error);
   }
 };
@@ -135,7 +136,7 @@ export const addToCartApi = async (
       return true;
     }
     return false;
-  } catch (error: any) {
+  } catch (error: unknown) {
     handleApiError(error);
     return false;
   }
@@ -189,7 +190,7 @@ export const deleteItem = async (data: DeleteItemRequest): Promise<boolean> => {
       showToast("error", response.data.message);
       return false;
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     handleApiError(error);
     return false;
   }
@@ -220,7 +221,7 @@ export const fetchSpecificStudent = async (
   }
 };
 
-export const searchStudentById = async (id_number: string): Promise<any> => {
+export const searchStudentById = async (id_number: string): Promise<StudentSearchResult> => {
   try {
     const token = getToken();
     const response: AxiosResponse = await axios.get(
@@ -233,24 +234,24 @@ export const searchStudentById = async (id_number: string): Promise<any> => {
       }
     );
     return response.data.data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     handleApiError(error);
     throw (
-      error?.response?.data?.message || "An error occurred while searching."
+      error instanceof Error ? error.message : "An error occurred while searching."
     );
   }
 };
 
-export const searchStudentByIdV2 = async (id_number: string): Promise<any> => {
+export const searchStudentByIdV2 = async (id_number: string): Promise<StudentSearchResult> => {
   try {
     const response: AxiosResponse = await api.get(
       `/api/v2/students/lookup/${id_number}`
     );
     return response.data.data;
-  } catch (error: any) {
+  } catch (error: unknown) {
     handleApiError(error);
     throw (
-      error?.response?.data?.message || "An error occurred while searching."
+      error instanceof Error ? error.message : "An error occurred while searching."
     );
   }
 };
@@ -275,7 +276,7 @@ export const getStudentProfileV2 = async (
 export const updateStudentYearLevelForCurrentYear = async (
   id_number: string,
   yearToUpdate: string
-): Promise<any> => {
+): Promise<StudentUpdateYearResponse> => {
   try {
     const token = getToken();
     const response: AxiosResponse = await axios.put(
@@ -288,8 +289,8 @@ export const updateStudentYearLevelForCurrentYear = async (
         },
       }
     );
-    return response.data; // Contains message and updatedStudent data
-  } catch (error: any) {
+    return response.data;
+  } catch (error: unknown) {
     handleApiError(error);
     throw error;
   }
@@ -311,7 +312,7 @@ export const isStudentYearUpdated = async (
     );
 
     return response.data.isYearUpdated;
-  } catch (error: any) {
+  } catch (error: unknown) {
     handleApiError(error);
     throw error;
   }

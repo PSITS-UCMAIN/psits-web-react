@@ -21,9 +21,7 @@ interface TimePickerProps {
 
 const TimePicker: React.FC<TimePickerProps> = ({ value, onChange, label }) => {
   const [showPicker, setShowPicker] = useState(false);
-  const [period, setPeriod] = useState<'AM' | 'PM'>('AM');
-  const [hour, setHour] = useState(7);
-  const [minute, setMinute] = useState(30);
+  const [time, setTime] = useState({ hour: 7, minute: 30, period: 'AM' as 'AM' | 'PM' });
   const triggerRef = useRef<HTMLDivElement | null>(null);
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
 
@@ -76,13 +74,11 @@ const TimePicker: React.FC<TimePickerProps> = ({ value, onChange, label }) => {
       const h = parseInt(m[1], 10);
       const mm = parseInt(m[2], 10);
       const p = (m[3] || 'AM').toUpperCase() as 'AM' | 'PM';
-      setHour(h);
-      setMinute(mm);
-      setPeriod(p);
+      setTime({ hour: h, minute: mm, period: p });
     }
   }, [showPicker, value]);
 
-  const formatTime = (h = hour, m = minute, p = period) => {
+  const formatTime = (h = time.hour, m = time.minute, p = time.period) => {
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')} ${p}`;
   };
 
@@ -95,23 +91,23 @@ const TimePicker: React.FC<TimePickerProps> = ({ value, onChange, label }) => {
       <div className="flex items-center justify-center gap-2 mb-4">
         <Button
           size="sm"
-          variant={period === 'AM' ? 'default' : 'outline'}
+          variant={time.period === 'AM' ? 'default' : 'outline'}
           onClick={() => {
-            setPeriod('AM');
-            onChange(formatTime(hour, minute, 'AM'));
+            setTime(prev => ({ ...prev, period: 'AM' }));
+            onChange(formatTime(time.hour, time.minute, 'AM'));
           }}
-          className={cn(period === 'AM' && 'bg-[#1C9DDE] hover:bg-[#1C9DDE]', 'cursor-pointer')}
+          className={cn(time.period === 'AM' && 'bg-[#1C9DDE] hover:bg-[#1C9DDE]', 'cursor-pointer')}
         >
           AM
         </Button>
         <Button
           size="sm"
-          variant={period === 'PM' ? 'default' : 'outline'}
+          variant={time.period === 'PM' ? 'default' : 'outline'}
           onClick={() => {
-            setPeriod('PM');
-            onChange(formatTime(hour, minute, 'PM'));
+            setTime(prev => ({ ...prev, period: 'PM' }));
+            onChange(formatTime(time.hour, time.minute, 'PM'));
           }}
-          className={cn(period === 'PM' && 'bg-[#1C9DDE] hover:bg-[#1C9DDE]', 'cursor-pointer')}
+          className={cn(time.period === 'PM' && 'bg-[#1C9DDE] hover:bg-[#1C9DDE]', 'cursor-pointer')}
         >
           PM
         </Button>
@@ -122,15 +118,15 @@ const TimePicker: React.FC<TimePickerProps> = ({ value, onChange, label }) => {
           <Label className="text-sm mb-2 block">Hour</Label>
           <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
             <span>01</span>
-            <span className="text-[#1C9DDE] font-semibold">{String(hour).padStart(2, '0')}</span>
+            <span className="text-[#1C9DDE] font-semibold">{String(time.hour).padStart(2, '0')}</span>
             <span>12</span>
           </div>
           <Slider
-            value={[hour]}
+            value={[time.hour]}
             onValueChange={(val) => {
               const newHour = val[0];
-              setHour(newHour);
-              onChange(formatTime(newHour, minute, period));
+              setTime(prev => ({ ...prev, hour: newHour }));
+              onChange(formatTime(newHour, time.minute, time.period));
             }}
             min={1}
             max={12}
@@ -143,15 +139,15 @@ const TimePicker: React.FC<TimePickerProps> = ({ value, onChange, label }) => {
           <Label className="text-sm mb-2 block">Minutes</Label>
           <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
             <span>00</span>
-            <span className="text-[#1C9DDE] font-semibold">{String(minute).padStart(2, '0')}</span>
+            <span className="text-[#1C9DDE] font-semibold">{String(time.minute).padStart(2, '0')}</span>
             <span>59</span>
           </div>
           <Slider
-            value={[minute]}
+            value={[time.minute]}
             onValueChange={(val) => {
               const newMinute = val[0];
-              setMinute(newMinute);
-              onChange(formatTime(hour, newMinute, period));
+              setTime(prev => ({ ...prev, minute: newMinute }));
+              onChange(formatTime(time.hour, newMinute, time.period));
             }}
             min={0}
             max={59}

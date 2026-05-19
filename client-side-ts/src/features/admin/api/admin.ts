@@ -230,7 +230,7 @@ export const membership = async (): Promise<MembershipData | false> => {
       window.location.reload();
       return false;
     }
-  } catch (error) {
+  } catch {
     return false;
   }
 };
@@ -254,7 +254,7 @@ export const getCountStudent = async (): Promise<StudentCountResponse | false> =
       { headers: createHeaders() }
     );
     return response.data;
-  } catch (error) {
+  } catch {
     return false;
   }
 };
@@ -266,7 +266,7 @@ export const getCountActiveMemberships = async (): Promise<number | false> => {
       { headers: createHeaders() }
     );
     return response.data.message;
-  } catch (error) {
+  } catch {
     return false;
   }
 };
@@ -797,7 +797,7 @@ export const membershipPrice = async (): Promise<number | false> => {
       `${backendConnection()}/api/admin/get-membership-price`, 
       { headers: createHeaders() });
     return response.status === 200 ? response.data.data.membership_price : false;
-  } catch (error) {
+  } catch {
     return false;
   }
 };

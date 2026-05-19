@@ -35,13 +35,11 @@ function generateUid(): string {
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
       return crypto.randomUUID();
     }
-  } catch (e) {
-
-  }
+  } catch { /* ignored */ }
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function sanitizeStoredItem(obj: any): CartItem | null {
+function sanitizeStoredItem(obj: unknown): CartItem | null {
   if (!obj || typeof obj !== 'object') return null;
   
   // Support both string IDs (MongoDB) and number IDs (legacy)
@@ -89,7 +87,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         .map(sanitizeStoredItem)
         .filter((i): i is CartItem => i !== null);
       return sanitized;
-    } catch (err) {
+    } catch {
       return [];
     }
   });
@@ -97,8 +95,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-    } catch (err) {
-    }
+    } catch { /* ignored */ }
   }, [items]);
 
   const indexMapRef = React.useRef<Map<string, number>>(new Map());

@@ -63,7 +63,6 @@ interface OrderFormData {
   items: CartItem[];
   total: number;
   reference_code?: string;
-  [key: string]: any;
 }
 
 interface OrderResponse {
@@ -82,7 +81,6 @@ interface OrderResponse {
   admin?: string;
   reference_code?: string;
   role?: string;
-  [key: string]: any;
 }
 
 interface ErrorResponse {

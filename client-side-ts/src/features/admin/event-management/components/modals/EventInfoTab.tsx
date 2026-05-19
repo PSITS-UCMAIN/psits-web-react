@@ -52,7 +52,7 @@ export const EventInfoTab: React.FC<EventInfoTabProps> = ({ formData, setFormDat
     
     const file = e.dataTransfer.files[0];
     handleFileChange(file);
-  }, []);
+  }, [handleFileChange]);
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;

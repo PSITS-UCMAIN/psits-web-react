@@ -4,6 +4,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { getOrder, cancelOrder } from '@/features/orders/api/orders';
+import type { OrderData, CartItemData } from '@/types/api';
 
 interface OrderItem {
   id: string;
@@ -142,9 +143,9 @@ const MyOrders: React.FC = () => {
 
   
 
-  const mapApiToUi = (apiOrder: any): Order => {
+  const mapApiToUi = (apiOrder: OrderData): Order => {
     const items = Array.isArray(apiOrder.items)
-      ? apiOrder.items.map((it: any) => ({
+      ? apiOrder.items.map((it: CartItemData) => ({
           id: String(it.product_id ?? it._id ?? it.id ?? Math.random()),
           title: it.product_name ?? it.name ?? it.title ?? '',
           variant: Array.isArray(it.variation) ? it.variation.join(', ') : it.variant ?? it.color ?? undefined,
@@ -179,7 +180,7 @@ const MyOrders: React.FC = () => {
               id_number = parsed.id_number || parsed.idNumber || parsed.student_id;
               break;
             }
-          } catch (e) {
+          } catch {
             // not JSON
           }
         }

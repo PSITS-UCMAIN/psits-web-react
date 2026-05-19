@@ -36,7 +36,7 @@ export const Cart: React.FC = () => {
         sessionStorage.removeItem('buyNowItemId');
         return new Set([preSelected]);
       }
-    } catch (e) { }
+    } catch { /* ignored */ }
     return new Set();
   });
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -55,11 +55,11 @@ export const Cart: React.FC = () => {
             if (parsed && (parsed.id_number || parsed.idNumber || parsed.student_id)) {
               return parsed.id_number || parsed.idNumber || parsed.student_id;
             }
-          } catch (e) { }
+          } catch { /* ignored */ }
         }
         return v;
       }
-    } catch (e) { }
+    } catch { /* ignored */ }
     return null;
   };
 

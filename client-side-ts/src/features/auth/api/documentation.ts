@@ -132,9 +132,9 @@ interface CreateFeatureData {
   access: string;
 }
 
-interface UpdateEndpointData extends Partial<CreateEndpointData> {}
+type UpdateEndpointData = Partial<CreateEndpointData>;
 
-interface UpdateFeatureData extends Partial<CreateFeatureData> {}
+type UpdateFeatureData = Partial<CreateFeatureData>;
 
 interface ApiSuccessResponse {
   success: boolean;

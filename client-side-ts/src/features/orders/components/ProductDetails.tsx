@@ -152,8 +152,7 @@ const AddToCartButton: React.FC<AddToCartButtonProps> = ({
                 id_number = parsed.id_number || parsed.idNumber || parsed.student_id;
                 break;
               }
-            } catch (e) {
-            }
+              } catch { /* ignored */ }
           }
           if (!id_number) id_number = v;
           if (id_number) break;
