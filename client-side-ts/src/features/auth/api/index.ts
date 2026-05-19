@@ -1,18 +1,7 @@
 import { showToast } from "@/utils/alertHelper";
 import backendConnection from "@/api/backendApi";
 import axios, { AxiosError } from "axios";
-
-interface LoginFormData {
-  idNumber: string;
-  password: string;
-  [key: string]: any;
-}
-
-interface RegisterFormData {
-  email: string;
-  password: string;
-  [key: string]: any;
-}
+import type { LoginFormData, RegisterFormData } from "@/types/api";
 
 interface LoginResponse {
   role: string;

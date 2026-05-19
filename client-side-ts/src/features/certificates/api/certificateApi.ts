@@ -1,5 +1,6 @@
 import api from "@/api/axios";
-import type { EligibleCertificate, GenerateCertificateResponse, CertificateApiError } from "../types";
+import type { EligibleCertificate, GenerateCertificateResponse } from "../types";
+import type { CertificateSearchError } from "@/types/api";
 
 /**
  * Get all eligible certificates for the authenticated student
@@ -15,7 +16,7 @@ export const getEligibleCertificates = async (): Promise<
     }
 
     throw new Error(response.data?.message || "Failed to fetch certificates");
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error fetching eligible certificates:", error);
     throw error;
   }
@@ -53,17 +54,23 @@ export const generateCertificate = async (
       success: true,
       message: "Certificate downloaded successfully",
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error generating certificate:", error);
 
-    if (error.response) {
-      const status = error.response.status;
+    if (error instanceof Error && 'response' in error) {
+      const axiosError = error as {
+        response?: {
+          status?: number;
+          data?: Blob | { message?: string; retryAfter?: number; error?: string };
+        };
+      };
+      const status = axiosError.response?.status;
 
       // For error responses, the blob needs to be parsed as JSON
-      if (error.response.data instanceof Blob) {
+      if (axiosError.response?.data instanceof Blob) {
         try {
-          const text = await error.response.data.text();
-          const errorData: CertificateApiError = JSON.parse(text);
+          const text = await axiosError.response.data.text();
+          const errorData: CertificateSearchError = JSON.parse(text);
 
           return {
             success: false,
@@ -71,7 +78,7 @@ export const generateCertificate = async (
             error: errorData.error,
             retryAfter: errorData.retryAfter,
           };
-        } catch (parseError) {
+        } catch {
           return {
             success: false,
             message: "Failed to generate certificate",
@@ -84,7 +91,7 @@ export const generateCertificate = async (
           success: false,
           message: "Please wait before generating another certificate",
           error: "Too many requests",
-          retryAfter: error.response.data?.retryAfter || 300,
+          retryAfter: axiosError.response?.data?.retryAfter || 300,
         };
       }
 
@@ -106,14 +113,14 @@ export const generateCertificate = async (
 
       return {
         success: false,
-        message: error.response.data?.message || "Failed to generate certificate",
+        message: axiosError.response?.data?.message || "Failed to generate certificate",
       };
     }
 
     // Network or other errors
     return {
       success: false,
-      message: error.message || "Failed to generate certificate",
+      message: error instanceof Error ? error.message : "Failed to generate certificate",
     };
   }
 };
