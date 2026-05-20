@@ -6,6 +6,7 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./tests/setup/env.setup.ts"],
     include: ["tests/**/*.{test,spec}.ts"],
+    hookTimeout: 30000, // Increase timeout for MongoMemoryServer setup
     coverage: {
       provider: "v8",
       reporter: ["text", "html", "lcov"],

@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { Request, Response, NextFunction } from "express";
 import { Types } from "mongoose";
 import {
   getEligibleCertificatesForStudent,
@@ -39,9 +40,9 @@ const mockedStudentFindById = vi.mocked(Student.findById);
 const mockedGeneratePDFFromEJS = vi.mocked(generatePDFFromEJS);
 
 describe("Certificate controller (student endpoints)", () => {
-  let mockReq: any;
-  let mockRes: any;
-  let mockNext: any;
+  let mockReq: Partial<Request>;
+  let mockRes: Partial<Response>;
+  let mockNext: NextFunction;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -57,7 +58,7 @@ describe("Certificate controller (student endpoints)", () => {
 
   describe("getEligibleCertificatesForStudent", () => {
     it("returns 401 when no student ID is in request", async () => {
-      mockReq = { user: {} };
+      mockReq = { userV2: {} };
 
       await getEligibleCertificatesForStudent(mockReq, mockRes, mockNext);
 
@@ -70,7 +71,7 @@ describe("Certificate controller (student endpoints)", () => {
 
     it("returns eligible certificates for authenticated student", async () => {
       const studentId = new Types.ObjectId().toString();
-      mockReq = { user: { id: studentId, _id: studentId } };
+      mockReq = { userV2: { sub: studentId, idNumber: "2024-0001" } };
 
       const mockCerts = [
         {
@@ -94,13 +95,14 @@ describe("Certificate controller (student endpoints)", () => {
       expect(mockRes.json).toHaveBeenCalledWith({
         success: true,
         count: 1,
+        studentIdNumber: "2024-0001",
         data: mockCerts,
       });
     });
 
     it("returns empty array when no eligible certificates exist", async () => {
       const studentId = new Types.ObjectId().toString();
-      mockReq = { user: { id: studentId } };
+      mockReq = { userV2: { sub: studentId, idNumber: "2024-0001" } };
 
       mockedEligibleCertificateFind.mockReturnValue({
         populate: vi.fn().mockResolvedValue([]),
@@ -112,13 +114,14 @@ describe("Certificate controller (student endpoints)", () => {
       expect(mockRes.json).toHaveBeenCalledWith({
         success: true,
         count: 0,
+        studentIdNumber: "2024-0001",
         data: [],
       });
     });
 
     it("calls next with error on exception", async () => {
       const studentId = new Types.ObjectId().toString();
-      mockReq = { user: { id: studentId } };
+      mockReq = { userV2: { sub: studentId } };
       const testError = new Error("Database error");
 
       mockedEligibleCertificateFind.mockReturnValue({
@@ -141,7 +144,7 @@ describe("Certificate controller (student endpoints)", () => {
     });
 
     it("returns 401 when no student ID is in request", async () => {
-      mockReq = { user: {}, body: { eventId: "abc" } };
+      mockReq = { userV2: {}, body: { eventId: "abc" } };
 
       await generateCertificate(mockReq, mockRes, mockNext);
 
@@ -153,7 +156,7 @@ describe("Certificate controller (student endpoints)", () => {
     });
 
     it("returns 400 when eventId is missing", async () => {
-      mockReq = { user: { id: "student1" }, body: {} };
+      mockReq = { userV2: { sub: "student1" }, body: {} };
 
       await generateCertificate(mockReq, mockRes, mockNext);
 
@@ -166,7 +169,7 @@ describe("Certificate controller (student endpoints)", () => {
 
     it("returns 400 when eventId is invalid ObjectId", async () => {
       mockReq = {
-        user: { id: "student1" },
+        userV2: { sub: "student1" },
         body: { eventId: "not-valid" },
       };
 
@@ -182,7 +185,7 @@ describe("Certificate controller (student endpoints)", () => {
       const validEventId = new Types.ObjectId().toString();
 
       mockReq = {
-        user: { id: validStudentId, _id: validStudentId },
+        userV2: { sub: validStudentId },
         body: { eventId: validEventId },
       };
 
@@ -226,7 +229,7 @@ describe("Certificate controller (student endpoints)", () => {
       const validEventId = new Types.ObjectId().toString();
 
       mockReq = {
-        user: { id: validStudentId, _id: validStudentId },
+        userV2: { sub: validStudentId },
         body: { eventId: validEventId },
       };
 
@@ -247,7 +250,7 @@ describe("Certificate controller (student endpoints)", () => {
       const validEventId = new Types.ObjectId().toString();
 
       mockReq = {
-        user: { id: validStudentId, _id: validStudentId },
+        userV2: { sub: validStudentId },
         body: { eventId: validEventId },
       };
 
@@ -270,7 +273,7 @@ describe("Certificate controller (student endpoints)", () => {
       const validEventId = new Types.ObjectId().toString();
 
       mockReq = {
-        user: { id: validStudentId, _id: validStudentId },
+        userV2: { sub: validStudentId },
         body: { eventId: validEventId },
       };
 
@@ -311,7 +314,7 @@ describe("Certificate controller (student endpoints)", () => {
       const validEventId = new Types.ObjectId().toString();
 
       mockReq = {
-        user: { id: validStudentId, _id: validStudentId },
+        userV2: { sub: validStudentId },
         body: { eventId: validEventId },
       };
       const testError = new Error("PDF generation failed");

@@ -4,7 +4,11 @@ import { MongoMemoryServer } from "mongodb-memory-server";
 let mongoServer: MongoMemoryServer | null = null;
 
 export const connectTestDatabase = async () => {
-  mongoServer = await MongoMemoryServer.create();
+  mongoServer = await MongoMemoryServer.create({
+    instance: {
+      launchTimeout: 30000,
+    },
+  });
   const uri = mongoServer.getUri();
   await mongoose.connect(uri, {
     dbName: "psits-test",

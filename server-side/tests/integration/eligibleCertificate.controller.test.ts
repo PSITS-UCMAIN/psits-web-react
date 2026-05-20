@@ -1,27 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Types } from "mongoose";
-import {
-  addEligibleCertificates,
-  removeEligibleCertificates,
-  getEligibleCertificatesByEvent,
-  bulkCheckEligibility,
-  importEligibleCertificatesFromCSV,
-} from "../../src/controllers/eligibleCertificate.controller";
 
-// Mock Mongoose models - EligibleCertificate must be a vi.fn() constructor
-// because the controller does `new EligibleCertificate({...})`
-const mockSave = vi.fn();
-const mockEligibleCertificateConstructor = vi.fn(() => ({
-  save: mockSave,
-})) as any;
-
-mockEligibleCertificateConstructor.find = vi.fn();
-mockEligibleCertificateConstructor.findOne = vi.fn();
-mockEligibleCertificateConstructor.deleteMany = vi.fn();
-
-vi.mock("../../src/models/eligibleCertificate.model", () => ({
-  EligibleCertificate: mockEligibleCertificateConstructor,
-}));
+// Mock Mongoose models using factory functions that don't reference external variables
+// This avoids hoisting issues with vi.mock
+vi.mock("../../src/models/eligibleCertificate.model", () => {
+  const mockConstructor = vi.fn(() => ({
+    save: vi.fn(),
+  })) as any;
+  
+  mockConstructor.find = vi.fn();
+  mockConstructor.findOne = vi.fn();
+  mockConstructor.deleteMany = vi.fn();
+  
+  return {
+    EligibleCertificate: mockConstructor,
+  };
+});
 
 vi.mock("../../src/models/student.model", () => ({
   Student: {
@@ -30,26 +24,42 @@ vi.mock("../../src/models/student.model", () => ({
   },
 }));
 
-vi.mock("../../src/models/attendee.model", () => ({
-  Attendee: {
+vi.mock("../../src/models/attendee.model", () => {
+  const { Schema } = require("mongoose");
+  return {
+    Attendee: {
+      findOne: vi.fn(),
+    },
+    attendeeSchema: new Schema({}),
+  };
+});
+
+vi.mock("../../src/models/event.model", () => ({
+  Event: {
     findOne: vi.fn(),
   },
 }));
 
-const mockedEligibleCertificateFind = vi.mocked(
-  mockEligibleCertificateConstructor.find
-);
-const mockedEligibleCertificateFindOne = vi.mocked(
-  mockEligibleCertificateConstructor.findOne
-);
-const mockedEligibleCertificateDeleteMany = vi.mocked(
-  mockEligibleCertificateConstructor.deleteMany
-);
+// Import models and controller AFTER mocks are set up
+import { EligibleCertificate } from "../../src/models/eligibleCertificate.model";
 import { Student } from "../../src/models/student.model";
 import { Attendee } from "../../src/models/attendee.model";
+import { Event } from "../../src/models/event.model";
+import {
+  addEligibleCertificates,
+  removeEligibleCertificates,
+  getEligibleCertificatesByEvent,
+  bulkCheckEligibility,
+  importEligibleCertificatesFromCSV,
+} from "../../src/controllers/eligibleCertificate.controller";
 
+const mockedEligibleCertificate = vi.mocked(EligibleCertificate);
+const mockedEligibleCertificateFind = vi.mocked(EligibleCertificate.find);
+const mockedEligibleCertificateFindOne = vi.mocked(EligibleCertificate.findOne);
+const mockedEligibleCertificateDeleteMany = vi.mocked(EligibleCertificate.deleteMany);
 const mockedStudent = vi.mocked(Student);
 const mockedAttendee = vi.mocked(Attendee);
+const mockedEvent = vi.mocked(Event);
 
 describe("EligibleCertificate controller (admin endpoints)", () => {
   let mockReq: any;
@@ -59,7 +69,7 @@ describe("EligibleCertificate controller (admin endpoints)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     // Re-apply default implementations since vi.clearAllMocks() clears them
-    mockEligibleCertificateConstructor.mockImplementation(() => ({
+    mockedEligibleCertificate.mockImplementation(() => ({
       save: vi.fn(),
     }));
 
@@ -166,7 +176,7 @@ describe("EligibleCertificate controller (admin endpoints)", () => {
       } as any);
 
       const testSave = vi.fn().mockResolvedValue({ _id: "new-cert" });
-      mockEligibleCertificateConstructor.mockImplementationOnce(() => ({
+      mockedEligibleCertificate.mockImplementationOnce(() => ({
         save: testSave,
       }));
 
@@ -201,7 +211,7 @@ describe("EligibleCertificate controller (admin endpoints)", () => {
       duplicateError.code = 11000;
 
       const errorSave = vi.fn().mockRejectedValue(duplicateError);
-      mockEligibleCertificateConstructor.mockImplementationOnce(() => ({
+      mockedEligibleCertificate.mockImplementationOnce(() => ({
         save: errorSave,
       }));
 
@@ -381,7 +391,7 @@ describe("EligibleCertificate controller (admin endpoints)", () => {
           results: expect.objectContaining({
             invalid: [
               {
-                studentId: "2024-9999",
+                studentId: "20249999", // Controller strips non-digits
                 reason: "Student ID not found in system",
               },
             ],
@@ -399,9 +409,12 @@ describe("EligibleCertificate controller (admin endpoints)", () => {
       mockedStudent.findOne.mockResolvedValue({
         _id: "student1",
         studentId: "2024-0001",
+        id_number: "2024-0001",
         name: "Test Student",
       } as any);
-      mockedAttendee.findOne.mockResolvedValue(null);
+      
+      // Mock Event.findOne to return null (student did not attend)
+      mockedEvent.findOne.mockResolvedValue(null);
 
       await bulkCheckEligibility(mockReq, mockRes, mockNext);
 
@@ -410,7 +423,7 @@ describe("EligibleCertificate controller (admin endpoints)", () => {
           results: expect.objectContaining({
             invalid: [
               {
-                studentId: "2024-0001",
+                studentId: "20240001", // Controller strips non-digits
                 reason: "Student did not attend this event",
               },
             ],
@@ -428,11 +441,16 @@ describe("EligibleCertificate controller (admin endpoints)", () => {
       mockedStudent.findOne.mockResolvedValue({
         _id: "student1",
         studentId: "2024-0001",
+        id_number: "2024-0001",
         name: "Test Student",
       } as any);
-      mockedAttendee.findOne.mockResolvedValue({
-        _id: "attendee1",
+      
+      // Mock Event.findOne to return event (student attended)
+      mockedEvent.findOne.mockResolvedValue({
+        _id: eventId,
+        attendees: [{ id_number: "2024-0001" }],
       } as any);
+      
       mockedEligibleCertificateFindOne.mockResolvedValue({
         _id: "existing-cert",
       } as any);
@@ -444,7 +462,7 @@ describe("EligibleCertificate controller (admin endpoints)", () => {
           results: expect.objectContaining({
             duplicates: [
               {
-                studentId: "2024-0001",
+                studentId: "20240001", // Controller strips non-digits
                 attendeeId: "student1",
               },
             ],
@@ -462,11 +480,17 @@ describe("EligibleCertificate controller (admin endpoints)", () => {
       mockedStudent.findOne.mockResolvedValue({
         _id: "student1",
         studentId: "2024-0001",
-        name: "Test Student",
+        id_number: "2024-0001",
+        first_name: "Test",
+        last_name: "Student",
       } as any);
-      mockedAttendee.findOne.mockResolvedValue({
-        _id: "attendee1",
+      
+      // Mock Event.findOne to return event (student attended)
+      mockedEvent.findOne.mockResolvedValue({
+        _id: eventId,
+        attendees: [{ id_number: "2024-0001" }],
       } as any);
+      
       mockedEligibleCertificateFindOne.mockResolvedValue(null);
 
       await bulkCheckEligibility(mockReq, mockRes, mockNext);
@@ -476,7 +500,7 @@ describe("EligibleCertificate controller (admin endpoints)", () => {
           results: expect.objectContaining({
             valid: [
               {
-                studentId: "2024-0001",
+                studentId: "20240001", // Controller strips non-digits
                 attendeeId: "student1",
                 name: "Test Student",
               },
@@ -543,22 +567,45 @@ describe("EligibleCertificate controller (admin endpoints)", () => {
         .mockResolvedValueOnce({
           _id: "student1",
           studentId: "2024-0001",
-          name: "Student One",
+          id_number: "2024-0001",
+          first_name: "Student",
+          last_name: "One",
         } as any)
         .mockResolvedValueOnce({
           _id: "student2",
           studentId: "2024-0002",
-          name: "Student Two",
+          id_number: "2024-0002",
+          first_name: "Student",
+          last_name: "Two",
         } as any);
 
-      mockedAttendee.findOne.mockResolvedValue({
-        _id: "attendee1",
+      // Mock Event.findOne to return event (students attended)
+      mockedEvent.findOne.mockResolvedValue({
+        _id: eventId,
+        attendees: [
+          { id_number: "2024-0001" },
+          { id_number: "2024-0002" },
+        ],
       } as any);
+      
       mockedEligibleCertificateFindOne.mockResolvedValue(null);
+
+      const testSave = vi.fn().mockResolvedValue({ _id: "new-cert" });
+      mockedEligibleCertificate.mockImplementation(() => ({
+        save: testSave,
+      }));
 
       await importEligibleCertificatesFromCSV(mockReq, mockRes, mockNext);
 
       expect(mockRes.status).toHaveBeenCalledWith(200);
+      expect(mockRes.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          results: expect.objectContaining({
+            imported: 2,
+          }),
+        })
+      );
     });
   });
 });
