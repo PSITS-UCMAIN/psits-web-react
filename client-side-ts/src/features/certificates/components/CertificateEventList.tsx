@@ -117,7 +117,7 @@ export const CertificateEventList = () => {
 
       {eligibleCerts.map((cert) => (
         <Card key={cert._id} className="transition-shadow hover:shadow-md">
-          <CardHeader>
+          <CardHeader className="pt-6">
             <div className="flex items-start justify-between">
               <div className="flex-1 space-y-1">
                 <CardTitle className="text-xl">{eventDetails.name}</CardTitle>
