@@ -150,7 +150,8 @@ export const generateCertificate = async (
       event_venue_specific: "New Cebu Coliseum",
       event_venue: "Sanciangko St., Cebu City",
       images: {
-        main_logo: "images/etc/all_logos-removebg-preview.png",
+        main_logo: "images/etc/top-logos.png",
+        bottom_logos: "images/logos/logos-bottom.png",
         esig_basabe: "images/etc/neil_basabbe-removebg-preview.png",
         esig_tanquis: "images/etc/janette_tanquis-removebg-preview.png",
         esig_ortega: "images/etc/eric_ortega-removebg-preview.png",

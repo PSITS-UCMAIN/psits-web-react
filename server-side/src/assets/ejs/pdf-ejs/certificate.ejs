@@ -152,7 +152,7 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 20mm 30mm;
+            padding: 18mm 24mm 22mm;
             text-align: center;
         }
 
@@ -165,7 +165,7 @@
         }
 
         .logos img {
-            height: 80px;
+            height: 72px;
             width: auto;
             object-fit: contain;
         }
@@ -173,7 +173,7 @@
         /* Main Heading */
         .main-title {
             font-family: 'Cinzel', serif;
-            font-size: 56pt;
+            font-size: 50pt;
             color: #1a3a5f;
             margin: 0;
             letter-spacing: 5px;
@@ -181,7 +181,7 @@
         }
 
         .sub-title {
-            font-size: 16pt;
+            font-size: 14pt;
             letter-spacing: 6px;
             color: #1a3a5f;
             font-weight: 600;
@@ -192,7 +192,7 @@
 
         /* Certification Line */
         .certify-line {
-            font-size: 12pt;
+            font-size: 11pt;
             text-transform: uppercase;
             font-style: italic;
             letter-spacing: 2px;
@@ -204,7 +204,7 @@
         /* Recipient Name */
         .recipient-name {
             font-family: 'Alex Brush', cursive;
-            font-size: 55pt;
+            font-size: 49pt;
             color: #1a3a5f;
             /* margin-top: 10px; */
             min-width: 60%;
@@ -232,7 +232,7 @@
 
         /* Description */
         .description {
-            font-size: 13pt;
+            font-size: 11.5pt;
             color: #444;
             max-width: 85%;
             line-height: 1.8;
@@ -249,13 +249,13 @@
             width: 100%;
             display: flex;
             justify-content: center;
-            gap: 20px;
+            gap: 14px;
             margin-top: auto;
-            padding-bottom: 10px;
+            padding-bottom: 0;
         }
 
         .signee-box {
-            width: 30%;
+            width: 24%;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -267,24 +267,41 @@
             margin-bottom: 8px;
             padding-top: 8px;
             font-weight: 700;
-            font-size: 11pt;
+            font-size: 9pt;
             color: #1a3a5f;
         }
 
         .signee-signature img {
-            height: 80px;
+            height: 68px;
             object-fit: contain;
-            margin-bottom: 8px;
+            margin-bottom: 4px;
             display: block;
-            transform: translateY(30px);
+            transform: translateY(22px);
         }
 
         .signee-role {
-            font-size: 9pt;
+            font-size: 7pt;
             font-style: italic;
             text-transform: uppercase;
             color: #666;
             letter-spacing: 1px;
+            line-height: 1.15;
+        }
+
+        .bottom-logos {
+            width: 100%;
+            height: 28mm;
+            margin-top: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .bottom-logos img {
+            width: 248mm;
+            height: 25.6mm;
+            object-fit: contain;
+            display: block;
         }
     </style>
 </head>
@@ -348,6 +365,12 @@
                     </div>
                     <% } %>
             </div>
+
+            <% if (images && images.bottom_logos) { %>
+            <div class="bottom-logos">
+                <img src="<%= images.bottom_logos %>" alt="Partner logos" />
+            </div>
+            <% } %>
         </div>
     </div>
 </body>
