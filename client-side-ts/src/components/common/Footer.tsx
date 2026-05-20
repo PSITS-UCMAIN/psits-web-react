@@ -67,8 +67,16 @@ export const Footer = () => {
             </CardDescription>
             <div className="flex gap-3">
               {[
-                { icon: Facebook, href: "https://www.facebook.com/PSITS.UCmain", color: "hover:bg-blue-600" },
-                { icon: Github, href: "https://github.com/PSITS-UCMAIN/psits-web-react", color: "hover:bg-zinc-800" },
+                {
+                  icon: Facebook,
+                  href: "https://www.facebook.com/PSITS.UCmain",
+                  color: "hover:bg-blue-600",
+                },
+                {
+                  icon: Github,
+                  href: "https://github.com/PSITS-UCMAIN/psits-web-react",
+                  color: "hover:bg-zinc-800",
+                },
                 { icon: FaDiscord, href: "#", color: "hover:bg-indigo-600" },
               ].map((social, i) => (
                 <Button

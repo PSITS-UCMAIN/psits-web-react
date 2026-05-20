@@ -1,5 +1,8 @@
 import api from "@/api/axios";
-import type { EligibleCertificate, GenerateCertificateResponse } from "../types";
+import type {
+  EligibleCertificate,
+  GenerateCertificateResponse,
+} from "../types";
 import type { CertificateSearchError } from "@/types/api";
 
 /**
@@ -57,11 +60,13 @@ export const generateCertificate = async (
   } catch (error: unknown) {
     console.error("Error generating certificate:", error);
 
-    if (error instanceof Error && 'response' in error) {
+    if (error instanceof Error && "response" in error) {
       const axiosError = error as {
         response?: {
           status?: number;
-          data?: Blob | { message?: string; retryAfter?: number; error?: string };
+          data?:
+            | Blob
+            | { message?: string; retryAfter?: number; error?: string };
         };
       };
       const status = axiosError.response?.status;
@@ -113,14 +118,19 @@ export const generateCertificate = async (
 
       return {
         success: false,
-        message: axiosError.response?.data?.message || "Failed to generate certificate",
+        message:
+          axiosError.response?.data?.message ||
+          "Failed to generate certificate",
       };
     }
 
     // Network or other errors
     return {
       success: false,
-      message: error instanceof Error ? error.message : "Failed to generate certificate",
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to generate certificate",
     };
   }
 };

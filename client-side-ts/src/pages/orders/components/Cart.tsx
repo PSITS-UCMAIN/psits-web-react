@@ -1,5 +1,4 @@
-
-import Carts from '@/features/orders/components/CartArea';
+import Carts from "@/features/orders/components/CartArea";
 
 export const Cart = () => {
   return (

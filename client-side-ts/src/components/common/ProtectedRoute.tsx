@@ -31,7 +31,8 @@ export default function ProtectedRoute({
   redirectTo = "/auth/login",
 }: ProtectedRouteProps) {
   const { user, isAuthenticated, isLoading } = useAuth();
-  const [hasShownCampusUnauthorizedToast, setHasShownCampusUnauthorizedToast] = useState(false);
+  const [hasShownCampusUnauthorizedToast, setHasShownCampusUnauthorizedToast] =
+    useState(false);
 
   useEffect(() => {
     if (allowedCampuses && user && !allowedCampuses.includes(user.campus)) {
@@ -42,7 +43,12 @@ export default function ProtectedRoute({
       }
     }
     return;
-  }, [allowedCampuses, user, campusUnauthorizedToastMessage, hasShownCampusUnauthorizedToast]);
+  }, [
+    allowedCampuses,
+    user,
+    campusUnauthorizedToastMessage,
+    hasShownCampusUnauthorizedToast,
+  ]);
 
   if (isLoading) {
     return (

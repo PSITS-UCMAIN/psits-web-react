@@ -12,7 +12,9 @@ export const PastEvents = () => {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Derive unique sorted years from events
-  const years = Array.from(new Set(events.map((e) => e.year))).sort((a, b) => b - a);
+  const years = Array.from(new Set(events.map((e) => e.year))).sort(
+    (a, b) => b - a
+  );
 
   const filteredEvents = selectedYear
     ? events.filter((e) => e.year === selectedYear)
@@ -30,7 +32,10 @@ export const PastEvents = () => {
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node)
+      ) {
         setDropdownOpen(false);
       }
     };
@@ -64,22 +69,32 @@ export const PastEvents = () => {
           </Button>
 
           {dropdownOpen && (
-            <div className="absolute right-0 top-full z-50 mt-2 w-44 rounded-2xl border border-gray-100 bg-white shadow-xl">
+            <div className="absolute top-full right-0 z-50 mt-2 w-44 rounded-2xl border border-gray-100 bg-white shadow-xl">
               <button
-                onClick={() => { setSelectedYear(null); setDropdownOpen(false); }}
+                onClick={() => {
+                  setSelectedYear(null);
+                  setDropdownOpen(false);
+                }}
                 className="flex w-full items-center justify-between rounded-t-2xl px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50"
               >
                 All Years
-                {selectedYear === null && <Check className="h-4 w-4 text-sky-500" />}
+                {selectedYear === null && (
+                  <Check className="h-4 w-4 text-sky-500" />
+                )}
               </button>
               {years.map((year) => (
                 <button
                   key={year}
-                  onClick={() => { setSelectedYear(year); setDropdownOpen(false); }}
-                  className="flex w-full items-center justify-between px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 last:rounded-b-2xl"
+                  onClick={() => {
+                    setSelectedYear(year);
+                    setDropdownOpen(false);
+                  }}
+                  className="flex w-full items-center justify-between px-4 py-3 text-sm font-semibold text-gray-700 last:rounded-b-2xl hover:bg-gray-50"
                 >
                   {year}
-                  {selectedYear === year && <Check className="h-4 w-4 text-sky-500" />}
+                  {selectedYear === year && (
+                    <Check className="h-4 w-4 text-sky-500" />
+                  )}
                 </button>
               ))}
             </div>
@@ -89,7 +104,7 @@ export const PastEvents = () => {
 
       <div className="space-y-20">
         {filteredEvents.length === 0 ? (
-          <p className="text-muted-foreground text-center text-lg py-20">
+          <p className="text-muted-foreground py-20 text-center text-lg">
             No events found for {selectedYear}.
           </p>
         ) : (
@@ -134,7 +149,11 @@ export const PastEvents = () => {
                   </div>
 
                   <div className="text-muted-foreground text-base leading-[1.6] md:text-lg">
-                    <p className={isExpanded ? "" : "line-clamp-3 md:line-clamp-4"}>
+                    <p
+                      className={
+                        isExpanded ? "" : "line-clamp-3 md:line-clamp-4"
+                      }
+                    >
                       {event.description}
                     </p>
                     <button
@@ -153,5 +172,3 @@ export const PastEvents = () => {
     </section>
   );
 };
-
-

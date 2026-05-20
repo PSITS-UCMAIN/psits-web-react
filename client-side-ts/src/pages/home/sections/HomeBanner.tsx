@@ -30,9 +30,7 @@ export const HomeBanner = () => {
               className="h-12 w-full rounded-full px-8 text-base font-semibold sm:w-auto"
               asChild
             >
-              <Link to="/auth/signup">
-                {homeBannerData.buttons.primary}
-              </Link>
+              <Link to="/auth/signup">{homeBannerData.buttons.primary}</Link>
             </Button>
             <Button
               variant="outline"

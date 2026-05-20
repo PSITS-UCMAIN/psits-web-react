@@ -113,20 +113,15 @@ export const GetInvolvedSection = () => {
               </p>
               <div className="flex items-center gap-3 pt-2 md:gap-4">
                 <div className="flex -space-x-2 md:-space-x-3">
-                  {[
-                    Avatar1,
-                    Avatar2,
-                    Avatar3,
-                    Avatar4,
-                  ].map((src, idx) => (
+                  {[Avatar1, Avatar2, Avatar3, Avatar4].map((src, idx) => (
                     <div
                       key={idx}
-                      className="h-8 w-8 md:h-10 md:w-10 rounded-full overflow-hidden border-2 border-background bg-muted"
+                      className="border-background bg-muted h-8 w-8 overflow-hidden rounded-full border-2 md:h-10 md:w-10"
                     >
                       <OptimizedImage
                         src={src}
                         alt={`member ${idx + 1}`}
-                        className="w-full h-full object-cover"
+                        className="h-full w-full object-cover"
                         containerClassName="h-full w-full"
                         blur={false}
                       />

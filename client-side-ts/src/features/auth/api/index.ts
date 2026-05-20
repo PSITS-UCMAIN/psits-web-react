@@ -22,7 +22,8 @@ interface ApiSuccessResponse {
 const handleApiError = (error: unknown): string => {
   if (axios.isAxiosError(error)) {
     const axiosError = error as AxiosError<ApiErrorResponse>;
-    const errorMessage = axiosError.response?.data?.message || "An error occurred";
+    const errorMessage =
+      axiosError.response?.data?.message || "An error occurred";
     console.error("Error:", errorMessage);
     showToast("error", errorMessage);
     return errorMessage;
@@ -66,7 +67,6 @@ export const login = async (
     return false;
   }
 };
-
 
 export const register = async (
   formData: RegisterFormData

@@ -73,7 +73,6 @@ export const RaffleSlotMachine: React.FC<RaffleSlotMachineProps> = ({
             }}
           />
 
-
           <div
             ref={reelRef}
             style={{

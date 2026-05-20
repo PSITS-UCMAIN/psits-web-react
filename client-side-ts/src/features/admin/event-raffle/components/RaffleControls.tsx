@@ -11,7 +11,7 @@ interface RaffleControlsProps {
   onCampusChange: (campus: string) => void;
   onDraw: () => void;
   onReset: () => void;
-  disableReset?: boolean; 
+  disableReset?: boolean;
 }
 
 export const RaffleControls: React.FC<RaffleControlsProps> = ({
@@ -39,13 +39,13 @@ export const RaffleControls: React.FC<RaffleControlsProps> = ({
   }, [selectedCampus]);
 
   return (
-    <div className="flex flex-col items-center gap-6 w-full mt-4">
+    <div className="mt-4 flex w-full flex-col items-center gap-6">
       {/* Primary Actions */}
       <div className="flex flex-wrap justify-center gap-3">
         <button
           onClick={onDraw}
           disabled={isBusy || poolLength === 0}
-          className="btn btn-primary px-8 py-3 text-lg font-bold shadow-md hover:shadow-lg transition-all"
+          className="btn btn-primary px-8 py-3 text-lg font-bold shadow-md transition-all hover:shadow-lg"
           aria-disabled={isBusy || poolLength === 0}
         >
           {(isSpinning || isLoadingParticipants) && (
@@ -57,10 +57,10 @@ export const RaffleControls: React.FC<RaffleControlsProps> = ({
           {isSpinning
             ? "Spinning..."
             : isLoadingParticipants
-            ? "Loading Pool..."
-            : isResetting
-            ? "Resetting..."
-            : "Draw Winner"}
+              ? "Loading Pool..."
+              : isResetting
+                ? "Resetting..."
+                : "Draw Winner"}
         </button>
 
         {winnersCount > 0 && (
@@ -84,14 +84,14 @@ export const RaffleControls: React.FC<RaffleControlsProps> = ({
           onClick={() => setShowCampusFilters((prev) => !prev)}
           disabled={isBusy}
           aria-expanded={showCampusFilters}
-          className={`px-4 py-2 rounded-xl text-sm font-semibold border transition-all ${
+          className={`rounded-xl border px-4 py-2 text-sm font-semibold transition-all ${
             isBusy
-              ? "opacity-50 cursor-not-allowed"
+              ? "cursor-not-allowed opacity-50"
               : "cursor-pointer hover:bg-slate-100/70 dark:hover:bg-zinc-700/60"
           } ${
             selectedCampus && selectedCampus !== "all"
-              ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300"
-              : "bg-white/70 text-slate-600 border-slate-200 dark:bg-zinc-800/60 dark:text-slate-300 dark:border-zinc-700"
+              ? "border-blue-200 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300"
+              : "border-slate-200 bg-white/70 text-slate-600 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-slate-300"
           }`}
         >
           <span className="inline-flex items-center gap-2">
@@ -120,12 +120,12 @@ export const RaffleControls: React.FC<RaffleControlsProps> = ({
         <div
           className={`grid w-full transition-all duration-300 ease-out ${
             showCampusFilters
-              ? "grid-rows-[1fr] opacity-100 translate-y-0"
-              : "grid-rows-[0fr] opacity-0 -translate-y-1 pointer-events-none"
+              ? "translate-y-0 grid-rows-[1fr] opacity-100"
+              : "pointer-events-none -translate-y-1 grid-rows-[0fr] opacity-0"
           }`}
         >
           <div className="overflow-hidden">
-            <div className="flex flex-wrap justify-center p-1.5 bg-slate-200/60 dark:bg-zinc-800/60 rounded-2xl border border-slate-200 dark:border-zinc-700 shadow-sm backdrop-blur-sm">
+            <div className="flex flex-wrap justify-center rounded-2xl border border-slate-200 bg-slate-200/60 p-1.5 shadow-sm backdrop-blur-sm dark:border-zinc-700 dark:bg-zinc-800/60">
               {campusOptions.map((option) => {
                 const isSelected = selectedCampus === option.value;
                 return (
@@ -138,11 +138,11 @@ export const RaffleControls: React.FC<RaffleControlsProps> = ({
                       }
                     }}
                     disabled={isBusy}
-                    className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                    className={`rounded-xl px-5 py-2.5 text-sm font-semibold transition-all duration-200 ${
                       isSelected
-                        ? "bg-white dark:bg-zinc-700 text-blue-600 dark:text-blue-400 shadow-sm ring-1 ring-black/5"
-                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 hover:bg-slate-100/50 dark:hover:bg-zinc-700/50"
-                    } ${isBusy ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                        ? "bg-white text-blue-600 shadow-sm ring-1 ring-black/5 dark:bg-zinc-700 dark:text-blue-400"
+                        : "text-slate-600 hover:bg-slate-100/50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-zinc-700/50"
+                    } ${isBusy ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
                   >
                     {option.label}
                   </button>

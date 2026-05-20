@@ -72,23 +72,43 @@ export const GenerateCertificateButton = ({
         // Set cooldown (5 minutes from now)
         const cooldownTime = Date.now() + 5 * 60 * 1000;
         setCooldownEnd(cooldownTime);
-        localStorage.setItem(`cert-cooldown-${eventId}`, cooldownTime.toString());
+        localStorage.setItem(
+          `cert-cooldown-${eventId}`,
+          cooldownTime.toString()
+        );
       } else {
         if (result.retryAfter) {
           // Server returned cooldown time
           const cooldownTime = Date.now() + result.retryAfter * 1000;
           setCooldownEnd(cooldownTime);
-          localStorage.setItem(`cert-cooldown-${eventId}`, cooldownTime.toString());
-          showToast("error", result.message || "Please wait before generating another certificate");
+          localStorage.setItem(
+            `cert-cooldown-${eventId}`,
+            cooldownTime.toString()
+          );
+          showToast(
+            "error",
+            result.message ||
+              "Please wait before generating another certificate"
+          );
         } else if (result.error === "Not eligible") {
-          showToast("error", "You are not eligible for a certificate for this event");
+          showToast(
+            "error",
+            "You are not eligible for a certificate for this event"
+          );
         } else {
-          showToast("error", result.message || "Failed to generate certificate");
+          showToast(
+            "error",
+            result.message || "Failed to generate certificate"
+          );
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error generating certificate:", error);
-      showToast("error", error.message || "Failed to generate certificate");
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to generate certificate";
+      showToast("error", errorMessage);
     } finally {
       setIsGenerating(false);
     }

@@ -1,5 +1,5 @@
-import React from 'react';
-import QRCode from 'react-qr-code';
+import React from "react";
+import QRCode from "react-qr-code";
 
 interface QRCodeDisplayProps {
   /** The string value to encode */
@@ -26,9 +26,9 @@ export const QRCodeDisplay: React.FC<QRCodeDisplayProps> = ({
   className = "",
 }) => {
   return (
-    <div 
-      className={`bg-white p-4 rounded-xl shadow-lg border border-slate-100 ${className}`}
-      style={{ width: 'fit-content' }}
+    <div
+      className={`rounded-xl border border-slate-100 bg-white p-4 shadow-lg ${className}`}
+      style={{ width: "fit-content" }}
     >
       <QRCode
         value={value}

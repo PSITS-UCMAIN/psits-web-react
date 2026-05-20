@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import type { CartItem } from './cart';
+import React, { createContext, useContext, useEffect, useState } from "react";
+import type { CartItem } from "./cart";
 
 export interface Transaction {
   id: string;
@@ -10,15 +10,21 @@ export interface Transaction {
 
 interface TransactionsContextValue {
   transactions: Transaction[];
-  addTransaction: (t: Omit<Transaction, 'id' | 'createdAt'>) => void;
+  addTransaction: (t: Omit<Transaction, "id" | "createdAt">) => void;
   clearTransactions: () => void;
 }
 
-const STORAGE_KEY = 'psits_txns_v1';
+const STORAGE_KEY = "psits_txns_v1";
 
-const TransactionsContext = createContext<TransactionsContextValue | undefined>(undefined);
+const TransactionsContext = createContext<TransactionsContextValue | undefined>(
+  undefined
+);
 
-export function TransactionsProvider({ children }: { children: React.ReactNode }) {
+export function TransactionsProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -36,7 +42,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     }
   }, [transactions]);
 
-  const addTransaction = (t: Omit<Transaction, 'id' | 'createdAt'>) => {
+  const addTransaction = (t: Omit<Transaction, "id" | "createdAt">) => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const createdAt = new Date().toISOString();
     setTransactions((s) => [{ id, createdAt, ...t }, ...s]);
@@ -45,7 +51,9 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
   const clearTransactions = () => setTransactions([]);
 
   return (
-    <TransactionsContext.Provider value={{ transactions, addTransaction, clearTransactions }}>
+    <TransactionsContext.Provider
+      value={{ transactions, addTransaction, clearTransactions }}
+    >
       {children}
     </TransactionsContext.Provider>
   );
@@ -53,7 +61,8 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
 
 export function useTransactions() {
   const ctx = useContext(TransactionsContext);
-  if (!ctx) throw new Error('useTransactions must be used within TransactionsProvider');
+  if (!ctx)
+    throw new Error("useTransactions must be used within TransactionsProvider");
   return ctx;
 }
 

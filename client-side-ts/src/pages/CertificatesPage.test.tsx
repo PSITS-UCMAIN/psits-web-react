@@ -14,9 +14,7 @@ describe("CertificatesPage", () => {
       screen.getByRole("heading", { name: /my certificates/i })
     ).toBeInTheDocument();
     expect(
-      screen.getByText(
-        /view and download your certificates/i
-      )
+      screen.getByText(/view and download your certificates/i)
     ).toBeInTheDocument();
   });
 

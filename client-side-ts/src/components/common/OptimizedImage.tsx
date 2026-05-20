@@ -92,37 +92,43 @@ export const OptimizedImage = ({
         <motion.img
           src={optimizedSrc}
           srcSet={srcSet}
-        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-        alt={alt}
-        initial={
-          blur
-            ? { filter: "blur(20px)", opacity: 0, scale: 1.05 }
-            : { opacity: 0 }
-        }
-        animate={
-          isLoaded
-            ? { filter: "blur(0px)", opacity: 1, scale: 1 }
-            : { filter: blur ? "blur(20px)" : "none", opacity: 0, scale: 1.05 }
-        }
-        transition={{
-          duration: 0.8,
-          ease: [0.4, 0, 0.2, 1], // Standard easing for premium feel
-          scale: { duration: 1.2 },
-        }}
-        onLoad={() => setIsLoaded(true)}
-        onError={() => setError(true)}
-        loading={priority ? "eager" : "lazy"}
-        decoding="async"
-        className={cn(
-          "h-full w-full object-cover transition-opacity duration-300",
-          !isLoaded && "invisible",
-          isLoaded && "visible",
-          className
-        )}
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          alt={alt}
+          initial={
+            blur
+              ? { filter: "blur(20px)", opacity: 0, scale: 1.05 }
+              : { opacity: 0 }
+          }
+          animate={
+            isLoaded
+              ? { filter: "blur(0px)", opacity: 1, scale: 1 }
+              : {
+                  filter: blur ? "blur(20px)" : "none",
+                  opacity: 0,
+                  scale: 1.05,
+                }
+          }
+          transition={{
+            duration: 0.8,
+            ease: [0.4, 0, 0.2, 1], // Standard easing for premium feel
+            scale: { duration: 1.2 },
+          }}
+          onLoad={() => setIsLoaded(true)}
+          onError={() => setError(true)}
+          loading={priority ? "eager" : "lazy"}
+          decoding="async"
+          className={cn(
+            "h-full w-full object-cover transition-opacity duration-300",
+            !isLoaded && "invisible",
+            isLoaded && "visible",
+            className
+          )}
           {...props}
         />
       ) : (
-        <div className="h-full w-full flex items-center justify-center text-muted-foreground">No image</div>
+        <div className="text-muted-foreground flex h-full w-full items-center justify-center">
+          No image
+        </div>
       )}
 
       {error && (

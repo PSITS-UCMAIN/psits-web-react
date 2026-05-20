@@ -1,5 +1,4 @@
-
-import { ProductDetails } from '@/features/orders/components/ProductDetails';
+import { ProductDetails } from "@/features/orders/components/ProductDetails";
 
 export const ProductDetailsPage = () => {
   return <ProductDetails />;

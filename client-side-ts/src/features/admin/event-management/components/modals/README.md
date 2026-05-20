@@ -62,6 +62,7 @@ modals/
 ## Data shapes (examples)
 
 ### EventFormData
+
 ```ts
 interface EventFormData {
   eventName: string;
@@ -75,6 +76,7 @@ interface EventFormData {
 ```
 
 ### SessionData
+
 ```ts
 interface SessionData {
   date: string;
@@ -85,6 +87,7 @@ interface SessionData {
 ```
 
 ### AttendeeFormData
+
 ```ts
 interface AttendeeFormData {
   studentId: string;
@@ -101,9 +104,10 @@ interface AttendeeFormData {
 ```
 
 ### FilterOptions
+
 ```ts
 interface FilterOptions {
-  status: ('present' | 'absent')[];
+  status: ("present" | "absent")[];
   course: string[];
   yearLevel: string[];
   confirmedOn?: Date;
@@ -128,7 +132,3 @@ interface FilterOptions {
 - Keep dialog chrome consistent: header, content, footer styling should match `AddAttendeeModal` and `AddEventModal`.
 - Prefer updating shared primitives (`components/ui/*`) for global visual changes rather than repeating styles in each modal.
 - When adding new modal controls, ensure keyboard accessibility and focus management.
-
-
-
-

@@ -14,7 +14,7 @@ export default function Signup() {
       {/* Back to Home */}
       <Link
         to="/"
-        className="absolute top-4 left-4 z-50 flex items-center gap-1.5 rounded-full bg-white/80 px-4 py-2 text-sm font-medium text-gray-600 shadow-sm backdrop-blur-sm hover:bg-white hover:text-sky-500 transition-all"
+        className="absolute top-4 left-4 z-50 flex items-center gap-1.5 rounded-full bg-white/80 px-4 py-2 text-sm font-medium text-gray-600 shadow-sm backdrop-blur-sm transition-all hover:bg-white hover:text-sky-500"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to Home

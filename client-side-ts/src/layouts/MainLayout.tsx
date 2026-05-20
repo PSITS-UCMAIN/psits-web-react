@@ -3,7 +3,7 @@ import { Header } from "@/components/common/Header";
 import { Footer } from "@/components/common/Footer";
 import CartProvider from "@/lib/cart";
 import TransactionsProvider from "@/lib/transactions";
-import { Toaster } from '@/components/ui/sonner';
+import { Toaster } from "@/components/ui/sonner";
 
 export const MainLayout = () => {
   return (

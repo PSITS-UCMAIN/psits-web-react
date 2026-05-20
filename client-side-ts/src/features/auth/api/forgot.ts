@@ -18,7 +18,8 @@ const getAuthToken = (): string | null => {
 const handleApiError = (error: unknown): void => {
   if (axios.isAxiosError(error)) {
     const axiosError = error as AxiosError<ApiErrorResponse>;
-    const errorMessage = axiosError.response?.data?.message || "An error occurred";
+    const errorMessage =
+      axiosError.response?.data?.message || "An error occurred";
     showToast("error", errorMessage);
   } else {
     showToast("error", "An error occurred");

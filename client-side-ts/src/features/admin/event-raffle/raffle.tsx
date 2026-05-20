@@ -198,7 +198,8 @@ export default function RaffleDraw({
       setIsLoadingParticipants(true);
       setLoadError(null);
       try {
-        const campusParam = selectedCampus === "all" ? undefined : selectedCampus;
+        const campusParam =
+          selectedCampus === "all" ? undefined : selectedCampus;
         const pool = await getEligibleRaffleAttendeesV2(normalizedEventId, {
           campus: campusParam,
         });
@@ -311,7 +312,7 @@ export default function RaffleDraw({
 
         // Keep the reel in a visible range while waiting for slow API responses.
         if (reelCycleHeight > 0 && offset <= -reelCycleHeight) {
-          offset = -((-offset) % reelCycleHeight);
+          offset = -(-offset % reelCycleHeight);
         }
 
         setTransform(offset);
@@ -475,10 +476,12 @@ export default function RaffleDraw({
     clearWinnerModalState();
     setIsSpinning(false);
 
-    void undoRaffleWinner(normalizedEventId, attendeeIdToUndo).catch((error) => {
-      console.error("Reject failed:", error);
-      alert("Failed to reject winner. Please try again.");
-    });
+    void undoRaffleWinner(normalizedEventId, attendeeIdToUndo).catch(
+      (error) => {
+        console.error("Reject failed:", error);
+        alert("Failed to reject winner. Please try again.");
+      }
+    );
   };
 
   const resetAll = () => {
@@ -561,9 +564,7 @@ export default function RaffleDraw({
       }
 
       if (failedCount > 0) {
-        alert(
-          `${failedCount} winner(s) could not be reset. Please try again.`
-        );
+        alert(`${failedCount} winner(s) could not be reset. Please try again.`);
       }
 
       setWinnerLit(false);

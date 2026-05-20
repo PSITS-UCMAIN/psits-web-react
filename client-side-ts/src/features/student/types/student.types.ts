@@ -5,7 +5,7 @@ export interface StudentProfile {
   course: string;
   year: string;
   email: string;
-  campus: string; 
+  campus: string;
 }
 export interface StudentProfileResponse {
   data: StudentProfile;

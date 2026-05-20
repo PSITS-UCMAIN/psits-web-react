@@ -5,7 +5,6 @@ import { GetInvolvedSection } from "./sections/GetInvolvedSection";
 import GoalsSection from "./sections/GoalsSection";
 import { InstitutionalIdentitySection } from "./sections/InstitutionalIdentitySection";
 
-
 export const Home = () => {
   return (
     <>

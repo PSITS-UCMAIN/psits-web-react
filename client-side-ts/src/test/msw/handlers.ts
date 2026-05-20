@@ -29,4 +29,17 @@ export const handlers = [
   http.post("*/api/v2/auth/logout", async () => {
     return HttpResponse.json({ message: "Logged out successfully" });
   }),
+  http.get("*/api/certificates/eligible", async () => {
+    return HttpResponse.json({
+      success: true,
+      data: [
+        {
+          eventId: "event-1",
+          eventName: "Test Event",
+          eventDate: "2024-01-15",
+          attendanceMarked: true,
+        },
+      ],
+    });
+  }),
 ];

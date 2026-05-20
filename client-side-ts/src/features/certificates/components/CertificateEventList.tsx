@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, MapPin, Award, Loader2 } from "lucide-react";
 import { getEligibleCertificates } from "../api/certificateApi";
@@ -23,13 +29,24 @@ export const CertificateEventList = () => {
     try {
       const certs = await getEligibleCertificates();
       setEligibleCerts(certs);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching eligible certificates:", err);
-      setError(err.message || "Failed to load certificates");
-      if (err?.response?.status === 403) {
-        showToast("error", err.response?.data?.message || "Access Denied. Please login or contact the administrator.");
+      const error = err as {
+        message?: string;
+        response?: { status?: number; data?: { message?: string } };
+      };
+      setError(error.message || "Failed to load certificates");
+      if (error?.response?.status === 403) {
+        showToast(
+          "error",
+          error.response?.data?.message ||
+            "Access Denied. Please login or contact the administrator."
+        );
       } else {
-        showToast("error", err?.message || "Failed to load eligible certificates");
+        showToast(
+          "error",
+          error?.message || "Failed to load eligible certificates"
+        );
       }
     } finally {
       setIsLoading(false);
@@ -39,8 +56,10 @@ export const CertificateEventList = () => {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <span className="ml-2 text-muted-foreground">Loading certificates...</span>
+        <Loader2 className="text-primary h-8 w-8 animate-spin" />
+        <span className="text-muted-foreground ml-2">
+          Loading certificates...
+        </span>
       </div>
     );
   }
@@ -62,12 +81,13 @@ export const CertificateEventList = () => {
         <CardHeader>
           <CardTitle>No Certificates Available</CardTitle>
           <CardDescription>
-            You don't have any certificates available yet. Certificates will appear here after you attend eligible events.
+            You don't have any certificates available yet. Certificates will
+            appear here after you attend eligible events.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex justify-center py-8">
-          <div className="text-center text-muted-foreground">
-            <Award className="mx-auto h-16 w-16 mb-4 opacity-50" />
+          <div className="text-muted-foreground text-center">
+            <Award className="mx-auto mb-4 h-16 w-16 opacity-50" />
             <p>Check back after attending events!</p>
           </div>
         </CardContent>
@@ -81,7 +101,8 @@ export const CertificateEventList = () => {
     name: "12th UC CCS ICT Congress 2026",
     date: "April 22, 2026",
     venue: "New Cebu Colosseum, Sanciangko St., Cebu City",
-    theme: "Innovating the Future: Empowering Society Through Intelligent Technologies",
+    theme:
+      "Innovating the Future: Empowering Society Through Intelligent Technologies",
   };
 
   return (
@@ -89,15 +110,16 @@ export const CertificateEventList = () => {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">My Certificates</h2>
         <Badge variant="secondary" className="text-sm">
-          {eligibleCerts.length} {eligibleCerts.length === 1 ? "Certificate" : "Certificates"}
+          {eligibleCerts.length}{" "}
+          {eligibleCerts.length === 1 ? "Certificate" : "Certificates"}
         </Badge>
       </div>
 
       {eligibleCerts.map((cert) => (
-        <Card key={cert._id} className="hover:shadow-md transition-shadow">
+        <Card key={cert._id} className="transition-shadow hover:shadow-md">
           <CardHeader>
             <div className="flex items-start justify-between">
-              <div className="space-y-1 flex-1">
+              <div className="flex-1 space-y-1">
                 <CardTitle className="text-xl">{eventDetails.name}</CardTitle>
                 <CardDescription className="text-sm italic">
                   {eventDetails.theme}
@@ -111,19 +133,23 @@ export const CertificateEventList = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-2 text-sm">
-              <div className="flex items-center text-muted-foreground">
+              <div className="text-muted-foreground flex items-center">
                 <Calendar className="mr-2 h-4 w-4" />
                 <span>{eventDetails.date}</span>
               </div>
-              <div className="flex items-center text-muted-foreground">
+              <div className="text-muted-foreground flex items-center">
                 <MapPin className="mr-2 h-4 w-4" />
                 <span>{eventDetails.venue}</span>
               </div>
             </div>
 
-            <div className="pt-4 border-t">
+            <div className="border-t pt-4">
               <GenerateCertificateButton
-                eventId={typeof cert.eventId === "string" ? cert.eventId : cert.eventId?._id}
+                eventId={
+                  typeof cert.eventId === "string"
+                    ? cert.eventId
+                    : cert.eventId?._id
+                }
                 eventName={eventDetails.name}
                 isEligible={true}
               />

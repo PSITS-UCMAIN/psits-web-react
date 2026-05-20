@@ -12,11 +12,11 @@ interface MerchandiseItem {
 
 interface PromoCodeData {
   promoName: string;
-  type: string; 
+  type: string;
   limitType: "Limited" | "Unlimited";
-  singleStudent: string; 
-  selectedAudience: string[] | "All Students"; 
-  selectedMerchandise: MerchandiseItem[]; 
+  singleStudent: string;
+  selectedAudience: string[] | "All Students";
+  selectedMerchandise: MerchandiseItem[];
   discount: number;
   quantity: number;
   startDate: string | Date;
@@ -74,18 +74,24 @@ const createHeaders = () => ({
 const handleApiError = (error: unknown): void => {
   if (axios.isAxiosError(error)) {
     const axiosError = error as AxiosError<ErrorResponse>;
-    const errorMessage = axiosError.response?.data?.message || "An error occurred";
+    const errorMessage =
+      axiosError.response?.data?.message || "An error occurred";
     showToast("error", errorMessage);
-    console.error("API Error:", axiosError.response?.data || axiosError.message);
+    console.error(
+      "API Error:",
+      axiosError.response?.data || axiosError.message
+    );
   } else {
     showToast("error", "An unexpected error occurred");
     console.error("Unexpected Error:", error);
   }
 };
 
-export const createPromoCode = async (data: PromoCodeData): Promise<boolean> => {
+export const createPromoCode = async (
+  data: PromoCodeData
+): Promise<boolean> => {
   console.warn(data);
-  
+
   try {
     const response: AxiosResponse<ApiResponse> = await axios.post(
       `${backendConnection()}/api/promo/create`,
@@ -106,9 +112,11 @@ export const createPromoCode = async (data: PromoCodeData): Promise<boolean> => 
   }
 };
 
-export const updatePromoCode = async (data: PromoCodeData): Promise<boolean> => {
+export const updatePromoCode = async (
+  data: PromoCodeData
+): Promise<boolean> => {
   console.warn(data);
-  
+
   try {
     const response: AxiosResponse<ApiResponse> = await axios.post(
       `${backendConnection()}/api/promo/update`,
@@ -129,7 +137,9 @@ export const updatePromoCode = async (data: PromoCodeData): Promise<boolean> => 
   }
 };
 
-export const getAllPromoCode = async (): Promise<PromoCode[] | string | undefined> => {
+export const getAllPromoCode = async (): Promise<
+  PromoCode[] | string | undefined
+> => {
   try {
     const response: AxiosResponse<ApiResponse> = await axios.get(
       `${backendConnection()}/api/promo/fetch`,
@@ -190,7 +200,9 @@ export const deletePromo = async (id: string | number): Promise<boolean> => {
   }
 };
 
-export const getPromoLog = async (): Promise<PromoLogEntry[] | string | undefined> => {
+export const getPromoLog = async (): Promise<
+  PromoLogEntry[] | string | undefined
+> => {
   try {
     const response: AxiosResponse<ApiResponse> = await axios.get(
       `${backendConnection()}/api/promo/log`,

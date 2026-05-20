@@ -8,7 +8,11 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import { OptimizedImage } from "@/components/common/OptimizedImage";
-import { organizationSectionData, type Member } from "@/data/sections-data";
+import {
+  organizationSectionData,
+  type Member,
+  type OrganizationTab,
+} from "@/data/sections-data";
 
 export default function OrganizationSection() {
   return (
@@ -42,7 +46,7 @@ export default function OrganizationSection() {
                   <TabsTrigger
                     key={tab.id}
                     value={tab.id}
-                    className="data-[state=active]:bg-primary cursor-pointer data-[state=active]:text-primary-foreground data-[state=active]:shadow-primary/20 hover:bg-muted/50 hover:text-foreground relative flex min-w-fit items-center gap-2 rounded-lg px-6 py-2.5 text-xs font-bold tracking-wider whitespace-nowrap transition-all duration-300 data-[state=active]:shadow-lg md:text-sm"
+                    className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-primary/20 hover:bg-muted/50 hover:text-foreground relative flex min-w-fit cursor-pointer items-center gap-2 rounded-lg px-6 py-2.5 text-xs font-bold tracking-wider whitespace-nowrap transition-all duration-300 data-[state=active]:shadow-lg md:text-sm"
                   >
                     <span className="relative z-10 uppercase">{tab.label}</span>
                   </TabsTrigger>
@@ -58,7 +62,12 @@ export default function OrganizationSection() {
               ].map((role) => {
                 const allMembers = organizationSectionData.tabs.reduce(
                   (acc, tab) => {
-                    const members = (tab as any)[role.id] as Member[] | undefined;
+                    const members = (tab as OrganizationTab)[
+                      role.id as keyof Pick<
+                        OrganizationTab,
+                        "advisors" | "officers" | "developers" | "volunteers"
+                      >
+                    ] as Member[] | undefined;
                     return members ? [...acc, ...members] : acc;
                   },
                   [] as Member[]

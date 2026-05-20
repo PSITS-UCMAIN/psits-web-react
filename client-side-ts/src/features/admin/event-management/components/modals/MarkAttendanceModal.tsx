@@ -54,11 +54,16 @@ export const MarkAttendanceModal: React.FC<MarkAttendanceModalProps> = ({
       const student = await searchStudentByIdV2(studentId.trim());
 
       if (student) {
+        const fullName =
+          student.name || `${student.first_name} ${student.last_name}`.trim();
+        const campus = student.campus || "";
+        const course = student.course || "";
+
         setStudentDetails({
           id_number: student.id_number,
-          name: student.name,
-          campus: student.campus,
-          course: student.course,
+          name: fullName,
+          campus: campus,
+          course: course,
           year: Number(student.year) || 1,
         });
       } else {
@@ -79,20 +84,29 @@ export const MarkAttendanceModal: React.FC<MarkAttendanceModalProps> = ({
     if (!studentDetails) return;
 
     setIsMarking(true);
+    setError("");
 
-    const result = await markAttendanceV2(eventId, studentDetails.id_number, {
-      campus: studentDetails.campus,
-      attendeeName: studentDetails.name,
-      course: studentDetails.course,
-      year: studentDetails.year,
-    });
+    try {
+      const result = await markAttendanceV2(eventId, studentDetails.id_number, {
+        campus: studentDetails.campus,
+        attendeeName: studentDetails.name,
+        course: studentDetails.course,
+        year: studentDetails.year,
+      });
 
-    setIsMarking(false);
-
-    if (result) {
-      handleReset();
-      onOpenChange(false);
-      onAttendanceMarked();
+      if (result) {
+        handleReset();
+        onOpenChange(false);
+        onAttendanceMarked();
+      } else {
+        setError("Failed to mark attendance");
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to mark attendance"
+      );
+    } finally {
+      setIsMarking(false);
     }
   };
 

@@ -1,22 +1,26 @@
-import { CampusView } from '@/components/common/CampusView';
-import { useAuth } from '@/features/auth';
-import React from 'react';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { CampusView } from "@/components/common/CampusView";
+import { useAuth } from "@/features/auth";
+import React from "react";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 
 export const StudentLayout: React.FC = () => {
   const { user } = useAuth();
-  const userName = user?.name || 'Student';
+  const userName = user?.name || "Student";
   const location = useLocation();
-  const isIndexRoute = location.pathname === '/student' || location.pathname === '/student/';
+  const isIndexRoute =
+    location.pathname === "/student" || location.pathname === "/student/";
 
   return (
     <div className="w-full">
-      <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
-        <div className="flex flex-col lg:flex-row mt-15 sm:mt-20 mb-15 sm:mb-20 lg:items-center lg:justify-between gap-6">
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-light m-0">Hello! {userName}</h1>
+      <div className="mx-auto max-w-screen-xl px-4 py-8 sm:px-6 sm:py-12">
+        <div className="mt-15 mb-15 flex flex-col gap-6 sm:mt-20 sm:mb-20 lg:flex-row lg:items-center lg:justify-between">
+          <h1 className="m-0 text-3xl font-light sm:text-4xl lg:text-5xl">
+            Hello! {userName}
+          </h1>
 
-          <p className="max-w-md text-gray-500 m-0 text-sm sm:text-base">
-            Welcome to your account! Track your attendance, manage orders, and update your account details—all in one place
+          <p className="m-0 max-w-md text-sm text-gray-500 sm:text-base">
+            Welcome to your account! Track your attendance, manage orders, and
+            update your account details—all in one place
           </p>
         </div>
 
@@ -26,18 +30,18 @@ export const StudentLayout: React.FC = () => {
               <NavLink
                 to="event-attendance"
                 className={({ isActive }) =>
-                  `pb-3 ${isActive ? 'border-b-4 border-sky-400' : 'border-b-4 border-transparent'}`
+                  `pb-3 ${isActive ? "border-b-4 border-sky-400" : "border-b-4 border-transparent"}`
                 }
               >
                 Event Attendance
               </NavLink>
             </li>
-            <CampusView allowedCampuses={['UC-Main']} role="Student">
+            <CampusView allowedCampuses={["UC-Main"]} role="Student">
               <li>
                 <NavLink
                   to="my-orders"
                   className={({ isActive }) =>
-                    `pb-3 ${isActive ? 'border-b-4 border-sky-400' : 'border-b-4 border-transparent'}`
+                    `pb-3 ${isActive ? "border-b-4 border-sky-400" : "border-b-4 border-transparent"}`
                   }
                 >
                   My Orders
@@ -49,7 +53,7 @@ export const StudentLayout: React.FC = () => {
               <NavLink
                 to="certificates"
                 className={({ isActive }) =>
-                  `pb-3 ${isActive ? 'border-b-4 border-sky-400' : 'border-b-4 border-transparent'}`
+                  `pb-3 ${isActive ? "border-b-4 border-sky-400" : "border-b-4 border-transparent"}`
                 }
               >
                 Event Certificates
@@ -60,7 +64,7 @@ export const StudentLayout: React.FC = () => {
               <NavLink
                 to="account-settings"
                 className={({ isActive }) =>
-                  `pb-3 ${isActive || isIndexRoute ? 'border-b-4 border-sky-400' : 'border-b-4 border-transparent'}`
+                  `pb-3 ${isActive || isIndexRoute ? "border-b-4 border-sky-400" : "border-b-4 border-transparent"}`
                 }
               >
                 Account Settings
@@ -71,7 +75,7 @@ export const StudentLayout: React.FC = () => {
       </div>
 
       <div className="bg-gray-100">
-        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
+        <div className="mx-auto max-w-screen-xl px-4 py-6 sm:px-6 sm:py-10">
           <Outlet />
         </div>
       </div>

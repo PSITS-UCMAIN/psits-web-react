@@ -312,10 +312,11 @@ export const getEligibleRaffleAttendees = async (
 
 export const getEligibleRaffleAttendeesV2 = async (
   eventId: string,
-  params? : RaffleQueryParams
+  params?: RaffleQueryParams
 ): Promise<GetRafflePoolResponse> => {
   const { data } = await api.get<GetRafflePoolResponse>(
-    `${backendConnection()}/api/v2/events/raffle/${eventId}`, {params}
+    `${backendConnection()}/api/v2/events/raffle/${eventId}`,
+    { params }
   );
   return data;
 };

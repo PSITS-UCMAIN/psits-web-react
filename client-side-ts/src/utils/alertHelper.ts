@@ -14,10 +14,10 @@ export const showToast = (type: ToastType, message: string): void => {
       notyf.success(message);
       break;
     case "info":
-      notyf.open({ type: 'info', message });
+      notyf.open({ type: "info", message });
       break;
     case "warning":
-      notyf.open({ type: 'warning', message });
+      notyf.open({ type: "warning", message });
       break;
     case "error":
     default:

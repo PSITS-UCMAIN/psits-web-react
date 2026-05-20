@@ -146,8 +146,10 @@ describe("certificateApi", () => {
         { type: "application/json" }
       );
 
-      const axiosError = new Error("Rate limited");
-      (axiosError as any).response = {
+      const axiosError = new Error("Rate limited") as Error & {
+        response: { status: number; data: Blob };
+      };
+      axiosError.response = {
         status: 429,
         data: errorBlob,
       };
@@ -176,8 +178,10 @@ describe("certificateApi", () => {
         { type: "application/json" }
       );
 
-      const axiosError = new Error("Forbidden");
-      (axiosError as any).response = {
+      const axiosError = new Error("Forbidden") as Error & {
+        response: { status: number; data: Blob };
+      };
+      axiosError.response = {
         status: 403,
         data: errorBlob,
       };
@@ -205,8 +209,10 @@ describe("certificateApi", () => {
         { type: "application/json" }
       );
 
-      const axiosError = new Error("Not found");
-      (axiosError as any).response = {
+      const axiosError = new Error("Not found") as Error & {
+        response: { status: number; data: Blob };
+      };
+      axiosError.response = {
         status: 404,
         data: errorBlob,
       };

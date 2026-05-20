@@ -26,7 +26,13 @@ const EventRafflePage: React.FC = () => {
         if (event) {
           setEventName(event.eventName || "Untitled Event");
           if (event.eventDate) {
-            setEventDate(new Date(event.eventDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }));
+            setEventDate(
+              new Date(event.eventDate).toLocaleDateString("en-GB", {
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+              })
+            );
           } else {
             setEventDate("TBA");
           }
@@ -36,12 +42,13 @@ const EventRafflePage: React.FC = () => {
   }, [normalizedEventId]);
 
   const handleBack = () => navigate("/admin/events");
-  const handleBackToEvent = () => navigate(`/admin/events/${normalizedEventId}`);
+  const handleBackToEvent = () =>
+    navigate(`/admin/events/${normalizedEventId}`);
 
   return (
     <div className="flex h-full flex-1 flex-col overflow-hidden">
       {/* Header */}
-      <div className="bg-background px-6 py-5 sm:py-4 border-b border-slate-200/60">
+      <div className="bg-background border-b border-slate-200/60 px-6 py-5 sm:py-4">
         <h1 className="text-2xl font-semibold">Raffle Draw</h1>
         <p className="text-muted-foreground text-sm">
           Run a raffle draw for event attendees
@@ -57,7 +64,10 @@ const EventRafflePage: React.FC = () => {
               <BreadcrumbItem>
                 <BreadcrumbLink
                   href="#"
-                  onClick={(e) => { e.preventDefault(); handleBack(); }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleBack();
+                  }}
                   className="flex items-center gap-1"
                 >
                   <ArrowLeft className="h-3 w-3" />
@@ -68,7 +78,10 @@ const EventRafflePage: React.FC = () => {
               <BreadcrumbItem>
                 <BreadcrumbLink
                   href="#"
-                  onClick={(e) => { e.preventDefault(); handleBackToEvent(); }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleBackToEvent();
+                  }}
                 >
                   Event Management
                 </BreadcrumbLink>
@@ -81,7 +94,10 @@ const EventRafflePage: React.FC = () => {
           </Breadcrumb>
 
           {/* Raffle Draw */}
-          <div className="rounded-2xl overflow-hidden border border-slate-200/80 shadow-sm" style={{ minHeight: "80vh" }}>
+          <div
+            className="overflow-hidden rounded-2xl border border-slate-200/80 shadow-sm"
+            style={{ minHeight: "80vh" }}
+          >
             <RaffleDraw eventName={eventName} eventDate={eventDate} />
           </div>
         </div>

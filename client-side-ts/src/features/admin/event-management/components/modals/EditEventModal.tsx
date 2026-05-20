@@ -14,10 +14,26 @@ import type { EventFormData } from "./AddEventModal";
 import { updateEvent } from "@/features/events/api/eventService";
 import { showToast } from "@/utils/alertHelper";
 
+interface UpdatedEventData {
+  id: string;
+  title: string;
+  date: string;
+  image: string;
+  status: "view";
+  description: string;
+  location: string;
+  locationAddress: string;
+  startDate: string;
+  startTime: string;
+  endDate: string;
+  endTime: string;
+  venues: string[];
+}
+
 interface EditEventModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSaveEvent?: (event: any) => void;
+  onSaveEvent?: (event: UpdatedEventData) => void;
   eventData: {
     id: string;
     title: string;
@@ -80,7 +96,13 @@ export const EditEventModal: React.FC<EditEventModalProps> = ({
     try {
       // Prepare API payload
       const eventDate = formData.eventSchedule;
-      const updatePayload: any = {
+      const updatePayload: Partial<{
+        eventName: string;
+        eventDescription: string;
+        eventDate: string;
+        location: string;
+        sessionConfig: Record<string, unknown>;
+      }> = {
         eventName: formData.eventName,
         eventDescription: formData.eventDescription,
         eventDate: eventDate.toISOString(),
@@ -89,7 +111,10 @@ export const EditEventModal: React.FC<EditEventModalProps> = ({
 
       // Add session configuration if needed
       if (formData.sessions.length > 0) {
-        updatePayload.sessionConfig = formData.sessions;
+        updatePayload.sessionConfig = formData.sessions as unknown as Record<
+          string,
+          unknown
+        >;
       }
 
       // Call update API

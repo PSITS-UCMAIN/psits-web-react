@@ -1,5 +1,4 @@
-
-import OurShop from '@/features/orders/components/OurShop';
+import OurShop from "@/features/orders/components/OurShop";
 
 export const Shop = () => {
   return (

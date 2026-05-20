@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
-import { X, Minus, Plus } from 'lucide-react';
+import React, { useState } from "react";
+import { X, Minus, Plus } from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 interface AttendeeSettingsModalProps {
   open: boolean;
@@ -16,10 +16,10 @@ interface AttendeeSettingsModalProps {
 }
 
 const DEFAULT_CAMPUSES = [
-  'University of Cebu Main Campus',
-  'University of Cebu Banilad Campus',
-  'University of Cebu Lapu-Lapu & Mandaue',
-  'University of Cebu Pardo & Talisay',
+  "University of Cebu Main Campus",
+  "University of Cebu Banilad Campus",
+  "University of Cebu Lapu-Lapu & Mandaue",
+  "University of Cebu Pardo & Talisay",
 ];
 
 export const AttendeeSettingsModal: React.FC<AttendeeSettingsModalProps> = ({
@@ -59,36 +59,46 @@ export const AttendeeSettingsModal: React.FC<AttendeeSettingsModalProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full max-w-2xl sm:max-w-lg max-h-[80vh] flex flex-col overflow-y-auto p-0 gap-0 rounded-lg sm:rounded-xl" showCloseButton={false}>
-        <DialogHeader className="px-6 py-4 border-b flex-none">
+      <DialogContent
+        className="flex max-h-[80vh] w-full max-w-2xl flex-col gap-0 overflow-y-auto rounded-lg p-0 sm:max-w-lg sm:rounded-xl"
+        showCloseButton={false}
+      >
+        <DialogHeader className="flex-none border-b px-6 py-4">
           <div className="flex items-center justify-between">
-            <DialogTitle className="text-xl font-semibold leading-6">Attendee Settings</DialogTitle>
+            <DialogTitle className="text-xl leading-6 font-semibold">
+              Attendee Settings
+            </DialogTitle>
             <Button
               variant="ghost"
               size="icon-sm"
               onClick={handleCancel}
-              className="h-8 w-8 flex items-center justify-center rounded-full cursor-pointer"
+              className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full"
             >
               <X className="h-4 w-4" />
             </Button>
           </div>
         </DialogHeader>
 
-        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4">
-          <p className="text-sm text-muted-foreground mb-6">
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+          <p className="text-muted-foreground mb-6 text-sm">
             Set the maximum limit for attendees per location.
           </p>
 
           <div className="space-y-4">
             {campuses.map((venue) => (
-              <div key={venue} className="flex flex-col sm:flex-row items-start sm:items-center justify-between py-2 gap-3">
-                <span className="text-sm font-medium max-w-xs break-words">{venue}</span>
+              <div
+                key={venue}
+                className="flex flex-col items-start justify-between gap-3 py-2 sm:flex-row sm:items-center"
+              >
+                <span className="max-w-xs text-sm font-medium break-words">
+                  {venue}
+                </span>
                 <div className="flex items-center gap-3">
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => handleRemove(venue)}
-                    className="text-red-500 hover:text-red-600 hover:bg-red-50 h-8 cursor-pointer"
+                    className="h-8 cursor-pointer text-red-500 hover:bg-red-50 hover:text-red-600"
                   >
                     Remove
                   </Button>
@@ -109,10 +119,15 @@ export const AttendeeSettingsModal: React.FC<AttendeeSettingsModalProps> = ({
                       value={limits[venue] ?? 0}
                       onChange={(e) => {
                         const raw = e.target.value;
-                        const parsed = parseInt(raw === '' ? '0' : raw, 10);
-                        setLimits((prev) => ({ ...prev, [venue]: Number.isNaN(parsed) ? 0 : Math.max(0, parsed) }));
+                        const parsed = parseInt(raw === "" ? "0" : raw, 10);
+                        setLimits((prev) => ({
+                          ...prev,
+                          [venue]: Number.isNaN(parsed)
+                            ? 0
+                            : Math.max(0, parsed),
+                        }));
                       }}
-                      className="w-16 text-center border rounded-md px-2 py-1 text-sm"
+                      className="w-16 rounded-md border px-2 py-1 text-center text-sm"
                     />
 
                     <Button
@@ -131,11 +146,18 @@ export const AttendeeSettingsModal: React.FC<AttendeeSettingsModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="flex-none flex flex-col sm:flex-row items-center sm:justify-end gap-3 px-6 py-4 border-t bg-background">
-          <Button variant="outline" onClick={handleCancel} className="w-full sm:w-auto cursor-pointer">
+        <div className="bg-background flex flex-none flex-col items-center gap-3 border-t px-6 py-4 sm:flex-row sm:justify-end">
+          <Button
+            variant="outline"
+            onClick={handleCancel}
+            className="w-full cursor-pointer sm:w-auto"
+          >
             Cancel
           </Button>
-          <Button onClick={handleSave} className="w-full sm:w-auto bg-[#1C9DDE] hover:bg-[#1C9DDE] cursor-pointer">
+          <Button
+            onClick={handleSave}
+            className="w-full cursor-pointer bg-[#1C9DDE] hover:bg-[#1C9DDE] sm:w-auto"
+          >
             Save Changes
           </Button>
         </div>

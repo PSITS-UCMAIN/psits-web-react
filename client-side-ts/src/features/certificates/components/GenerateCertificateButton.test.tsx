@@ -75,11 +75,9 @@ describe("GenerateCertificateButton", () => {
       expect(mockedGenerateCertificate).toHaveBeenCalledWith("evt1");
     });
 
-    // Button returns to default state
+    // After successful generation, button enters cooldown state
     await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: /generate certificate/i })
-      ).toBeInTheDocument();
+      expect(screen.getByText(/wait/i)).toBeInTheDocument();
     });
   });
 
@@ -112,7 +110,9 @@ describe("GenerateCertificateButton", () => {
     const user = userEvent.setup();
     render(<GenerateCertificateButton {...defaultProps} />);
 
-    const button = screen.getByRole("button", { name: /generate certificate/i });
+    const button = screen.getByRole("button", {
+      name: /generate certificate/i,
+    });
     await user.click(button);
 
     // After API returns, isGenerating becomes false and remainingTime stays 0,
@@ -141,11 +141,10 @@ describe("GenerateCertificateButton", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/wait/i)).toBeInTheDocument();
+      const button = screen.getByRole("button");
+      expect(button).toBeDisabled();
+      expect(button).toHaveTextContent(/wait/i);
     });
-
-    const button = screen.getByRole("button");
-    expect(button).toBeDisabled();
   });
 
   it("does not trigger generate when already in cooldown", async () => {
@@ -154,8 +153,9 @@ describe("GenerateCertificateButton", () => {
 
     render(<GenerateCertificateButton {...defaultProps} />);
 
-    expect(screen.getByText(/wait/i)).toBeInTheDocument();
-    expect(screen.getByRole("button")).toBeDisabled();
+    const button = screen.getByRole("button");
+    expect(button).toBeDisabled();
+    expect(button).toHaveTextContent(/wait/i);
   });
 
   it("clears expired cooldown from localStorage", async () => {

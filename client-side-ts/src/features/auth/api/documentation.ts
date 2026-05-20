@@ -175,7 +175,10 @@ const handleApiError = (error: unknown): void => {
     }
 
     showToast("error", message);
-    console.error("API Error:", axiosError.response?.data || axiosError.message);
+    console.error(
+      "API Error:",
+      axiosError.response?.data || axiosError.message
+    );
   } else {
     showToast("error", "An unexpected error occurred");
     console.error("Unexpected Error:", error);
@@ -197,19 +200,27 @@ export const documentationAPI = {
     }
   },
 
-  getApiEndpoints: async (params: DocEndpointParams = {}): Promise<ApiEndpointsResponse> => {
+  getApiEndpoints: async (
+    params: DocEndpointParams = {}
+  ): Promise<ApiEndpointsResponse> => {
     try {
       const queryParams = new URLSearchParams();
       if (params.page) queryParams.append("page", params.page);
       if (params.limit) queryParams.append("limit", params.limit);
-      if (params.method && params.method !== "ALL") queryParams.append("method", params.method);
-      if (params.category && params.category !== "all") queryParams.append("category", params.category);
-      if (params.access && params.access !== "all") queryParams.append("access", params.access);
+      if (params.method && params.method !== "ALL")
+        queryParams.append("method", params.method);
+      if (params.category && params.category !== "all")
+        queryParams.append("category", params.category);
+      if (params.access && params.access !== "all")
+        queryParams.append("access", params.access);
 
       const queryString = queryParams.toString();
       const url = `${backendConnection()}/api/docs/endpoints${queryString ? `?${queryString}` : ""}`;
 
-      const response: AxiosResponse<ApiEndpointsResponse> = await axios.get(url, { headers: createHeaders() });
+      const response: AxiosResponse<ApiEndpointsResponse> = await axios.get(
+        url,
+        { headers: createHeaders() }
+      );
       return response.data;
     } catch (error) {
       handleApiError(error);
@@ -230,18 +241,23 @@ export const documentationAPI = {
     }
   },
 
-  getFeatures: async (params: DocEndpointParams = {}): Promise<FeaturesResponse> => {
+  getFeatures: async (
+    params: DocEndpointParams = {}
+  ): Promise<FeaturesResponse> => {
     try {
       const queryParams = new URLSearchParams();
       if (params.page) queryParams.append("page", params.page);
       if (params.limit) queryParams.append("limit", params.limit);
-      if (params.category && params.category !== "all") queryParams.append("category", params.category);
+      if (params.category && params.category !== "all")
+        queryParams.append("category", params.category);
       if (params.search) queryParams.append("search", params.search);
 
       const queryString = queryParams.toString();
       const url = `${backendConnection()}/api/docs/features${queryString ? `?${queryString}` : ""}`;
 
-      const response: AxiosResponse<FeaturesResponse> = await axios.get(url, { headers: createHeaders() });
+      const response: AxiosResponse<FeaturesResponse> = await axios.get(url, {
+        headers: createHeaders(),
+      });
       return response.data;
     } catch (error) {
       handleApiError(error);
@@ -264,10 +280,10 @@ export const documentationAPI = {
 
   getFeatureCategories: async (): Promise<FeatureCategoriesResponse> => {
     try {
-      const response: AxiosResponse<FeatureCategoriesResponse> = await axios.get(
-        `${backendConnection()}/api/docs/feature-categories`,
-        { headers: createHeaders() }
-      );
+      const response: AxiosResponse<FeatureCategoriesResponse> =
+        await axios.get(`${backendConnection()}/api/docs/feature-categories`, {
+          headers: createHeaders(),
+        });
       return response.data;
     } catch (error) {
       handleApiError(error);
@@ -288,7 +304,9 @@ export const documentationAPI = {
     }
   },
 
-  createApiEndpoint: async (endpointData: CreateEndpointData): Promise<ApiSuccessResponse> => {
+  createApiEndpoint: async (
+    endpointData: CreateEndpointData
+  ): Promise<ApiSuccessResponse> => {
     try {
       const response: AxiosResponse<ApiSuccessResponse> = await axios.post(
         `${backendConnection()}/api/docs/endpoints`,
@@ -302,7 +320,9 @@ export const documentationAPI = {
     }
   },
 
-  createFeature: async (featureData: CreateFeatureData): Promise<ApiSuccessResponse> => {
+  createFeature: async (
+    featureData: CreateFeatureData
+  ): Promise<ApiSuccessResponse> => {
     try {
       const response: AxiosResponse<ApiSuccessResponse> = await axios.post(
         `${backendConnection()}/api/docs/features`,
@@ -316,7 +336,10 @@ export const documentationAPI = {
     }
   },
 
-  updateApiEndpoint: async (endpointId: string, data: UpdateEndpointData): Promise<ApiSuccessResponse> => {
+  updateApiEndpoint: async (
+    endpointId: string,
+    data: UpdateEndpointData
+  ): Promise<ApiSuccessResponse> => {
     try {
       const response: AxiosResponse<ApiSuccessResponse> = await axios.put(
         `${backendConnection()}/api/docs/endpoints/${endpointId}`,
@@ -330,7 +353,9 @@ export const documentationAPI = {
     }
   },
 
-  deleteApiEndpoint: async (endpointId: string): Promise<ApiSuccessResponse> => {
+  deleteApiEndpoint: async (
+    endpointId: string
+  ): Promise<ApiSuccessResponse> => {
     try {
       const response: AxiosResponse<ApiSuccessResponse> = await axios.delete(
         `${backendConnection()}/api/docs/endpoints/${endpointId}`,
@@ -343,7 +368,9 @@ export const documentationAPI = {
     }
   },
 
-  toggleEndpointStatus: async (endpointId: string): Promise<ApiSuccessResponse> => {
+  toggleEndpointStatus: async (
+    endpointId: string
+  ): Promise<ApiSuccessResponse> => {
     try {
       const response: AxiosResponse<ApiSuccessResponse> = await axios.patch(
         `${backendConnection()}/api/docs/endpoints/${endpointId}/toggle`,
@@ -357,7 +384,10 @@ export const documentationAPI = {
     }
   },
 
-  updateFeature: async (featureId: string, data: UpdateFeatureData): Promise<ApiSuccessResponse> => {
+  updateFeature: async (
+    featureId: string,
+    data: UpdateFeatureData
+  ): Promise<ApiSuccessResponse> => {
     try {
       const response: AxiosResponse<ApiSuccessResponse> = await axios.put(
         `${backendConnection()}/api/docs/features/${featureId}`,
@@ -384,7 +414,9 @@ export const documentationAPI = {
     }
   },
 
-  toggleFeatureStatus: async (featureId: string): Promise<ApiSuccessResponse> => {
+  toggleFeatureStatus: async (
+    featureId: string
+  ): Promise<ApiSuccessResponse> => {
     try {
       const response: AxiosResponse<ApiSuccessResponse> = await axios.patch(
         `${backendConnection()}/api/docs/features/${featureId}/toggle`,

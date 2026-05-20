@@ -1,6 +1,6 @@
 /**
  * Central API Response Types
- * 
+ *
  * This file contains all TypeScript interfaces for API requests and responses
  * across the application. These types ensure type safety and reduce the use
  * of `any` types throughout the codebase.
@@ -15,6 +15,7 @@ export interface StudentSearchResult {
   id_number: string;
   first_name: string;
   last_name: string;
+  name?: string;
   email?: string;
   course?: string;
   year?: string | number;
@@ -66,6 +67,7 @@ export interface PromoData {
 
 export interface OrderData {
   _id?: string;
+  orderId?: string;
   id_number: string;
   rfid?: string;
   membership_discount?: boolean;
@@ -78,6 +80,7 @@ export interface OrderData {
   order_date?: string | Date;
   transaction_date?: string | Date;
   order_status?: string;
+  status?: string;
   admin?: string;
   reference_code?: string;
   role?: string;

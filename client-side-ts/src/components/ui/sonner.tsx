@@ -8,13 +8,16 @@ import {
 import { useTheme } from "next-themes";
 import { Toaster as Sonner, type ToasterProps } from "sonner";
 
-const Toaster = ({ position = 'top-right', ...props }: ToasterProps & { position?: ToasterProps['position'] }) => {
+const Toaster = ({
+  position = "top-right",
+  ...props
+}: ToasterProps & { position?: ToasterProps["position"] }) => {
   const { theme = "system" } = useTheme();
 
   return (
     <Sonner
       position={position}
-      theme={theme as ToasterProps['theme']}
+      theme={theme as ToasterProps["theme"]}
       className="toaster group"
       icons={{
         success: <CircleCheckIcon className="size-4" />,
@@ -25,13 +28,13 @@ const Toaster = ({ position = 'top-right', ...props }: ToasterProps & { position
       }}
       style={
         {
-          '--normal-bg': 'var(--popover)',
-          '--normal-text': 'var(--popover-foreground)',
-          '--normal-border': 'var(--border)',
-          '--border-radius': 'var(--radius)',
+          "--normal-bg": "var(--popover)",
+          "--normal-text": "var(--popover-foreground)",
+          "--normal-border": "var(--border)",
+          "--border-radius": "var(--radius)",
           // Use theme primary color for success toasts
-          '--success-bg': 'var(--primary, #1c9dde)',
-          '--success-text': 'white',
+          "--success-bg": "var(--primary, #1c9dde)",
+          "--success-text": "white",
         } as React.CSSProperties
       }
       {...props}

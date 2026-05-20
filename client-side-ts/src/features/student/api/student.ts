@@ -7,7 +7,10 @@ import type { AxiosResponse } from "axios";
 import axios, { AxiosError } from "axios";
 import backendConnection from "../../../api/backendApi";
 import { showToast } from "../../../utils/alertHelper";
-import type { StudentSearchResult, StudentUpdateYearResponse } from "@/types/api";
+import type {
+  StudentSearchResult,
+  StudentUpdateYearResponse,
+} from "@/types/api";
 
 interface ApiErrorResponse {
   message?: string;
@@ -21,7 +24,7 @@ interface CartItem {
   sub_total?: number;
   variation?: string[];
   sizes?: string[];
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 interface Student {
@@ -221,7 +224,9 @@ export const fetchSpecificStudent = async (
   }
 };
 
-export const searchStudentById = async (id_number: string): Promise<StudentSearchResult> => {
+export const searchStudentById = async (
+  id_number: string
+): Promise<StudentSearchResult> => {
   try {
     const token = getToken();
     const response: AxiosResponse = await axios.get(
@@ -236,13 +241,15 @@ export const searchStudentById = async (id_number: string): Promise<StudentSearc
     return response.data.data;
   } catch (error: unknown) {
     handleApiError(error);
-    throw (
-      error instanceof Error ? error.message : "An error occurred while searching."
-    );
+    throw error instanceof Error
+      ? error.message
+      : "An error occurred while searching.";
   }
 };
 
-export const searchStudentByIdV2 = async (id_number: string): Promise<StudentSearchResult> => {
+export const searchStudentByIdV2 = async (
+  id_number: string
+): Promise<StudentSearchResult> => {
   try {
     const response: AxiosResponse = await api.get(
       `/api/v2/students/lookup/${id_number}`
@@ -250,9 +257,9 @@ export const searchStudentByIdV2 = async (id_number: string): Promise<StudentSea
     return response.data.data;
   } catch (error: unknown) {
     handleApiError(error);
-    throw (
-      error instanceof Error ? error.message : "An error occurred while searching."
-    );
+    throw error instanceof Error
+      ? error.message
+      : "An error occurred while searching.";
   }
 };
 
