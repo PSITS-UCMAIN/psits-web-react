@@ -1,7 +1,6 @@
 ---
 name: backend-feature
 description: Use when the task requires implementing or modifying Express + TypeScript backend functionality in `server-side/`. This includes creating or updating API routes, controllers, services, types, models, middleware, or database interactions. Follow existing backend architecture patterns and ensure consistency with current conventions.
-user-invocable: true
 ---
 
 # Purpose

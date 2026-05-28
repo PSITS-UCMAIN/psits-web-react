@@ -1,7 +1,6 @@
 ---
 name: plan-enhancer
 description: Use together with Plan Mode to improve planning quality by forcing assumption listing, gap detection, and clarification before implementation.
-user-invocable: true
 ---
 
 # Purpose
