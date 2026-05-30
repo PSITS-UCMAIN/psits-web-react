@@ -15,15 +15,15 @@ Preparation → Core → Integration → Validation → Cleanup
 
 ## Common Types
 
-| Type | Purpose | Example |
-|------|---------|---------|
-| Prep | Setup, scaffold | Install deps, create files |
-| Schema | Data structure | Add cert fields to Event model |
-| Backend | API logic | Implement cert gen endpoint |
-| Frontend | UI | Create cert download component |
-| Integration | Connect layers | Wire frontend to API |
-| Validation | Test | Test cert gen flow |
-| Cleanup | Refactor, docs | Update docs, remove deprecated |
+| Type        | Purpose         | Example                        |
+| ----------- | --------------- | ------------------------------ |
+| Prep        | Setup, scaffold | Install deps, create files     |
+| Schema      | Data structure  | Add cert fields to Event model |
+| Backend     | API logic       | Implement cert gen endpoint    |
+| Frontend    | UI              | Create cert download component |
+| Integration | Connect layers  | Wire frontend to API           |
+| Validation  | Verification    | Validate cert gen flow         |
+| Cleanup     | Refactor, docs  | Update docs, remove deprecated |
 
 ## Naming
 
@@ -95,7 +95,7 @@ Entry: Phase 2 done
 Exit: Users can download
 
 Phase 4 — Validation
-- Test gen
+- Validate cert generation
 - Verify PDF
 Entry: Phase 3 done
 Exit: Works end-to-end

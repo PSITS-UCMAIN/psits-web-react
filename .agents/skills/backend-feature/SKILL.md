@@ -43,7 +43,7 @@ Do not use this skill for:
 5. Summarize clearly.
    - Backend files changed
    - What was implemented
-   - What was validated / needs manual testing
+   - What was validated / needs manual verification (no automated validation assumed)
 
 # Backend Standards
 

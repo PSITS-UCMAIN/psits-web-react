@@ -22,16 +22,16 @@ purpose: Evaluate risk + estimate effort
 
 ## Effort Estimation
 
-Total = Impl + Test + Review + Integration
+Total = Impl + Validation + Review + Integration
 
 Be honest, not optimistic.
 
-| Complexity | Range | Example |
-|------------|-------|---------|
-| Simple | 1-3h | Utility fn, basic component |
-| Moderate | 4-8h | API endpoint + frontend |
-| Complex | 8-16h | Multi-integration feature |
-| Very Complex | 16h+ | Major refactor, schema migration |
+| Complexity   | Range | Example                          |
+| ------------ | ----- | -------------------------------- |
+| Simple       | 1-3h  | Utility fn, basic component      |
+| Moderate     | 4-8h  | API endpoint + frontend          |
+| Complex      | 8-16h | Multi-integration feature        |
+| Very Complex | 16h+  | Major refactor, schema migration |
 
 ### When Uncertain
 
@@ -40,6 +40,7 @@ Use: `"unknown — needs spike"`
 Flag as open question.
 
 **Example:**
+
 ```
 Phase 2 — DB Migration
 Effort: unknown — needs spike
