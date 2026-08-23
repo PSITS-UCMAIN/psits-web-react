@@ -663,7 +663,16 @@ export const removeEventController = async (req: Request, res: Response) => {
     const { eventId } = req.body;
     session.startTransaction();
 
-    const eventDeleted = await Event.findOneAndDelete({ eventId }).session(
+    const deleteQuery = mongoose.Types.ObjectId.isValid(eventId)
+      ? {
+          $or: [
+            { _id: new mongoose.Types.ObjectId(eventId) },
+            { eventId: new mongoose.Types.ObjectId(eventId) },
+          ],
+        }
+      : { eventId };
+
+    const eventDeleted = await Event.findOneAndDelete(deleteQuery).session(
       session
     );
     if (eventDeleted) {
@@ -674,12 +683,17 @@ export const removeEventController = async (req: Request, res: Response) => {
     }
     await session.abortTransaction();
     session.endSession();
+    return res.status(404).json({ message: "Event not found" });
   } catch (error) {
     if (session.inTransaction()) {
       await session.abortTransaction();
     }
     session.endSession();
     console.error("Error Delete an Event", error);
+    return res.status(500).json({
+      message: "Error deleting event",
+      error: (error as Error).message,
+    });
   }
 };
 

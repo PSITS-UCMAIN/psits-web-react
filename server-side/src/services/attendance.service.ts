@@ -33,6 +33,7 @@ export const ATTENDANCE_ERROR_STATUS_MAP: Record<string, number> = {
   AMBIGUOUS_SESSION: 400,
   ATTENDEE_NOT_FOUND: 404,
   ALREADY_RECORDED: 409,
+  ALREADY_RECORDED_OTHER_SESSION: 409,
 };
 
 export interface MarkAttendanceInput {
@@ -508,6 +509,26 @@ async function updateAttendanceRecord(
   session: ClientSession
 ) {
   await ensureAttendanceSeed(eventId, attendee, session);
+
+  const existingRecord = await Attendance.findOne(
+    { event: eventId, attendeeRef: attendee._id },
+    null,
+    { session }
+  ).lean<IAttendance | null>();
+
+  if (
+    existingRecord &&
+    SESSION_NAMES.some(
+      (name) =>
+        name !== sessionName &&
+        existingRecord.attendance?.[name]?.attended === true
+    )
+  ) {
+    throw new AttendanceError(
+      "ALREADY_RECORDED_OTHER_SESSION",
+      "Attendance already recorded for another session"
+    );
+  }
 
   const updatedRecord = await Attendance.findOneAndUpdate(
     {

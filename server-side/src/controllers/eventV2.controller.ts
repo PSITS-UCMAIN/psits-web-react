@@ -3317,19 +3317,19 @@ export const updateEventV2Controller = async (
     }
 
     const updateFields: Record<string, unknown> = {
-      eventName,
-      eventDescription,
+      ...(eventName !== undefined && { eventName }),
+      ...(eventDescription !== undefined && { eventDescription }),
       ...(normalizedEventDate !== undefined && {
         eventDate: normalizedEventDate,
       }),
       ...(normalizedEventEndDate !== undefined && {
         eventEndDate: normalizedEventEndDate,
       }),
-      eventVenue,
-      eventTheme,
-      eventVenueSpecific,
-      eventStartTime,
-      eventEndTime,
+      ...(eventVenue !== undefined && { eventVenue }),
+      ...(eventTheme !== undefined && { eventTheme }),
+      ...(eventVenueSpecific !== undefined && { eventVenueSpecific }),
+      ...(eventStartTime !== undefined && { eventStartTime }),
+      ...(eventEndTime !== undefined && { eventEndTime }),
     };
 
     const uploadedFiles = req.files as Express.MulterS3.File[] | undefined;
