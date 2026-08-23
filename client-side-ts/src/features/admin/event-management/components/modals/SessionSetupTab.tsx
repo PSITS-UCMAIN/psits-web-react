@@ -156,6 +156,36 @@ export const SessionSetupTab: React.FC<SessionSetupTabProps> = ({
           </section>
         );
       })}
+
+      <section className="rounded-xl border border-gray-200 p-4">
+        <div className="flex items-center gap-3">
+          <Checkbox
+            id="one-session-only"
+            checked={formData.sessionConfig.oneSessionOnly ?? false}
+            onCheckedChange={(checked) =>
+              setFormData((prev) => ({
+                ...prev,
+                sessionConfig: {
+                  ...prev.sessionConfig,
+                  oneSessionOnly: checked === true,
+                },
+              }))
+            }
+            className="data-[state=checked]:bg-[#1C9DDE]"
+          />
+          <Label
+            htmlFor="one-session-only"
+            className="cursor-pointer"
+          >
+            One session only — students may attend only one session
+          </Label>
+        </div>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Leave off to allow students to attend multiple sessions (e.g. paid
+          events). Turn on for strict single-session events (e.g. free
+          orientations).
+        </p>
+      </section>
     </div>
   );
 };

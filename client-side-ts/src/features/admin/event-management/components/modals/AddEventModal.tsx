@@ -41,6 +41,7 @@ const defaultSessionConfig: CanonicalSessionConfig = {
   morning: { enabled: true, timeRange: "07:30 - 12:00" },
   afternoon: { enabled: false, timeRange: "13:00 - 15:00" },
   evening: { enabled: false, timeRange: "18:00 - 20:00" },
+  oneSessionOnly: false,
 };
 
 const emptyFormData = (): EventFormData => ({

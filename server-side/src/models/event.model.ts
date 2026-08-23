@@ -53,6 +53,7 @@ const eventSchema = new Schema<IEventDocument>({
         morning: { type: sessionConfigTypeSchema, required: true },
         afternoon: { type: sessionConfigTypeSchema, required: true },
         evening: { type: sessionConfigTypeSchema, required: true },
+        oneSessionOnly: { type: Boolean, default: false },
       },
       { _id: false }
     ),
@@ -60,6 +61,7 @@ const eventSchema = new Schema<IEventDocument>({
       morning: { enabled: true, timeRange: "" },
       afternoon: { enabled: false, timeRange: "" },
       evening: { enabled: false, timeRange: "" },
+      oneSessionOnly: false,
     },
   },
   createdBy: { type: String, required: true },

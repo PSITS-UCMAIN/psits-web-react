@@ -22,12 +22,14 @@ export interface ParsedSessionConfig {
   morning: ParsedSessionConfigEntry;
   afternoon: ParsedSessionConfigEntry;
   evening: ParsedSessionConfigEntry;
+  oneSessionOnly: boolean;
 }
 
 const defaultParsedSessionConfig = (): ParsedSessionConfig => ({
   morning: { enabled: false, timeRange: "" },
   afternoon: { enabled: false, timeRange: "" },
   evening: { enabled: false, timeRange: "" },
+  oneSessionOnly: false,
 });
 
 const parseSingleSessionEntry = (
@@ -109,6 +111,13 @@ export const parseSessionConfigPayload = (
       return { error: entry.error };
     }
     result[sessionName] = entry;
+  }
+
+  if (candidate.oneSessionOnly !== undefined) {
+    if (typeof candidate.oneSessionOnly !== "boolean") {
+      return { error: "sessionConfig.oneSessionOnly must be a boolean" };
+    }
+    result.oneSessionOnly = candidate.oneSessionOnly;
   }
 
   if (SESSIONS_ORDERED.every((name) => !result[name].enabled)) {

@@ -42,7 +42,9 @@ interface EditEventModalProps {
     eventEndTime?: string;
     eventEndDate?: string;
     attendanceType?: EventFormData["attendanceType"];
-    sessionConfig?: Partial<Record<SessionKey, IncomingSession>>;
+    sessionConfig?: Partial<Record<SessionKey, IncomingSession>> & {
+      oneSessionOnly?: boolean;
+    };
   } | null;
 }
 
@@ -57,6 +59,7 @@ const createDisabledSessions = (): EventFormData["sessionConfig"] => ({
   morning: { enabled: false, timeRange: "" },
   afternoon: { enabled: false, timeRange: "" },
   evening: { enabled: false, timeRange: "" },
+  oneSessionOnly: false,
 });
 
 /**
@@ -64,10 +67,14 @@ const createDisabledSessions = (): EventFormData["sessionConfig"] => ({
  * { enabled, timeRange: "HH:mm - HH:mm" } shape.
  */
 const normalizeSessionConfig = (
-  incoming?: Partial<Record<SessionKey, IncomingSession>>
+  incoming?: (Partial<Record<SessionKey, IncomingSession>> & {
+    oneSessionOnly?: boolean;
+  })
 ): EventFormData["sessionConfig"] => {
   const base = createDisabledSessions();
   if (!incoming) return base;
+
+  base.oneSessionOnly = Boolean(incoming.oneSessionOnly);
 
   for (const key of SESSION_KEYS) {
     const session = incoming[key];

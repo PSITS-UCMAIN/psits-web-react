@@ -79,6 +79,7 @@ interface EventSessionConfig {
   morning?: SessionConfigType;
   afternoon?: SessionConfigType;
   evening?: SessionConfigType;
+  oneSessionOnly?: boolean;
 }
 
 type EventStatus = EventDetails["status"];
@@ -179,7 +180,7 @@ const normalizeStatus = (
 const getSessionBounds = (
   sessionConfig: EventSessionConfig | undefined
 ): { startTime: string; endTime: string } => {
-  const order: Array<keyof EventSessionConfig> = [
+  const order: Array<"morning" | "afternoon" | "evening"> = [
     "morning",
     "afternoon",
     "evening",
@@ -218,6 +219,7 @@ const normalizeSessionConfig = (
     enabled: Boolean(sessionConfig?.evening?.enabled),
     timeRange: sessionConfig?.evening?.timeRange ?? "",
   },
+  oneSessionOnly: Boolean(sessionConfig?.oneSessionOnly),
 });
 
 const normalizeMerchMeta = (value: unknown): EventMerchMeta | null => {

@@ -8,7 +8,7 @@ import { parseTimeRangeToMinutes } from "../utils/timeRange";
 
 const TIMEZONE = "Asia/Manila";
 
-const SESSION_NAMES: Array<keyof ISessionConfig> = [
+const SESSION_NAMES: Array<keyof IAttendanceSession> = [
   "morning",
   "afternoon",
   "evening",
@@ -336,7 +336,7 @@ function getActiveSession(event: {
     );
   }
 
-  const matchedSessions: Array<keyof ISessionConfig> = [];
+  const matchedSessions: Array<keyof IAttendanceSession> = [];
   const currentMinutes = manila.hour * 60 + manila.minute;
 
   for (const sessionName of SESSION_NAMES) {
@@ -506,6 +506,7 @@ async function updateAttendanceRecord(
   sessionName: keyof IAttendanceSession,
   confirmedByAdminName: string,
   timestamp: Date,
+  oneSessionOnly: boolean,
   session: ClientSession
 ) {
   await ensureAttendanceSeed(eventId, attendee, session);
@@ -517,6 +518,7 @@ async function updateAttendanceRecord(
   ).lean<IAttendance | null>();
 
   if (
+    oneSessionOnly &&
     existingRecord &&
     SESSION_NAMES.some(
       (name) =>
@@ -597,6 +599,7 @@ export async function markAttendance(
       sessionName,
       input.confirmedByAdminName,
       timestamp,
+      Boolean(event.sessionConfig?.oneSessionOnly),
       dbSession
     );
 

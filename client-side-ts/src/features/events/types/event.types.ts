@@ -51,6 +51,7 @@ export interface CanonicalSessionConfig {
   morning: SessionConfigEntry;
   afternoon: SessionConfigEntry;
   evening: SessionConfigEntry;
+  oneSessionOnly?: boolean;
 }
 
 export type SessionConfig = Record<string, SessionConfigEntry>;

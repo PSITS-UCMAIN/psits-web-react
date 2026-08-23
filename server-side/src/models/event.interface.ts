@@ -42,6 +42,7 @@ export interface ISessionConfig {
   morning?: ISessionConfigType;
   afternoon?: ISessionConfigType;
   evening?: ISessionConfigType;
+  oneSessionOnly?: boolean;
 }
 
 export interface ICampusLimit {
