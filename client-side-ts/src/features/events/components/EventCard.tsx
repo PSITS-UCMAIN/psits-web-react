@@ -123,12 +123,27 @@ export const EventCard: React.FC<EventCardProps> = ({
       getFirstSessionStartTime(sessionConfig),
     "00:00"
   );
-  const hasEventStartedBySchedule =
-    !eventStartsAt || new Date() >= eventStartsAt;
+  /**
+   * End boundary: use the event's end date (or fall back to start date for
+   * same-day events) at 23:59 Manila time — identical to the admin-side
+   * normalizeStatus logic. This ensures that on the event day itself the
+   * window is still considered open, and "Registration closed" only appears
+   * once the end date's calendar day has fully passed.
+   */
+  const eventEndsAt = buildManilaDateTime(
+    event.endDate ?? event.date,
+    normalizeTimeValue(event.endTime),
+    "23:59"
+  );
+  const now = new Date();
+  const isWithinEventWindow =
+    (!eventStartsAt || now >= eventStartsAt) &&
+    (!eventEndsAt || now <= eventEndsAt);
   const isRegistrationManuallyClosed =
     normalizedStatus === "ended" || normalizedStatus === "cancelled";
   const isStudentRegistrationOpen =
-    !isRegistrationManuallyClosed && !hasEventStartedBySchedule;
+    !isRegistrationManuallyClosed && isWithinEventWindow;
+
   const { user } = useAuth();
 
   const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);

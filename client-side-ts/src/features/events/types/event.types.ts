@@ -71,6 +71,8 @@ export interface EventData {
   imageUrl?: string;
   location?: string;
   date?: Date;
+  /** End date of the event (defaults to start date for single-day events). */
+  endDate?: Date;
   status?: string;
   startTime?: string;
   endTime?: string;

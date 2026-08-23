@@ -52,6 +52,15 @@ const mapEventToEventData = (event: Event): EventData | null => {
       : event.eventDate;
   if (!dateValue || Number.isNaN(dateValue.getTime())) return null;
 
+  const rawEndDate = event.eventEndDate
+    ? typeof event.eventEndDate === "string"
+      ? new Date(event.eventEndDate)
+      : event.eventEndDate
+    : null;
+  // Fallback to start date so same-day events always have a defined end boundary.
+  const endDateValue =
+    rawEndDate && !Number.isNaN(rawEndDate.getTime()) ? rawEndDate : dateValue;
+
   return {
     id: (event.eventId || event._id) as string,
     title: event.eventName,
@@ -59,6 +68,7 @@ const mapEventToEventData = (event: Event): EventData | null => {
     imageUrl,
     location: "University of Cebu Main Campus",
     date: getManilaStartOfDay(dateValue),
+    endDate: getManilaStartOfDay(endDateValue),
     status: event.status,
     startTime: event.eventStartTime,
     endTime: event.eventEndTime,
