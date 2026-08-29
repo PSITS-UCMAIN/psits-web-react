@@ -1,6 +1,6 @@
 import axios from "axios";
 import backendConnection from "@/api/backendApi";
-import type { EmailQueueEntry, HealthStats, SessionInfo, CronExecutionLog, EnvStatusItem, RateLimitStats, CollectionStat, LogQueryParams, LogsResponse, OrderDetail, OrderSearchParams, OrdersResponse, ServerError, BruteForceLog, EndpointInfo, RefundEntry, BackfillResult, StudentYearUpdateResult, StudentYearDecrementResult, NoetixUsageLog, NoetixUsageStats, NoetixUsageQueryParams } from "../types/devtools.types";
+import type { EmailQueueEntry, HealthStats, SessionInfo, CronExecutionLog, EnvStatusItem, RateLimitStats, CollectionStat, LogQueryParams, LogsResponse, OrderDetail, OrderSearchParams, OrdersResponse, ServerError, BruteForceLog, EndpointInfo, RefundEntry, BackfillResult, StudentYearUpdateResult, StudentYearDecrementResult, NoetixUsageLog, NoetixUsageStats, NoetixUsageQueryParams, NoetixToolItem, NoetixMaxIterations } from "../types/devtools.types";
 
 const getAuthToken = (): string | null => sessionStorage.getItem("Token");
 
@@ -336,4 +336,48 @@ export const removeNoetixDisabledAdmin = async (adminId: string) => {
     headers: getAuthToken() ? { Authorization: `Bearer ${getAuthToken()}` } : {},
   });
   return data.data;
+};
+
+export const getNoetixDisabledTools = async (): Promise<string[]> => {
+  const { data } = await api.get<{ data: { noetixDisabledTools: string[] } }>("/api/v2/dev/noetix/tools", {
+    headers: getAuthToken() ? { Authorization: `Bearer ${getAuthToken()}` } : {},
+  });
+  return data.data.noetixDisabledTools ?? [];
+};
+
+export const getNoetixToolRegistry = async (): Promise<NoetixToolItem[]> => {
+  const { data } = await api.get<{ data: NoetixToolItem[] }>("/api/v2/dev/noetix/tools/registry", {
+    headers: getAuthToken() ? { Authorization: `Bearer ${getAuthToken()}` } : {},
+  });
+  return data.data;
+};
+
+export const disableNoetixTool = async (toolName: string) => {
+  const { data } = await api.post<{ data: { noetixDisabledTools: string[] } }>("/api/v2/dev/noetix/tools/disable", { toolName }, {
+    headers: getAuthToken() ? { Authorization: `Bearer ${getAuthToken()}` } : {},
+  });
+  return data.data.noetixDisabledTools;
+};
+
+export const enableNoetixTool = async (toolName: string) => {
+  const { data } = await api.delete<{ data: { noetixDisabledTools: string[] } }>(`/api/v2/dev/noetix/tools/disable/${toolName}`, {
+    headers: getAuthToken() ? { Authorization: `Bearer ${getAuthToken()}` } : {},
+  });
+  return data.data.noetixDisabledTools;
+};
+
+export const getNoetixMaxIterations = async () => {
+  const { data } = await api.get<{ data: NoetixMaxIterations }>("/api/v2/dev/noetix/settings/max-iterations", {
+    headers: getAuthToken() ? { Authorization: `Bearer ${getAuthToken()}` } : {},
+  });
+  return data.data.noetixMaxIterations;
+};
+
+export const setNoetixMaxIterations = async (value: number) => {
+  const { data } = await api.patch<{ data: NoetixMaxIterations }>(
+    "/api/v2/dev/noetix/settings/max-iterations",
+    { value },
+    { headers: getAuthToken() ? { Authorization: `Bearer ${getAuthToken()}` } : {} }
+  );
+  return data.data.noetixMaxIterations;
 };

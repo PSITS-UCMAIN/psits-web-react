@@ -33,5 +33,4 @@ export interface ChatRequestBody {
   persona?: string;
   sessionId?: string;
   destroy?: boolean;
-  userAccess?: string;
 }

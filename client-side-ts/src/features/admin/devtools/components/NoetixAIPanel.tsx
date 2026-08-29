@@ -6,8 +6,13 @@ import {
   getNoetixDisabledAdmins,
   addNoetixDisabledAdmin,
   removeNoetixDisabledAdmin,
+  getNoetixToolRegistry,
+  disableNoetixTool,
+  enableNoetixTool,
+  getNoetixMaxIterations,
+  setNoetixMaxIterations,
 } from "../api/devtools.api";
-import type { NoetixUsageLog, NoetixUsageStats } from "../types/devtools.types";
+import type { NoetixUsageLog, NoetixUsageStats, NoetixToolItem } from "../types/devtools.types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +42,9 @@ import {
   User,
   Target,
   Cpu,
+  Shield,
+  Lock,
+  Unlock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -50,6 +58,8 @@ export const NoetixAIPanel = () => {
   const [logLoading, setLogLoading] = useState(true);
   const [disabledAdmins, setDisabledAdmins] = useState<string[]>([]);
   const [disabledLoading, setDisabledLoading] = useState(true);
+  const [tools, setTools] = useState<NoetixToolItem[]>([]);
+  const [toolsLoading, setToolsLoading] = useState(true);
   const [adminFilter, setAdminFilter] = useState("");
   const [successFilter, setSuccessFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -62,6 +72,9 @@ export const NoetixAIPanel = () => {
   const [newAdminId, setNewAdminId] = useState("");
   const [addingAdmin, setAddingAdmin] = useState(false);
   const [selectedLog, setSelectedLog] = useState<NoetixUsageLog | null>(null);
+  const [maxIterations, setMaxIterations] = useState<number>(10);
+  const [maxIterationsLoading, setMaxIterationsLoading] = useState(false);
+  const [maxIterationsValue, setMaxIterationsValue] = useState("10");
 
   const fetchStats = useCallback(async () => {
     try {
@@ -106,11 +119,79 @@ export const NoetixAIPanel = () => {
     }
   }, []);
 
+  const fetchTools = useCallback(async () => {
+    setToolsLoading(true);
+    try {
+      const data = await getNoetixToolRegistry();
+      setTools(data);
+    } catch {
+      // ignore
+    } finally {
+      setToolsLoading(false);
+    }
+  }, []);
+
+  const fetchMaxIterations = useCallback(async () => {
+    try {
+      const value = await getNoetixMaxIterations();
+      setMaxIterations(value);
+      setMaxIterationsValue(String(value));
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const handleSaveMaxIterations = async () => {
+    const parsed = parseInt(maxIterationsValue, 10);
+    if (isNaN(parsed) || parsed < 1 || parsed > 50) {
+      showToast("error", "Max iterations must be between 1 and 50");
+      return;
+    }
+    setMaxIterationsLoading(true);
+    try {
+      const updated = await setNoetixMaxIterations(parsed);
+      setMaxIterations(updated);
+      showToast("success", `Noetix max iterations set to ${updated}`);
+    } catch {
+      showToast("error", "Failed to save max iterations");
+    } finally {
+      setMaxIterationsLoading(false);
+    }
+  };
+
+  const handleToggleTool = async (tool: NoetixToolItem) => {
+    try {
+      if (tool.enabled) {
+        await enableNoetixTool(tool.name);
+      } else {
+        await disableNoetixTool(tool.name);
+      }
+      setTools((prev) =>
+        prev.map((t) =>
+          t.name === tool.name ? { ...t, enabled: !t.enabled } : t
+        )
+      );
+      showToast(
+        "success",
+        `Tool "${tool.name}" ${tool.enabled ? "disabled" : "enabled"}`
+      );
+    } catch {
+      showToast("error", `Failed to toggle tool "${tool.name}"`);
+      setTools((prev) =>
+        prev.map((t) =>
+          t.name === tool.name ? { ...t, enabled: !t.enabled } : t
+        )
+      );
+    }
+  };
+
   useEffect(() => {
     fetchStats();
     fetchLogs();
     fetchDisabledAdmins();
-  }, [fetchStats, fetchLogs, fetchDisabledAdmins]);
+    fetchTools();
+    fetchMaxIterations();
+  }, [fetchStats, fetchLogs, fetchDisabledAdmins, fetchTools, fetchMaxIterations]);
 
   useEffect(() => {
     setPage(1);
@@ -169,6 +250,7 @@ export const NoetixAIPanel = () => {
     fetchStats();
     fetchLogs();
     fetchDisabledAdmins();
+    fetchTools();
   };
 
   if (logLoading) {
@@ -212,6 +294,42 @@ export const NoetixAIPanel = () => {
           value={stats?.todayCalls ?? 0}
           color="text-[#1c9dde]"
         />
+      </div>
+
+      {/* Max Iterations Setting */}
+      <div className="rounded-xl border border-[#e5e5e5] bg-white p-4">
+        <div className="mb-3 flex items-center gap-2">
+          <Cpu className="h-4 w-4 text-[#1c9dde]" />
+          <p className="text-sm font-medium text-[#2b2b2b]">
+            Agent Max Iterations
+          </p>
+        </div>
+        <p className="mb-3 text-xs text-[#858585]">
+          Maximum number of tool-call iterations per AI agent session. Values
+          outside 1–50 are rejected. Default is 10.
+        </p>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-[#555]">
+            Current: <span className="font-mono font-semibold text-[#1c9dde]">{maxIterations}</span>
+          </span>
+          <input
+            type="number"
+            min="1"
+            max="50"
+            value={maxIterationsValue}
+            onChange={(e) => setMaxIterationsValue(e.target.value)}
+            className="h-9 w-20 rounded-lg border-[#ececec] bg-white px-3 text-sm font-mono"
+          />
+          <Button
+            type="button"
+            size="sm"
+            className="rounded-full bg-[#1c9dde] hover:bg-[#168bc7]"
+            onClick={handleSaveMaxIterations}
+            disabled={maxIterationsLoading || maxIterationsValue === String(maxIterations)}
+          >
+            {maxIterationsLoading ? "Saving..." : "Save"}
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -476,6 +594,33 @@ export const NoetixAIPanel = () => {
         </div>
       </div>
 
+      {/* Tool Registry Section */}
+      <div className="rounded-xl border border-[#e5e5e5] bg-white p-4">
+        <div className="mb-3 flex items-center gap-2">
+          <Bot className="h-4 w-4 text-[#1c9dde]" />
+          <p className="text-sm font-medium text-[#2b2b2b]">
+            Noetix AI Tool Registry
+          </p>
+        </div>
+        <p className="mb-3 text-xs text-[#858585]">
+          Toggle tools on or off. Disabled tools will not be available to the
+          AI agent. Permission labels indicate who can execute each tool.
+        </p>
+
+        {toolsLoading ? (
+          <div className="space-y-2">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-10 w-full" />
+            ))}
+          </div>
+        ) : (
+          <ToolRegistryList
+            tools={tools}
+            onToggle={handleToggleTool}
+          />
+        )}
+      </div>
+
       {/* Delete Old Logs Dialog */}
       <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <DialogContent className="max-w-sm rounded-[20px]">
@@ -670,3 +815,84 @@ const StatCard = ({
     </div>
   </div>
 );
+
+const PERM_LABELS: Record<string, { label: string; cls: string; icon: React.ComponentType<{ className?: string }> }> = {
+  read: { label: "Read", cls: "bg-green-50 text-green-700 border-green-200", icon: Unlock },
+  admin_finance: { label: "Read/Write (Finance)", cls: "bg-yellow-50 text-yellow-700 border-yellow-200", icon: Shield },
+  admin_only: { label: "Admin Only", cls: "bg-red-50 text-red-700 border-red-200", icon: Lock },
+  admin_full: { label: "Full Admin", cls: "bg-purple-50 text-purple-700 border-purple-200", icon: Shield },
+};
+
+const ToolRegistryList = ({
+  tools,
+  onToggle,
+}: {
+  tools: NoetixToolItem[];
+  onToggle: (tool: NoetixToolItem) => void;
+}) => {
+  const grouped = tools.reduce<Record<string, NoetixToolItem[]>>((acc, t) => {
+    (acc[t.category] ??= []).push(t);
+    return acc;
+  }, {});
+
+  return (
+    <div className="space-y-4">
+      {Object.entries(grouped).map(([category, categoryTools]) => (
+        <div key={category}>
+          <p className="mb-2 text-xs font-semibold text-[#858585] uppercase tracking-wide">
+            {category}
+          </p>
+          <div className="space-y-1.5">
+            {categoryTools.map((tool) => {
+              const perm = PERM_LABELS[tool.permission] ?? PERM_LABELS.read;
+              const PermIcon = perm.icon;
+              return (
+                <div
+                  key={tool.name}
+                  className="flex items-center justify-between rounded-lg border border-[#e5e5e5] bg-[#fafafa] px-3 py-2.5"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-sm text-[#2b2b2b]">
+                        {tool.name}
+                      </span>
+                      <span
+                        className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${perm.cls}`}
+                        title={tool.description}
+                      >
+                        <span className="inline-flex items-center gap-1">
+                          <PermIcon className="h-3 w-3" />
+                          {perm.label}
+                        </span>
+                      </span>
+                    </div>
+                    <p className="mt-0.5 truncate text-xs text-[#858585]">
+                      {tool.description}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onToggle(tool)}
+                    className={`ml-3 shrink-0 flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium border transition-colors ${
+                      tool.enabled
+                        ? "bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
+                        : "bg-red-50 text-red-600 border-red-200 hover:bg-red-100"
+                    }`}
+                    title={tool.enabled ? "Click to disable" : "Click to enable"}
+                  >
+                    {tool.enabled ? (
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                    ) : (
+                      <XCircle className="h-3.5 w-3.5" />
+                    )}
+                    {tool.enabled ? "On" : "Off"}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};

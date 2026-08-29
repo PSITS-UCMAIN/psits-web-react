@@ -69,7 +69,7 @@ export const getNoetixUsageLogs = async (
     query.success = params.success === "true";
   }
   if (params.toolName) {
-    query.tool_name = { $regex: params.toolName, $options: "i" };
+    query.tool_names = { $in: [params.toolName] };
   }
   if (params.dateFrom || params.dateTo) {
     const timeQuery: Record<string, Date> = {};
@@ -182,6 +182,9 @@ export const getNoetixUsageStats = async (): Promise<NoetixUsageStats> => {
 export const deleteOldNoetixUsageLogs = async (
   days: number
 ): Promise<number> => {
+  if (days < 1 || days > 365) {
+    throw new Error("days must be between 1 and 365");
+  }
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - days);
 

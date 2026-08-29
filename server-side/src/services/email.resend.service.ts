@@ -107,6 +107,7 @@ const sendWithResend = async ({
   });
   console.log("Resend result:", result);
   if (result.error) throw new Error(result.error.message);
+  return result.data?.id;
 };
 
 const RESEND_BATCH_LIMIT = 50;
@@ -212,7 +213,7 @@ const resendAutomationReport = async (entry: PendingEntry) => {
   const logoPath = path.join(__dirname, "../assets/psits.jpg");
   const logoBuffer = await fs.readFile(logoPath);
 
-  await sendWithResend({
+  const emailId = await sendWithResend({
     to: entry.email,
     subject: reportPayload.subject,
     html,
@@ -225,6 +226,9 @@ const resendAutomationReport = async (entry: PendingEntry) => {
       },
     ],
   });
+  if (emailId) {
+    await emailService.updateEmailIdById(entry._id, emailId);
+  }
 };
 
 const resendMembership = async (entry: PendingEntry) => {
@@ -253,7 +257,7 @@ const resendMembership = async (entry: PendingEntry) => {
   const logoPath = path.join(__dirname, "../assets/psits.jpg");
   const logoBuffer = await fs.readFile(logoPath);
 
-  await sendWithResend({
+  const emailId = await sendWithResend({
     to: entry.email,
     subject: "Your Receipt from PSITS - UC Main",
     html,
@@ -266,6 +270,9 @@ const resendMembership = async (entry: PendingEntry) => {
       },
     ],
   });
+  if (emailId) {
+    await emailService.updateEmailIdById(entry._id, emailId);
+  }
 };
 
 const resendOrder = async (entry: PendingEntry) => {
@@ -304,7 +311,7 @@ const resendOrder = async (entry: PendingEntry) => {
   const logoPath = path.join(__dirname, "../assets/psits.jpg");
   const logoBuffer = await fs.readFile(logoPath);
 
-  await sendWithResend({
+  const emailId = await sendWithResend({
     to: entry.email,
     subject: "Your Order Receipt from PSITS - UC Main",
     html,
@@ -317,4 +324,7 @@ const resendOrder = async (entry: PendingEntry) => {
       },
     ],
   });
+  if (emailId) {
+    await emailService.updateEmailIdById(entry._id, emailId);
+  }
 };

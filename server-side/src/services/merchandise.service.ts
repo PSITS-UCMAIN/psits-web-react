@@ -142,6 +142,33 @@
         { $inc: { stocks: quantity } }
       ).session(session);
     };
+
+    toggleMerchActive = async (product_id: Types.ObjectId, active: boolean) => {
+      const result = await Merch.findByIdAndUpdate(
+        product_id,
+        { is_active: active },
+        { new: true }
+      );
+      if (!result) {
+        throw new AppError("Product not found", 404);
+      }
+      return result;
+    };
+
+    updateStockById = async (
+      product_id: Types.ObjectId,
+      stocks: number
+    ) => {
+      const result = await Merch.findByIdAndUpdate(
+        product_id,
+        { $set: { stocks } },
+        { new: true }
+      );
+      if (!result) {
+        throw new AppError("Product not found", 404);
+      }
+      return result;
+    };
   }
 
   const merchandiseService = new MerchandiseService();

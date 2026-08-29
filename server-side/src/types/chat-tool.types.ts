@@ -18,9 +18,15 @@ import { orderService } from "../services/order.service";
 import { studentService } from "../services/student.service";
 import { refundService } from "../services/refund.service";
 import { membershipService } from "../services/membership.service";
+import { merchandiseService } from "../services/merchandise.service";
+import { EventV2Service } from "../services/eventV2.service";
+import { markAttendance } from "../services/attendance.service";
+import { recruitmentService } from "../services/recruitment.service";
+import { adminService } from "../services/admin.service";
 import mongoose, { Types } from "mongoose";
 import bcrypt from "bcryptjs";
 import { psits_roles } from "../enums/role.enums";
+import { orderController } from "../controllers/order.v2.controller";
 
 // ─── Permission Types ────────────────────────────────────────────────────────
 
@@ -397,14 +403,16 @@ const readTools: ChatTool[] = [
   // ── Orders & Payments (10) ─────────────────────────────────────────────────
   {
     name: "get_total_orders",
-    description: "Returns the total count of all orders without filtering by student order",
+    description:
+      "Returns the total count of all orders without filtering by student order",
     category: "Orders",
     permission: "read",
     execute: () => Orders.countDocuments(),
   },
   {
     name: "get_paid_orders_count",
-    description: "Returns the count of orders with PAID status without filtering by student order",
+    description:
+      "Returns the count of orders with PAID status without filtering by student order",
     category: "Orders",
     permission: "read",
     execute: () => Orders.countDocuments({ order_status: "Paid" }),
@@ -457,16 +465,23 @@ const readTools: ChatTool[] = [
             course: o.course,
             year: o.year,
           },
-          items: (o.items as Array<{ product_name: string; quantity: number; sub_total: number; batch?: string | number; sizes?: string[]; variation?: string[] }>).map(
-            (item) => ({
-              product_name: item.product_name,
-              quantity: item.quantity,
-              sub_total: item.sub_total,
-              batch: item.batch,
-              sizes: item.sizes,
-              variation: item.variation,
-            })
-          ),
+          items: (
+            o.items as Array<{
+              product_name: string;
+              quantity: number;
+              sub_total: number;
+              batch?: string | number;
+              sizes?: string[];
+              variation?: string[];
+            }>
+          ).map((item) => ({
+            product_name: item.product_name,
+            quantity: item.quantity,
+            sub_total: item.sub_total,
+            batch: item.batch,
+            sizes: item.sizes,
+            variation: item.variation,
+          })),
           total: o.total,
           order_date: o.order_date,
           reference_code: o.reference_code,
@@ -1175,7 +1190,8 @@ const readTools: ChatTool[] = [
         "cart id_number -_id"
       ).lean();
       if (!student) return { message: "Student not found", cart: [] };
-      const items = (student.cart as unknown as Array<Record<string, unknown>>) ?? [];
+      const items =
+        (student.cart as unknown as Array<Record<string, unknown>>) ?? [];
       return { id_number: student.id_number, cart: items };
     },
   },
@@ -1314,9 +1330,7 @@ const readTools: ChatTool[] = [
     execute: async (args: unknown) => {
       const parsed = args as { event_id?: string };
       if (!parsed.event_id) throw new Error("event_id is required");
-      const event = await Event.findById(
-        new Types.ObjectId(parsed.event_id)
-      )
+      const event = await Event.findById(new Types.ObjectId(parsed.event_id))
         .lean()
         .exec();
       if (!event) throw new Error("Event not found");
@@ -1346,7 +1360,8 @@ const readTools: ChatTool[] = [
       },
       {
         name: "event_name",
-        description: "Optional event name to identify the event instead of event_id.",
+        description:
+          "Optional event name to identify the event instead of event_id.",
       },
     ],
     execute: async (args: unknown) => {
@@ -1358,7 +1373,8 @@ const readTools: ChatTool[] = [
       if (parsed.event_name) filter.eventName = parsed.event_name;
       const event = await Event.findOne(filter).lean();
       if (!event) throw new Error("Event not found");
-      const attendees = (event.attendees as Array<Record<string, unknown>>) ?? [];
+      const attendees =
+        (event.attendees as Array<Record<string, unknown>>) ?? [];
       return { count: attendees.length, attendees };
     },
   },
@@ -1382,7 +1398,8 @@ const readTools: ChatTool[] = [
         .lean()
         .exec();
       if (!event) throw new Error("Event not found");
-      const attendees = (event.attendees as Array<Record<string, unknown>>) ?? [];
+      const attendees =
+        (event.attendees as Array<Record<string, unknown>>) ?? [];
       const total = attendees.length;
       if (total === 0) return { morning: 0, afternoon: 0, evening: 0, total };
       let morningCount = 0;
@@ -1497,7 +1514,8 @@ const readTools: ChatTool[] = [
   // ── Contributions Extra (1) ────────────────────────────────────────────────
   {
     name: "get_contributions_this_week",
-    description: "Returns the count of contributions recorded in the last 7 days.",
+    description:
+      "Returns the count of contributions recorded in the last 7 days.",
     category: "Contributions",
     permission: "read",
     execute: async () => {
@@ -1519,9 +1537,7 @@ const readTools: ChatTool[] = [
     category: "Admin",
     permission: "read",
     execute: () =>
-      safeCount(() =>
-        Admin.countDocuments({ status: account_status.ACTIVE })
-      ),
+      safeCount(() => Admin.countDocuments({ status: account_status.ACTIVE })),
   },
   {
     name: "get_all_active_admins",
@@ -1596,8 +1612,7 @@ const readTools: ChatTool[] = [
   },
   {
     name: "get_pending_membership_detail_count",
-    description:
-      "Returns count of students with PENDING membership status.",
+    description: "Returns count of students with PENDING membership status.",
     category: "Membership",
     permission: "read",
     execute: () =>
@@ -1989,12 +2004,12 @@ const writeTools: ChatTool[] = [
       checkPermission("admin_finance", userAccess);
       const parsed = args as { product_id?: string; active?: boolean };
       if (!parsed.product_id) throw new Error("product_id is required");
-      const result = await Merch.findByIdAndUpdate(
+      if (parsed.active === undefined)
+        throw new Error("active is required (true or false)");
+      const result = await merchandiseService.toggleMerchActive(
         new Types.ObjectId(parsed.product_id),
-        { is_active: parsed.active ?? !parsed.active },
-        { new: true }
+        parsed.active
       );
-      if (!result) throw new Error("Product not found");
       return {
         message: `Product ${parsed.active ? "published" : "unpublished"}`,
         product: result,
@@ -2024,12 +2039,10 @@ const writeTools: ChatTool[] = [
       const parsed = args as { product_id?: string; stocks?: number };
       if (!parsed.product_id || parsed.stocks === undefined)
         throw new Error("product_id and stocks are required");
-      const result = await Merch.findByIdAndUpdate(
+      const result = await merchandiseService.updateStockById(
         new Types.ObjectId(parsed.product_id),
-        { $set: { stocks: parsed.stocks } },
-        { new: true }
+        parsed.stocks
       );
-      if (!result) throw new Error("Product not found");
       return { message: "Stock updated", product: result };
     },
   },
@@ -2049,12 +2062,10 @@ const writeTools: ChatTool[] = [
       checkPermission("admin_finance", userAccess);
       const parsed = args as { product_id?: string };
       if (!parsed.product_id) throw new Error("product_id is required");
-      const result = await Merch.findByIdAndUpdate(
+      const result = await merchandiseService.toggleMerchActive(
         new Types.ObjectId(parsed.product_id),
-        { is_active: false },
-        { new: true }
+        false
       );
-      if (!result) throw new Error("Product not found");
       return { message: "Product soft-deleted", product: result };
     },
   },
@@ -2094,48 +2105,8 @@ const writeTools: ChatTool[] = [
       if (!parsed.id_number) throw new Error("id_number is required");
       if (!parsed.event_id && !parsed.event_name)
         throw new Error("event_id or event_name is required");
-      const filter: Record<string, unknown> = {};
-      if (parsed.event_id) filter.eventId = parsed.event_id;
-      if (parsed.event_name) filter.eventName = parsed.event_name;
-      const event = await Event.findOne(filter);
-      if (!event) throw new Error("Event not found");
-      const existing = (event.attendees as Array<{ id_number: string }>).find(
-        (a) => a.id_number === parsed.id_number
-      );
-      if (existing) {
-        return {
-          message: "Attendee already registered",
-          event_id: parsed.event_id,
-          event_name: parsed.event_name,
-          id_number: parsed.id_number,
-        };
-      }
-      const student = await Student.findOne({ id_number: parsed.id_number });
-      const attendeeData = student
-        ? {
-            id_number: student.id_number,
-            name: `${student.first_name} ${student.last_name}`,
-            course: student.course,
-            year: student.year,
-            campus: student.campus ?? "",
-          }
-        : {
-            id_number: parsed.id_number,
-            name: "Unknown",
-            course: "Unknown",
-            year: 0,
-            campus: "Unknown",
-          };
-      (event.attendees as unknown as Array<Record<string, unknown>>).push(
-        attendeeData
-      );
-      await event.save();
-      return {
-        message: "Attendee added",
-        event_id: parsed.event_id,
-        event_name: parsed.event_name,
-        id_number: parsed.id_number,
-      };
+      const eventId = parsed.event_id ?? "";
+      return EventV2Service.addAttendee(eventId, parsed.id_number);
     },
   },
   {
@@ -2233,41 +2204,26 @@ const writeTools: ChatTool[] = [
         | "morning"
         | "afternoon"
         | "evening";
-      const filter: Record<string, unknown> = {};
-      if (parsed.event_id) filter.eventId = parsed.event_id;
-      if (parsed.event_name) filter.eventName = parsed.event_name;
-      const event = await Event.findOne(filter);
-      if (!event) throw new Error("Event not found");
-      const attendees = event.attendees as unknown as Array<
-        Record<string, unknown>
-      >;
-      const idx = attendees.findIndex(
-        (a) => (a as { id_number: string }).id_number === parsed.id_number
-      );
-      if (idx === -1) throw new Error("Attendee not found in event");
-      const attendee = attendees[idx] as Record<string, unknown>;
-      const attendance = attendee.attendance as
-        | Record<string, unknown>
-        | undefined;
-      if (!attendance) {
-        attendee.attendance = {
-          morning: { attended: false, timestamp: null },
-          afternoon: { attended: false, timestamp: null },
-          evening: { attended: false, timestamp: null },
-        };
-      }
-      (attendance as Record<string, unknown>)[sessionKey] = {
-        attended: true,
-        timestamp: new Date(),
-      };
-      await event.save();
+      const eventId = parsed.event_id ?? "";
+      const student = await Student.findOne({ id_number: parsed.id_number });
+      const result = await markAttendance({
+        eventId,
+        attendeeIdNumber: parsed.id_number,
+        attendeeName: student
+          ? `${student.first_name} ${student.last_name}`
+          : "Unknown",
+        campus: student?.campus ?? "Unknown",
+        course: student?.course ?? "Unknown",
+        year: student?.year ?? 0,
+        confirmedByAdminName: "NoetixAI",
+      });
       return {
         message: `Attendance marked (${sessionKey})`,
         event_id: parsed.event_id,
         event_name: parsed.event_name,
         id_number: parsed.id_number,
         session: sessionKey,
-        attendee: attendees[idx],
+        attendee: result.attendee,
       };
     },
   },
@@ -2298,12 +2254,10 @@ const writeTools: ChatTool[] = [
       const parsed = args as { application_id?: string; status?: string };
       if (!parsed.application_id || !parsed.status)
         throw new Error("application_id and status are required");
-      const result = await Application.findByIdAndUpdate(
-        new Types.ObjectId(parsed.application_id),
-        { status: parsed.status },
-        { new: true }
+      const result = await recruitmentService.updateApplicationStatus(
+        parsed.application_id,
+        {} as any
       );
-      if (!result) throw new Error("Application not found");
       return { message: "Application status updated", application: result };
     },
   },
@@ -2324,17 +2278,14 @@ const writeTools: ChatTool[] = [
       checkPermission("admin_full", userAccess);
       const parsed = args as { position_id?: string };
       if (!parsed.position_id) throw new Error("position_id is required");
-      const position = await RecruitmentPosition.findById(
-        new Types.ObjectId(parsed.position_id)
+      const result = await recruitmentService.toggleHiringStatus(
+        parsed.position_id,
+        {} as any
       );
-      if (!position) throw new Error("Position not found");
-      position.hiringStatus =
-        position.hiringStatus === "OPEN" ? "CLOSED" : "OPEN";
-      await position.save();
       return {
-        message: `Position ${position.hiringStatus.toLowerCase()}`,
+        message: `Position ${result.hiringStatus.toLowerCase()}`,
         position_id: parsed.position_id,
-        hiringStatus: position.hiringStatus,
+        hiringStatus: result.hiringStatus,
       };
     },
   },
@@ -2358,14 +2309,7 @@ const writeTools: ChatTool[] = [
       checkPermission("admin_only", userAccess);
       const parsed = args as { id_number?: string };
       if (!parsed.id_number) throw new Error("id_number is required");
-      const admin = await Admin.findOne({ id_number: parsed.id_number });
-      if (!admin) throw new Error("Admin not found");
-      admin.status = account_status.SUSPENDED;
-      await admin.save();
-      return {
-        message: "Admin account suspended",
-        id_number: parsed.id_number,
-      };
+      return adminService.suspendByIdNumber(parsed.id_number);
     },
   },
   {
@@ -2417,21 +2361,18 @@ const writeTools: ChatTool[] = [
       ) {
         throw new Error("All fields are required");
       }
-      const existing = await Admin.findOne({ id_number: parsed.id_number });
-      if (existing) throw new Error("Admin with this ID already exists");
-      const passwordHash = await bcrypt.hash(parsed.password, 10);
-      const newAdmin = new Admin({
-        id_number: parsed.id_number,
-        name: parsed.name,
-        password: passwordHash,
-        access: psits_roles.STANDARD,
-        course: parsed.course,
-        position: parsed.position,
-        year: parsed.year,
-        email: parsed.email,
-        status: account_status.ACTIVE,
-      });
-      await newAdmin.save();
+      const result = await adminService.create(
+        {
+          id_number: parsed.id_number,
+          name: parsed.name,
+          password: parsed.password,
+          course: parsed.course,
+          position: parsed.position,
+          year: parsed.year,
+          email: parsed.email,
+        },
+        {} as any
+      );
       return { message: "Admin account created", id_number: parsed.id_number };
     },
   },
@@ -2452,7 +2393,11 @@ const writeTools: ChatTool[] = [
     execute: async (args: unknown, userAccess: string, userName: string) => {
       checkPermission("admin_finance", userAccess);
       const parsed = args as { order_ids?: string[] };
-      if (!parsed.order_ids || !Array.isArray(parsed.order_ids) || parsed.order_ids.length === 0)
+      if (
+        !parsed.order_ids ||
+        !Array.isArray(parsed.order_ids) ||
+        parsed.order_ids.length === 0
+      )
         throw new Error("order_ids is required and must be a non-empty array");
       const session = await mongoose.startSession();
       await session.startTransaction();
@@ -2510,11 +2455,15 @@ const writeTools: ChatTool[] = [
         description: "Initial stock count.",
         pattern: "^\\d+$",
       },
-      { name: "category", description: "Product category (e.g. shirt, pant, accessory)." },
+      {
+        name: "category",
+        description: "Product category (e.g. shirt, pant, accessory).",
+      },
       { name: "type", description: "Product type." },
       {
         name: "start_date",
-        description: "Optional start date for sale (ISO date string). Defaults to now.",
+        description:
+          "Optional start date for sale (ISO date string). Defaults to now.",
       },
       {
         name: "end_date",
@@ -2532,12 +2481,26 @@ const writeTools: ChatTool[] = [
         start_date?: string;
         end_date?: string;
       };
-      if (!parsed.name || parsed.price === undefined || parsed.stocks === undefined || !parsed.category || !parsed.type)
+      if (
+        !parsed.name ||
+        parsed.price === undefined ||
+        parsed.stocks === undefined ||
+        !parsed.category ||
+        !parsed.type
+      )
         throw new Error("name, price, stocks, category, and type are required");
-      const priceNum = typeof parsed.price === "string" ? parseFloat(parsed.price) : parsed.price;
-      const stocksNum = typeof parsed.stocks === "string" ? parseInt(parsed.stocks, 10) : parsed.stocks;
-      if (isNaN(priceNum) || priceNum < 0) throw new Error("price must be a non-negative number");
-      if (isNaN(stocksNum) || stocksNum < 0) throw new Error("stocks must be a non-negative integer");
+      const priceNum =
+        typeof parsed.price === "string"
+          ? parseFloat(parsed.price)
+          : parsed.price;
+      const stocksNum =
+        typeof parsed.stocks === "string"
+          ? parseInt(parsed.stocks, 10)
+          : parsed.stocks;
+      if (isNaN(priceNum) || priceNum < 0)
+        throw new Error("price must be a non-negative number");
+      if (isNaN(stocksNum) || stocksNum < 0)
+        throw new Error("stocks must be a non-negative integer");
       const newMerch = new Merch({
         name: parsed.name.trim(),
         price: priceNum,
@@ -2545,7 +2508,9 @@ const writeTools: ChatTool[] = [
         category: parsed.category.trim(),
         type: parsed.type.trim(),
         is_active: true,
-        start_date: parsed.start_date ? new Date(parsed.start_date) : new Date(),
+        start_date: parsed.start_date
+          ? new Date(parsed.start_date)
+          : new Date(),
         end_date: parsed.end_date ? new Date(parsed.end_date) : undefined,
       });
       await newMerch.save();
@@ -2594,17 +2559,26 @@ const writeTools: ChatTool[] = [
       const updates: Record<string, unknown> = {};
       if (parsed.name) updates.name = parsed.name.trim();
       if (parsed.price !== undefined) {
-        const priceNum = typeof parsed.price === "string" ? parseFloat(parsed.price) : parsed.price;
-        if (isNaN(priceNum) || priceNum < 0) throw new Error("price must be a non-negative number");
+        const priceNum =
+          typeof parsed.price === "string"
+            ? parseFloat(parsed.price)
+            : parsed.price;
+        if (isNaN(priceNum) || priceNum < 0)
+          throw new Error("price must be a non-negative number");
         updates.price = priceNum;
       }
       if (parsed.stocks !== undefined) {
-        const stocksNum = typeof parsed.stocks === "string" ? parseInt(parsed.stocks, 10) : parsed.stocks;
-        if (isNaN(stocksNum) || stocksNum < 0) throw new Error("stocks must be a non-negative integer");
+        const stocksNum =
+          typeof parsed.stocks === "string"
+            ? parseInt(parsed.stocks, 10)
+            : parsed.stocks;
+        if (isNaN(stocksNum) || stocksNum < 0)
+          throw new Error("stocks must be a non-negative integer");
         updates.stocks = stocksNum;
       }
       if (parsed.category) updates.category = parsed.category.trim();
-      if (Object.keys(updates).length === 0) throw new Error("At least one field to update is required");
+      if (Object.keys(updates).length === 0)
+        throw new Error("At least one field to update is required");
       const result = await Merch.findByIdAndUpdate(
         new Types.ObjectId(parsed.product_id),
         { $set: updates },
@@ -2631,7 +2605,9 @@ const writeTools: ChatTool[] = [
       checkPermission("admin_only", userAccess);
       const parsed = args as { product_id?: string };
       if (!parsed.product_id) throw new Error("product_id is required");
-      const result = await Merch.findByIdAndDelete(new Types.ObjectId(parsed.product_id));
+      const result = await Merch.findByIdAndDelete(
+        new Types.ObjectId(parsed.product_id)
+      );
       if (!result) throw new Error("Product not found");
       return { message: "Product deleted", product_id: parsed.product_id };
     },
@@ -2664,7 +2640,9 @@ const writeTools: ChatTool[] = [
         event_theme?: string;
       };
       if (!parsed.event_name || !parsed.event_description || !parsed.event_date)
-        throw new Error("event_name, event_description, and event_date are required");
+        throw new Error(
+          "event_name, event_description, and event_date are required"
+        );
       const newEvent = new Event({
         eventId: new Types.ObjectId(),
         eventName: parsed.event_name.trim(),
@@ -2716,16 +2694,7 @@ const writeTools: ChatTool[] = [
       const parsed = args as { event_id?: string; id_number?: string };
       if (!parsed.event_id || !parsed.id_number)
         throw new Error("event_id and id_number are required");
-      const event = await Event.findById(new Types.ObjectId(parsed.event_id));
-      if (!event) throw new Error("Event not found");
-      const attendees = event.attendees as unknown as Array<Record<string, unknown>>;
-      const idx = attendees.findIndex(
-        (a) => (a as { id_number: string }).id_number === parsed.id_number
-      );
-      if (idx === -1) throw new Error("Attendee not found in event");
-      attendees.splice(idx, 1);
-      await event.save();
-      return { message: "Attendee removed", event_id: parsed.event_id, id_number: parsed.id_number };
+      return EventV2Service.removeAttendee(parsed.event_id, parsed.id_number);
     },
   },
 
@@ -2759,25 +2728,20 @@ const writeTools: ChatTool[] = [
       };
       if (!parsed.application_id || !parsed.scheduled_at)
         throw new Error("application_id and scheduled_at are required");
-      const app = await Application.findById(new Types.ObjectId(parsed.application_id));
-      if (!app) throw new Error("Application not found");
-      app.interview = {
-        scheduledAt: new Date(parsed.scheduled_at),
-        location: parsed.location ?? "",
-        notes: parsed.notes ?? "",
-        status: "SCHEDULED",
-        scheduledBy: "NoetixAI",
-        createdAt: new Date(),
-        updatedAt: new Date(),
+      const result = await recruitmentService.createInterview(
+        parsed.application_id,
+        {
+          body: {
+            scheduledAt: parsed.scheduled_at,
+            location: parsed.location,
+            notes: parsed.notes,
+          },
+        } as any
+      );
+      return {
+        message: "Interview scheduled",
+        application_id: parsed.application_id,
       };
-      app.status = applicationStatus.INTERVIEW_SCHEDULED as typeof app.status;
-      app.statusHistory.push({
-        status: applicationStatus.INTERVIEW_SCHEDULED as typeof app.statusHistory[number]["status"],
-        changedAt: new Date(),
-        changedBy: "NoetixAI",
-      });
-      await app.save();
-      return { message: "Interview scheduled", application_id: parsed.application_id };
     },
   },
   {
@@ -2799,7 +2763,9 @@ const writeTools: ChatTool[] = [
       const parsed = args as { application_id?: string; note?: string };
       if (!parsed.application_id || !parsed.note)
         throw new Error("application_id and note are required");
-      const app = await Application.findById(new Types.ObjectId(parsed.application_id));
+      const app = await Application.findById(
+        new Types.ObjectId(parsed.application_id)
+      );
       if (!app) throw new Error("Application not found");
       app.internalNotes = parsed.note;
       await app.save();
@@ -2825,11 +2791,7 @@ const writeTools: ChatTool[] = [
       checkPermission("admin_only", userAccess);
       const parsed = args as { id_number?: string };
       if (!parsed.id_number) throw new Error("id_number is required");
-      const student = await Student.findOne({ id_number: parsed.id_number.trim() });
-      if (!student) throw new Error("Student not found");
-      student.status = account_status.SUSPENDED;
-      await student.save();
-      return { message: "Student suspended", id_number: parsed.id_number };
+      return studentService.suspendByIdNumber(parsed.id_number.trim());
     },
   },
   {
@@ -2841,7 +2803,8 @@ const writeTools: ChatTool[] = [
     args: [
       {
         name: "id_numbers",
-        description: 'Comma-separated list of student ID numbers (e.g. "20230001, 20230002").',
+        description:
+          'Comma-separated list of student ID numbers (e.g. "20230001, 20230002").',
       },
     ],
     execute: async (args: unknown, userAccess: string) => {
@@ -2883,7 +2846,8 @@ const writeTools: ChatTool[] = [
     args: [
       {
         name: "id_numbers",
-        description: 'Comma-separated list of student ID numbers (e.g. "20230001, 20230002").',
+        description:
+          'Comma-separated list of student ID numbers (e.g. "20230001, 20230002").',
       },
     ],
     execute: async (args: unknown, userAccess: string) => {
@@ -2952,7 +2916,8 @@ const writeTools: ChatTool[] = [
       if (!position) throw new Error("Position not found");
       const updates: Record<string, unknown> = {};
       if (parsed.title) updates.title = parsed.title.trim();
-      if (parsed.description !== undefined) updates.description = parsed.description;
+      if (parsed.description !== undefined)
+        updates.description = parsed.description;
       if (parsed.requirements !== undefined) {
         updates.requirements = parsed.requirements
           .split(",")
@@ -2970,12 +2935,14 @@ const writeTools: ChatTool[] = [
   // ── Settings (1) ───────────────────────────────────────────────────────────
   {
     name: "update_system_setting",
-    description:
-      "Updates a system-wide setting key-value pair. ADMIN only.",
+    description: "Updates a system-wide setting key-value pair. ADMIN only.",
     category: "Settings",
     permission: "admin_only",
     args: [
-      { name: "key", description: "Setting key (e.g. chatbotEnabled, membership_price)." },
+      {
+        name: "key",
+        description: "Setting key (e.g. chatbotEnabled, membership_price).",
+      },
       { name: "value", description: "Setting value (string or number)." },
     ],
     execute: async (args: unknown, userAccess: string) => {
@@ -2987,11 +2954,20 @@ const writeTools: ChatTool[] = [
       if (!setting) {
         const newSetting = new Settings({ [parsed.key]: parsed.value });
         await newSetting.save();
-        return { message: "Setting created", key: parsed.key, value: parsed.value };
+        return {
+          message: "Setting created",
+          key: parsed.key,
+          value: parsed.value,
+        };
       }
-      (setting as unknown as Record<string, unknown>)[parsed.key] = parsed.value;
+      (setting as unknown as Record<string, unknown>)[parsed.key] =
+        parsed.value;
       await setting.save();
-      return { message: "Setting updated", key: parsed.key, value: parsed.value };
+      return {
+        message: "Setting updated",
+        key: parsed.key,
+        value: parsed.value,
+      };
     },
   },
 ];

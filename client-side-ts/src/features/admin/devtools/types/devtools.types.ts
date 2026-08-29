@@ -231,3 +231,15 @@ export interface NoetixUsageQueryParams {
   limit?: number;
   skip?: number;
 }
+
+export interface NoetixToolItem {
+  name: string;
+  description: string;
+  permission: "read" | "admin_finance" | "admin_only" | "admin_full";
+  category: string;
+  enabled: boolean;
+}
+
+export interface NoetixMaxIterations {
+  noetixMaxIterations: number;
+}

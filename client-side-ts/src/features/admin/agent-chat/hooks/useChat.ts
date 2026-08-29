@@ -43,7 +43,6 @@ export const useChat = () => {
         message: text.trim(),
         persona: PERSONA_DATA_ANALYST,
         sessionId: sessionId || undefined,
-        userAccess: user?.access || "",
       });
 
       if (!response.success) {
@@ -59,11 +58,22 @@ export const useChat = () => {
       const assistantMessage: ChatMessage = {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: result || history || "Response received.",
+        content: result || "Response received.",
         timestamp: new Date(),
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
+
+      // Display tool call summary as a system message if present.
+      if (history?.trim()) {
+        const systemMsg: ChatMessage = {
+          id: crypto.randomUUID(),
+          role: "system",
+          content: history.trim(),
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, systemMsg]);
+      }
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "An error occurred";

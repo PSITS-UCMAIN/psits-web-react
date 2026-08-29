@@ -327,7 +327,7 @@ const queueReportEmail = async (
           `Generate a professional daily operational report for "${job.name}". Include key metrics, highlights, and any concerns from the data below.`,
           tools,
           undefined,
-          undefined,
+          JSON.stringify(noetixData),
           false
         );
         return res.data.final_result;

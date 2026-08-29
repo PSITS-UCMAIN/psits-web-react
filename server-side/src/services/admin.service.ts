@@ -231,6 +231,19 @@ class AdminService {
       };
     }
   };
+
+  suspendByIdNumber = async (id_number: string) => {
+    const updatedAdmin: IResponseMessage = await this.updateOneDynamic(
+      id_number,
+      {
+        status: account_status.SUSPENDED,
+      }
+    );
+    if (!updatedAdmin.status) {
+      throw new AppError("Admin not found or already suspended", 404);
+    }
+    return { message: "Admin account suspended", id_number };
+  };
   //Remove role of members
   removeRole = async (req: Request) => {
     const { id_number } = req.body;

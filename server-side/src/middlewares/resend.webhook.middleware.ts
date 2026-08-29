@@ -10,7 +10,7 @@ export async function verifyResendWebhook(
 ) {
   try {
     const payload = req.body.toString("utf8");
-    console.log("Payload New",payload);
+
     const event = resend.webhooks.verify({
       payload,
       headers: {
@@ -21,11 +21,8 @@ export async function verifyResendWebhook(
       webhookSecret: process.env.RESEND_WEBHOOK_SECRET!,
     });
 
-    console.log("Verified event:", event.type);
-
-    // Make the verified event available to the next handler
     req.body = event;
-    console.log(req.body);
+
     next();
   } catch (error) {
     console.error("Resend webhook verification failed:", error);
