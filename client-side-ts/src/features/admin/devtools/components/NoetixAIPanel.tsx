@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   getNoetixUsageLogs,
   getNoetixUsageStats,
@@ -12,7 +12,11 @@ import {
   getNoetixMaxIterations,
   setNoetixMaxIterations,
 } from "../api/devtools.api";
-import type { NoetixUsageLog, NoetixUsageStats, NoetixToolItem } from "../types/devtools.types";
+import type {
+  NoetixUsageLog,
+  NoetixUsageStats,
+  NoetixToolItem,
+} from "../types/devtools.types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,11 +29,24 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Search,
   Trash2,
-  Calendar,
-  ChevronLeft,
-  ChevronRight,
   Bot,
   Plus,
   X,
@@ -60,12 +77,13 @@ export const NoetixAIPanel = () => {
   const [disabledLoading, setDisabledLoading] = useState(true);
   const [tools, setTools] = useState<NoetixToolItem[]>([]);
   const [toolsLoading, setToolsLoading] = useState(true);
+  const [toolCategoryFilter, setToolCategoryFilter] = useState("");
   const [adminFilter, setAdminFilter] = useState("");
   const [successFilter, setSuccessFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
-  const [pageSize] = useState(25);
+  const [pageSize] = useState(10);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteDays, setDeleteDays] = useState("30");
   const [disableConfirm, setDisableConfirm] = useState<string | null>(null);
@@ -131,6 +149,22 @@ export const NoetixAIPanel = () => {
     }
   }, []);
 
+  const toolCategories = useMemo(() => {
+    const seen: string[] = [];
+    for (const t of tools) {
+      if (!seen.includes(t.category)) seen.push(t.category);
+    }
+    return seen;
+  }, [tools]);
+
+  const filteredTools = useMemo(
+    () =>
+      toolCategoryFilter
+        ? tools.filter((t) => t.category === toolCategoryFilter)
+        : tools,
+    [tools, toolCategoryFilter]
+  );
+
   const fetchMaxIterations = useCallback(async () => {
     try {
       const value = await getNoetixMaxIterations();
@@ -191,7 +225,13 @@ export const NoetixAIPanel = () => {
     fetchDisabledAdmins();
     fetchTools();
     fetchMaxIterations();
-  }, [fetchStats, fetchLogs, fetchDisabledAdmins, fetchTools, fetchMaxIterations]);
+  }, [
+    fetchStats,
+    fetchLogs,
+    fetchDisabledAdmins,
+    fetchTools,
+    fetchMaxIterations,
+  ]);
 
   useEffect(() => {
     setPage(1);
@@ -310,7 +350,10 @@ export const NoetixAIPanel = () => {
         </p>
         <div className="flex items-center gap-3">
           <span className="text-sm text-[#555]">
-            Current: <span className="font-mono font-semibold text-[#1c9dde]">{maxIterations}</span>
+            Current:{" "}
+            <span className="font-mono font-semibold text-[#1c9dde]">
+              {maxIterations}
+            </span>
           </span>
           <input
             type="number"
@@ -318,14 +361,17 @@ export const NoetixAIPanel = () => {
             max="50"
             value={maxIterationsValue}
             onChange={(e) => setMaxIterationsValue(e.target.value)}
-            className="h-9 w-20 rounded-lg border-[#ececec] bg-white px-3 text-sm font-mono"
+            className="h-9 w-20 rounded-lg border-[#ececec] bg-white px-3 font-mono text-sm"
           />
           <Button
             type="button"
             size="sm"
             className="rounded-full bg-[#1c9dde] hover:bg-[#168bc7]"
             onClick={handleSaveMaxIterations}
-            disabled={maxIterationsLoading || maxIterationsValue === String(maxIterations)}
+            disabled={
+              maxIterationsLoading ||
+              maxIterationsValue === String(maxIterations)
+            }
           >
             {maxIterationsLoading ? "Saving..." : "Save"}
           </Button>
@@ -341,31 +387,36 @@ export const NoetixAIPanel = () => {
             placeholder="Filter by admin..."
             value={adminFilter}
             onChange={(e) => setAdminFilter(e.target.value)}
-            className="h-9 w-full rounded-lg border-[#ececec] bg-white pr-3 pl-9 text-sm"
+            className="h-9 w-full rounded-xl border border-[#c2c2c2] bg-white pr-3 pl-9 text-sm"
           />
         </div>
-        <select
-          value={successFilter}
-          onChange={(e) => setSuccessFilter(e.target.value)}
-          className="h-9 rounded-lg border-[#ececec] bg-white px-3 text-sm"
+        <Select
+          value={successFilter || "all"}
+          onValueChange={(value) =>
+            setSuccessFilter(value === "all" ? "" : value)
+          }
         >
-          <option value="">All Status</option>
-          <option value="true">Success</option>
-          <option value="false">Failed</option>
-        </select>
+          <SelectTrigger className="h-9 w-[130px] rounded-xl border-[#c2c2c2] text-sm">
+            <SelectValue placeholder="All Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="true">Success</SelectItem>
+            <SelectItem value="false">Failed</SelectItem>
+          </SelectContent>
+        </Select>
         <div className="flex items-center gap-2">
-          <Calendar className="h-4 w-4 text-[#858585]" />
           <input
             type="date"
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
-            className="h-9 rounded-lg border-[#ececec] bg-white px-3 text-sm"
+            className="h-9 rounded-xl border bg-white px-3 text-sm"
           />
           <input
             type="date"
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
-            className="h-9 rounded-lg border-[#ececec] bg-white px-3 text-sm"
+            className="h-9 rounded-xl border bg-white px-3 text-sm"
           />
         </div>
         <Button
@@ -375,7 +426,7 @@ export const NoetixAIPanel = () => {
           className="rounded-full"
           onClick={handleRefresh}
         >
-          <RotateCw className="mr-1 h-4 w-4" />
+          <RotateCw className="mr-1 h-4 w-4 text-green-400" />
           Refresh
         </Button>
         <Button
@@ -385,7 +436,7 @@ export const NoetixAIPanel = () => {
           className="rounded-full"
           onClick={() => setConfirmDelete(true)}
         >
-          <Trash2 className="mr-1 h-4 w-4" />
+          <Trash2 className="mr-1 h-4 w-4 text-red-400" />
           Delete Old
         </Button>
       </div>
@@ -438,16 +489,17 @@ export const NoetixAIPanel = () => {
                   className="border-b border-[#ededed] text-[#303030]"
                 >
                   <td className="truncate px-2 py-3">
-                    {log.timestamp
-                      ? formatDate(log.timestamp)
-                      : "—"}
+                    {log.timestamp ? formatDate(log.timestamp) : "—"}
                   </td>
                   <td className="truncate px-2 py-3">{log.admin}</td>
                   <td className="px-2 py-3">
                     {log.tool_names && log.tool_names.length > 0 ? (
                       <div className="flex flex-wrap gap-1">
                         {log.tool_names.map((t, i) => (
-                          <span key={i} className="font-mono text-xs bg-[#f0f0f0] rounded px-1.5 py-0.5 text-[#444]">
+                          <span
+                            key={i}
+                            className="rounded bg-[#f0f0f0] px-1.5 py-0.5 font-mono text-xs text-[#444]"
+                          >
                             {t}
                           </span>
                         ))}
@@ -482,7 +534,7 @@ export const NoetixAIPanel = () => {
                     <button
                       type="button"
                       onClick={() => setSelectedLog(log)}
-                      className="rounded-full p-1 hover:bg-[#e9f4fb] text-[#1c9dde]"
+                      className="rounded-full p-1 text-[#1c9dde] hover:bg-[#e9f4fb]"
                       title="View details"
                     >
                       <Eye className="h-4 w-4" />
@@ -495,37 +547,87 @@ export const NoetixAIPanel = () => {
         </div>
       )}
 
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between">
+      {total > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <span className="text-sm text-[#8a8a8a]">
             Showing {(page - 1) * pageSize + 1}-
             {Math.min(page * pageSize, total)} of {total}
           </span>
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="rounded-full"
-              disabled={page === 1}
-              onClick={() => setPage((p) => p - 1)}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="text-sm text-[#8a8a8a]">
-              Page {page} of {totalPages}
-            </span>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="rounded-full"
-              disabled={page === totalPages}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
+          <Pagination className="mx-0 w-auto">
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (page > 1) setPage(page - 1);
+                  }}
+                  className={page === 1 ? "pointer-events-none opacity-50" : ""}
+                />
+              </PaginationItem>
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum;
+                if (totalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (page <= 3) {
+                  pageNum = i + 1;
+                } else if (page >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i;
+                } else {
+                  pageNum = page - 2 + i;
+                }
+                return (
+                  <PaginationItem key={pageNum}>
+                    <PaginationLink
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setPage(pageNum);
+                      }}
+                      isActive={page === pageNum}
+                      className={
+                        page === pageNum
+                          ? "bg-sky-400 text-white hover:bg-sky-500"
+                          : ""
+                      }
+                    >
+                      {pageNum}
+                    </PaginationLink>
+                  </PaginationItem>
+                );
+              })}
+              {totalPages > 5 && page < totalPages - 2 && (
+                <PaginationItem>
+                  <PaginationEllipsis />
+                </PaginationItem>
+              )}
+              {totalPages > 5 && page < totalPages - 2 && (
+                <PaginationItem>
+                  <PaginationLink
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setPage(totalPages);
+                    }}
+                  >
+                    {totalPages}
+                  </PaginationLink>
+                </PaginationItem>
+              )}
+              <PaginationItem>
+                <PaginationNext
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (page < totalPages) setPage(page + 1);
+                  }}
+                  className={
+                    page === totalPages ? "pointer-events-none opacity-50" : ""
+                  }
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
         </div>
       )}
 
@@ -596,15 +698,35 @@ export const NoetixAIPanel = () => {
 
       {/* Tool Registry Section */}
       <div className="rounded-xl border border-[#e5e5e5] bg-white p-4">
-        <div className="mb-3 flex items-center gap-2">
-          <Bot className="h-4 w-4 text-[#1c9dde]" />
-          <p className="text-sm font-medium text-[#2b2b2b]">
-            Noetix AI Tool Registry
-          </p>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Bot className="h-4 w-4 text-[#1c9dde]" />
+            <p className="text-sm font-medium text-[#2b2b2b]">
+              Noetix AI Tool Registry
+            </p>
+          </div>
+          <Select
+            value={toolCategoryFilter || "all"}
+            onValueChange={(value) =>
+              setToolCategoryFilter(value === "all" ? "" : value)
+            }
+          >
+            <SelectTrigger className="h-9 w-[160px] rounded-full border-[#c2c2c2] text-sm">
+              <SelectValue placeholder="All Categories" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              {toolCategories.map((category) => (
+                <SelectItem key={category} value={category}>
+                  {category}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <p className="mb-3 text-xs text-[#858585]">
-          Toggle tools on or off. Disabled tools will not be available to the
-          AI agent. Permission labels indicate who can execute each tool.
+          Toggle tools on or off. Disabled tools will not be available to the AI
+          agent. Permission labels indicate who can execute each tool.
         </p>
 
         {toolsLoading ? (
@@ -613,11 +735,12 @@ export const NoetixAIPanel = () => {
               <Skeleton key={i} className="h-10 w-full" />
             ))}
           </div>
+        ) : filteredTools.length === 0 ? (
+          <p className="py-8 text-center text-sm text-[#777]">
+            No tools found for this category.
+          </p>
         ) : (
-          <ToolRegistryList
-            tools={tools}
-            onToggle={handleToggleTool}
-          />
+          <ToolRegistryList tools={filteredTools} onToggle={handleToggleTool} />
         )}
       </div>
 
@@ -703,8 +826,11 @@ export const NoetixAIPanel = () => {
         </DialogContent>
       </Dialog>
       {/* View Details Dialog */}
-      <Dialog open={Boolean(selectedLog)} onOpenChange={(open) => !open && setSelectedLog(null)}>
-        <DialogContent className="max-w-lg rounded-[20px] max-h-[85vh] overflow-y-auto">
+      <Dialog
+        open={Boolean(selectedLog)}
+        onOpenChange={(open) => !open && setSelectedLog(null)}
+      >
+        <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto rounded-[20px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Eye className="h-5 w-5 text-[#1c9dde]" />
@@ -714,27 +840,54 @@ export const NoetixAIPanel = () => {
           {selectedLog && (
             <div className="space-y-3 py-2">
               <div className="grid grid-cols-2 gap-3">
-                <DetailRow icon={Clock} label="Timestamp" value={formatDate(selectedLog.timestamp)} />
-                <DetailRow icon={User} label="Admin" value={selectedLog.admin} />
+                <DetailRow
+                  icon={Clock}
+                  label="Timestamp"
+                  value={formatDate(selectedLog.timestamp)}
+                />
+                <DetailRow
+                  icon={User}
+                  label="Admin"
+                  value={selectedLog.admin}
+                />
                 <DetailRow icon={Bot} label="Mode" value={selectedLog.mode} />
                 <DetailRow
                   icon={selectedLog.success ? CheckCircle2 : XCircle}
                   label="Status"
                   value={selectedLog.success ? "Success" : "Failed"}
-                  valueClass={selectedLog.success ? "text-green-600" : "text-red-600"}
+                  valueClass={
+                    selectedLog.success ? "text-green-600" : "text-red-600"
+                  }
                 />
-                <DetailRow icon={Cpu} label="Iterations" value={String(selectedLog.iterations)} />
-                <DetailRow icon={Bot} label="Session ID" value={selectedLog.session_id} mono />
+                <DetailRow
+                  icon={Cpu}
+                  label="Iterations"
+                  value={String(selectedLog.iterations)}
+                />
+                <DetailRow
+                  icon={Bot}
+                  label="Session ID"
+                  value={selectedLog.session_id}
+                  mono
+                />
               </div>
-              <DetailRow icon={Target} label="Goal" value={selectedLog.goal} multiline />
+              <DetailRow
+                icon={Target}
+                label="Goal"
+                value={selectedLog.goal}
+                multiline
+              />
               <div className="rounded-lg bg-[#f7f7f7] p-3">
-                <p className="mb-2 text-xs font-medium text-[#858585] uppercase tracking-wide">
+                <p className="mb-2 text-xs font-medium tracking-wide text-[#858585] uppercase">
                   Tool(s) Called
                 </p>
                 {selectedLog.tool_names && selectedLog.tool_names.length > 0 ? (
                   <div className="flex flex-wrap gap-1.5">
                     {selectedLog.tool_names.map((t, i) => (
-                      <span key={i} className="font-mono text-xs bg-white border border-[#e0e0e0] rounded px-2 py-1 text-[#333]">
+                      <span
+                        key={i}
+                        className="rounded border border-[#e0e0e0] bg-white px-2 py-1 font-mono text-xs text-[#333]"
+                      >
                         {t}
                       </span>
                     ))}
@@ -744,9 +897,13 @@ export const NoetixAIPanel = () => {
                 )}
               </div>
               {selectedLog.error && (
-                <div className="rounded-lg bg-red-50 border border-red-100 p-3">
-                  <p className="mb-2 text-xs font-medium text-red-500 uppercase tracking-wide">Error</p>
-                  <p className="font-mono text-xs text-red-700 break-all">{selectedLog.error}</p>
+                <div className="rounded-lg border border-red-100 bg-red-50 p-3">
+                  <p className="mb-2 text-xs font-medium tracking-wide text-red-500 uppercase">
+                    Error
+                  </p>
+                  <p className="font-mono text-xs break-all text-red-700">
+                    {selectedLog.error}
+                  </p>
                 </div>
               )}
             </div>
@@ -783,10 +940,14 @@ const DetailRow = ({
   valueClass?: string;
 }) => (
   <div className={`${multiline ? "" : "flex items-start gap-2"}`}>
-    <Icon className={`h-4 w-4 mt-0.5 shrink-0 text-[#1c9dde]`} />
+    <Icon className={`mt-0.5 h-4 w-4 shrink-0 text-[#1c9dde]`} />
     <div className="min-w-0">
-      <p className="text-[10px] font-medium text-[#858585] uppercase tracking-wide">{label}</p>
-      <p className={`text-sm ${mono ? "font-mono break-all" : multiline ? "break-words" : "truncate"} ${valueClass ?? "text-[#2b2b2b]"}`}>
+      <p className="text-[10px] font-medium tracking-wide text-[#858585] uppercase">
+        {label}
+      </p>
+      <p
+        className={`text-sm ${mono ? "font-mono break-all" : multiline ? "break-words" : "truncate"} ${valueClass ?? "text-[#2b2b2b]"}`}
+      >
         {value}
       </p>
     </div>
@@ -816,11 +977,34 @@ const StatCard = ({
   </div>
 );
 
-const PERM_LABELS: Record<string, { label: string; cls: string; icon: React.ComponentType<{ className?: string }> }> = {
-  read: { label: "Read", cls: "bg-green-50 text-green-700 border-green-200", icon: Unlock },
-  admin_finance: { label: "Read/Write (Finance)", cls: "bg-yellow-50 text-yellow-700 border-yellow-200", icon: Shield },
-  admin_only: { label: "Admin Only", cls: "bg-red-50 text-red-700 border-red-200", icon: Lock },
-  admin_full: { label: "Full Admin", cls: "bg-purple-50 text-purple-700 border-purple-200", icon: Shield },
+const PERM_LABELS: Record<
+  string,
+  {
+    label: string;
+    cls: string;
+    icon: React.ComponentType<{ className?: string }>;
+  }
+> = {
+  read: {
+    label: "Read",
+    cls: "bg-green-50 text-green-700 border-green-200",
+    icon: Unlock,
+  },
+  admin_finance: {
+    label: "Read/Write (Finance)",
+    cls: "bg-yellow-50 text-yellow-700 border-yellow-200",
+    icon: Shield,
+  },
+  admin_only: {
+    label: "Admin Only",
+    cls: "bg-red-50 text-red-700 border-red-200",
+    icon: Lock,
+  },
+  admin_full: {
+    label: "Full Admin",
+    cls: "bg-purple-50 text-purple-700 border-purple-200",
+    icon: Shield,
+  },
 };
 
 const ToolRegistryList = ({
@@ -839,7 +1023,7 @@ const ToolRegistryList = ({
     <div className="space-y-4">
       {Object.entries(grouped).map(([category, categoryTools]) => (
         <div key={category}>
-          <p className="mb-2 text-xs font-semibold text-[#858585] uppercase tracking-wide">
+          <p className="mb-2 text-xs font-semibold tracking-wide text-[#858585] uppercase">
             {category}
           </p>
           <div className="space-y-1.5">
@@ -873,12 +1057,14 @@ const ToolRegistryList = ({
                   <button
                     type="button"
                     onClick={() => onToggle(tool)}
-                    className={`ml-3 shrink-0 flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium border transition-colors ${
+                    className={`ml-3 flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
                       tool.enabled
-                        ? "bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
-                        : "bg-red-50 text-red-600 border-red-200 hover:bg-red-100"
+                        ? "border-green-200 bg-green-50 text-green-700 hover:bg-green-100"
+                        : "border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
                     }`}
-                    title={tool.enabled ? "Click to disable" : "Click to enable"}
+                    title={
+                      tool.enabled ? "Click to disable" : "Click to enable"
+                    }
                   >
                     {tool.enabled ? (
                       <CheckCircle2 className="h-3.5 w-3.5" />

@@ -392,11 +392,13 @@ class DevToolsController {
     if (!ALLOWED_CAMPUS.includes(req.userV2.campus)) {
       return res.status(403).json({ message: "Campus not authorized" });
     }
-    const { action, admin, target, dateFrom, dateTo, limit, skip } = req.query;
+    const { action, admin, target, search, dateFrom, dateTo, limit, skip } =
+      req.query;
     const { entries, total } = await getLogEntries({
       action: action as string,
       admin: admin as string,
       target: target as string,
+      search: search as string,
       dateFrom: dateFrom ? new Date(dateFrom as string) : undefined,
       dateTo: dateTo ? new Date(dateTo as string) : undefined,
       limit: limit ? parseInt(limit as string) : 100,

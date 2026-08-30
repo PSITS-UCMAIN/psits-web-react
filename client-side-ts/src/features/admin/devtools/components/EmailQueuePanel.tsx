@@ -38,7 +38,7 @@ export const EmailQueuePanel = () => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("");
   const [page, setPage] = useState(1);
-  const [pageSize] = useState(50);
+  const [pageSize] = useState(10);
   const [resendAllConfirm, setResendAllConfirm] = useState(false);
   const [failedEmails, setFailedEmails] = useState<FailedEmail[]>([]);
   const [selectedFailed, setSelectedFailed] = useState<Set<string>>(new Set());

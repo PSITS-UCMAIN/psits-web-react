@@ -484,6 +484,7 @@ export interface LogQueryParams {
   action?: string;
   admin?: string;
   target?: string;
+  search?: string;
   dateFrom?: Date;
   dateTo?: Date;
   limit?: number;
@@ -494,6 +495,7 @@ export const getLogEntries = async ({
   action,
   admin,
   target,
+  search,
   dateFrom,
   dateTo,
   limit = 100,
@@ -505,6 +507,12 @@ export const getLogEntries = async ({
   if (action) query.action = { $regex: action, $options: "i" };
   if (admin) query.admin = { $regex: admin, $options: "i" };
   if (target) query.target = { $regex: target, $options: "i" };
+  if (search) {
+    query.$or = [
+      { admin: { $regex: search, $options: "i" } },
+      { target: { $regex: search, $options: "i" } },
+    ];
+  }
   if (dateFrom || dateTo) {
     const timestampQuery: Record<string, Date> = {};
     if (dateFrom) timestampQuery.$gte = dateFrom;

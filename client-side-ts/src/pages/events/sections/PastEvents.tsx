@@ -1,11 +1,26 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { MapPin, ChevronDown, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { pastEventsData } from "@/data/sections-data";
+import { eventsData } from "@/data/sections-data";
+import { isEventPast, getManilaDateParts } from "@/data/events.utils";
 import { OptimizedImage } from "@/components/common/OptimizedImage";
 
 export const PastEvents = () => {
-  const { header, events } = pastEventsData;
+  const events = useMemo(
+    () =>
+      eventsData.events
+        .filter((event) => isEventPast(event))
+        .sort(
+          (a, b) =>
+            new Date(b.startDateTime).getTime() -
+            new Date(a.startDateTime).getTime()
+        )
+        .map((event) => ({
+          ...event,
+          ...getManilaDateParts(event.startDateTime),
+        })),
+    []
+  );
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -19,6 +34,8 @@ export const PastEvents = () => {
   const filteredEvents = selectedYear
     ? events.filter((e) => e.year === selectedYear)
     : events;
+
+  const defaultYearLabel = years[0] ?? new Date().getFullYear();
 
   const toggleExpand = (id: number) => {
     setExpandedIds((prev) => {
@@ -48,10 +65,10 @@ export const PastEvents = () => {
       <div className="mb-16 flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
         <div>
           <h2 className="text-foreground text-4xl font-black tracking-tight md:text-5xl">
-            {header.title}
+            Past Events
           </h2>
           <p className="text-primary mt-2 text-2xl font-bold">
-            {selectedYear ?? header.year}
+            {selectedYear ?? defaultYearLabel}
           </p>
         </div>
 
@@ -118,10 +135,10 @@ export const PastEvents = () => {
                 {/* Date column */}
                 <div className="flex min-w-[120px] shrink-0 flex-col items-start justify-start md:items-center">
                   <span className="text-muted-foreground/80 mb-1 text-base font-bold tracking-widest uppercase">
-                    {event.date.month}
+                    {event.month}
                   </span>
                   <span className="text-foreground text-6xl leading-[0.8] font-black md:text-7xl">
-                    {event.date.day}
+                    {event.day}
                   </span>
                 </div>
 

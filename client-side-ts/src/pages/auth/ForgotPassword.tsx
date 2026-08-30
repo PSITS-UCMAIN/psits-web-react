@@ -9,8 +9,8 @@ import { ArrowLeft } from "lucide-react";
 import { Link } from "react-router";
 
 export default function ForgotPassword() {
-  const handleForgotPassword = (_values: ForgotPasswordCredentials) => {
-    forgotPassword(_values.email, _values.id);
+  const handleForgotPassword = async (values: ForgotPasswordCredentials) => {
+    return await forgotPassword(values.email, values.id);
   };
 
   return (

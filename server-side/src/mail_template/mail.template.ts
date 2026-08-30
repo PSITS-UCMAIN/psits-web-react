@@ -159,7 +159,7 @@ const sendPsitsTemplatedEmail = async (opts: {
     logoDataUri: "cid:logo",
   });
 
-  await sendEmail({
+  return await sendEmail({
     to: opts.to,
     subject: opts.subject,
     html,
@@ -385,7 +385,7 @@ export const certificateOfParticipationEmail = async (
 
     const html = renderPsitsEmail({
       category: "Certificate",
-      title: "Congratulations! 🎉",
+      title: "Congratulations! Your Certificate of Participation",
       bodyHtml: `
         <p>Hi ${parsedData.student_name},</p>
         <p style="margin-bottom:20px;">
@@ -444,15 +444,15 @@ export const recruitmentApprovedMail = async (data: {
       "approval"
     );
 
-    await sendPsitsTemplatedEmail({
+    const id = await sendPsitsTemplatedEmail({
       to: data.applicantEmail,
-      subject: "Your PSITS Application Has Been Approved! 🎉",
+      subject: "Your PSITS Application Has Been Approved!",
       category: "Philippine Technology of Information Technology Students",
       title: "PSITS Application Approved",
       bodyHtml: `
         <p>Dear ${data.applicantName},</p>
         <p style="margin-bottom:16px;">
-          Congratulations! 🎉 We're happy to let you know that your application to join PSITS has been approved.
+          Congratulations! We're happy to let you know that your application to join PSITS has been approved.
         </p>
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f5f5; border-radius:8px; margin-bottom:20px;">
           <tr><td style="padding:16px 18px;">
@@ -467,6 +467,9 @@ export const recruitmentApprovedMail = async (data: {
       `,
     });
 
+    if (id?.id) {
+      await emailService.updateEmailIdById(String(queueEntry._id), id.id);
+    }
     await emailService.updateStatusById(String(queueEntry._id), "sent");
   } catch (err: unknown) {
     console.error(
@@ -502,7 +505,7 @@ export const recruitmentInterviewScheduledMail = async (data: {
       "interview_scheduled"
     );
 
-    await sendPsitsTemplatedEmail({
+    const id = await sendPsitsTemplatedEmail({
       to: data.applicantEmail,
       subject: "PSITS Interview Schedule Notification",
       category: "Philipine Technology of Information Technology Students",
@@ -537,6 +540,9 @@ export const recruitmentInterviewScheduledMail = async (data: {
       `,
     });
 
+    if (id?.id) {
+      await emailService.updateEmailIdById(String(queueEntry._id), id.id);
+    }
     await emailService.updateStatusById(String(queueEntry._id), "sent");
   } catch (err: unknown) {
     console.error(
@@ -567,7 +573,7 @@ export const recruitmentInterviewRescheduledMail = async (data: {
       "interview_rescheduled"
     );
 
-    await sendPsitsTemplatedEmail({
+    const id = await sendPsitsTemplatedEmail({
       to: data.applicantEmail,
       subject: "PSITS Interview Reschedule Notification",
       category: "Philipine Technology of Information Technology Students",
@@ -602,6 +608,9 @@ export const recruitmentInterviewRescheduledMail = async (data: {
       `,
     });
 
+    if (id?.id) {
+      await emailService.updateEmailIdById(String(queueEntry._id), id.id);
+    }
     await emailService.updateStatusById(String(queueEntry._id), "sent");
   } catch (err: unknown) {
     console.error(
@@ -637,7 +646,7 @@ export const recruitmentAccountCreatedMail = async (data: {
       "account_created"
     );
 
-    await sendPsitsTemplatedEmail({
+    const id = await sendPsitsTemplatedEmail({
       to: data.applicantEmail,
       subject: `${"Your PSITS " + data.role} Account Has Been Created!`,
       category: "Philippine Technology of Information Technology Students",
@@ -664,6 +673,9 @@ export const recruitmentAccountCreatedMail = async (data: {
       `,
     });
 
+    if (id?.id) {
+      await emailService.updateEmailIdById(String(queueEntry._id), id.id);
+    }
     await emailService.updateStatusById(String(queueEntry._id), "sent");
   } catch (err: unknown) {
     console.error(
@@ -695,7 +707,7 @@ export const recruitmentRejectedMail = async (data: {
       "rejection"
     );
 
-    await sendPsitsTemplatedEmail({
+    const id = await sendPsitsTemplatedEmail({
       to: data.applicantEmail,
       subject: "Update on Your PSITS Application",
       category: "Philippine Technology of Information Technology Students",
@@ -721,6 +733,9 @@ export const recruitmentRejectedMail = async (data: {
       `,
     });
 
+    if (id?.id) {
+      await emailService.updateEmailIdById(String(queueEntry._id), id.id);
+    }
     await emailService.updateStatusById(String(queueEntry._id), "sent");
   } catch (err: unknown) {
     console.error(
