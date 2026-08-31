@@ -79,6 +79,7 @@ export const NoetixAIPanel = () => {
   const [toolsLoading, setToolsLoading] = useState(true);
   const [toolCategoryFilter, setToolCategoryFilter] = useState("");
   const [adminFilter, setAdminFilter] = useState("");
+  const [appliedAdminFilter, setAppliedAdminFilter] = useState("");
   const [successFilter, setSuccessFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -110,7 +111,7 @@ export const NoetixAIPanel = () => {
         limit: pageSize,
         skip: (page - 1) * pageSize,
       };
-      if (adminFilter) params.admin = adminFilter;
+      if (appliedAdminFilter) params.admin = appliedAdminFilter;
       if (successFilter) params.success = successFilter;
       if (dateFrom) params.dateFrom = dateFrom;
       if (dateTo) params.dateTo = dateTo;
@@ -123,7 +124,7 @@ export const NoetixAIPanel = () => {
     } finally {
       setLogLoading(false);
     }
-  }, [page, adminFilter, successFilter, dateFrom, dateTo, pageSize]);
+  }, [page, appliedAdminFilter, successFilter, dateFrom, dateTo, pageSize]);
 
   const fetchDisabledAdmins = useCallback(async () => {
     setDisabledLoading(true);
@@ -221,21 +222,22 @@ export const NoetixAIPanel = () => {
 
   useEffect(() => {
     fetchStats();
-    fetchLogs();
     fetchDisabledAdmins();
     fetchTools();
     fetchMaxIterations();
-  }, [
-    fetchStats,
-    fetchLogs,
-    fetchDisabledAdmins,
-    fetchTools,
-    fetchMaxIterations,
-  ]);
+  }, [fetchStats, fetchDisabledAdmins, fetchTools, fetchMaxIterations]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setAppliedAdminFilter(adminFilter.trim());
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [adminFilter]);
 
   useEffect(() => {
     setPage(1);
-  }, [adminFilter, successFilter, dateFrom, dateTo]);
+  }, [appliedAdminFilter, successFilter, dateFrom, dateTo]);
 
   useEffect(() => {
     fetchLogs();
@@ -292,19 +294,6 @@ export const NoetixAIPanel = () => {
     fetchDisabledAdmins();
     fetchTools();
   };
-
-  if (logLoading) {
-    return (
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-20 rounded-xl" />
-          ))}
-        </div>
-        <Skeleton className="h-64 rounded-xl" />
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-5">
