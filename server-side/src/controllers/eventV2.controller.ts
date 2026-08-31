@@ -480,11 +480,16 @@ const mapPaginatedAttendees = (attendees: IAttendee[]) => {
 
 export const getAllEventsV2Controller = async (req: Request, res: Response) => {
   try {
-    const cutoffDate = getSevenDayWindowCutoffDate();
+    // Admins manage past events too (edit, statistics, certificates), so they
+    // see everything. Students only see the recent/upcoming window.
+    const isAdmin = req.userV2?.role === "admin";
+    const dateFilter = isAdmin
+      ? {}
+      : { eventDate: { $gte: getSevenDayWindowCutoffDate() } };
 
-    const events: IEvent[] = await Event.find({
-      eventDate: { $gte: cutoffDate },
-    }).select("-attendees");
+    const events: IEvent[] = await Event.find(dateFilter).select(
+      "-attendees"
+    );
 
     if (!events || events.length === 0) {
       return res.status(404).json({ message: "No events found" });
