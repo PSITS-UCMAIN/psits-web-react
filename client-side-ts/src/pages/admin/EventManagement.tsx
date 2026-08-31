@@ -600,7 +600,7 @@ const EventManagement: React.FC = () => {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto overscroll-contain">
         <div className="space-y-6 px-6 py-4">
           {/* Breadcrumb */}
           <Breadcrumb>
