@@ -11,7 +11,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Search, Trash2, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Search,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+  RotateCw,
+} from "lucide-react";
 
 const ACTION_FILTER_OPTIONS = [
   { value: "Invalidated Session", label: "Invalidated Session" },
@@ -34,12 +47,11 @@ export const ActivityLogPanel = () => {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [actionFilter, setActionFilter] = useState("");
-  const [adminFilter, setAdminFilter] = useState("");
-  const [targetFilter, setTargetFilter] = useState("");
+  const [searchFilter, setSearchFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
-  const [pageSize] = useState(50);
+  const [pageSize] = useState(20);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteDays, setDeleteDays] = useState("30");
 
@@ -51,8 +63,7 @@ export const ActivityLogPanel = () => {
         skip: (page - 1) * pageSize,
       };
       if (actionFilter) params.action = actionFilter;
-      if (adminFilter) params.admin = adminFilter;
-      if (targetFilter) params.target = targetFilter;
+      if (searchFilter) params.search = searchFilter;
       if (dateFrom) params.dateFrom = dateFrom;
       if (dateTo) params.dateTo = dateTo;
 
@@ -68,11 +79,11 @@ export const ActivityLogPanel = () => {
 
   useEffect(() => {
     setPage(1);
-  }, [actionFilter, adminFilter, targetFilter, dateFrom, dateTo]);
+  }, [actionFilter, searchFilter, dateFrom, dateTo]);
 
   useEffect(() => {
     fetchEntries();
-  }, [page, actionFilter, adminFilter, targetFilter, dateFrom, dateTo]);
+  }, [page, actionFilter, searchFilter, dateFrom, dateTo]);
 
   const handleDeleteOld = async () => {
     try {
@@ -104,52 +115,47 @@ export const ActivityLogPanel = () => {
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#858585]" />
+        <div className="relative min-w-[200px] flex-1">
+          <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[#858585]" />
           <input
             type="text"
-            placeholder="Filter by admin..."
-            value={adminFilter}
-            onChange={(e) => setAdminFilter(e.target.value)}
-            className="h-9 w-full rounded-lg border-[#ececec] bg-white pl-9 pr-3 text-sm"
+            placeholder="Search by admin or target..."
+            value={searchFilter}
+            onChange={(e) => setSearchFilter(e.target.value)}
+            className="h-9 w-full rounded-xl border border-[#c2c2c2] bg-white pr-3 pl-9 text-sm"
           />
         </div>
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#858585]" />
-          <input
-            type="text"
-            placeholder="Filter by target..."
-            value={targetFilter}
-            onChange={(e) => setTargetFilter(e.target.value)}
-            className="h-9 w-full rounded-lg border-[#ececec] bg-white pl-9 pr-3 text-sm"
-          />
-        </div>
-        <select
-          value={actionFilter}
-          onChange={(e) => setActionFilter(e.target.value)}
-          className="h-9 w-[200px] rounded-lg border-[#ececec] bg-white px-3 text-sm"
+        <Select
+          value={actionFilter || "all"}
+          onValueChange={(value) =>
+            setActionFilter(value === "all" ? "" : value)
+          }
         >
-          <option value="">All Actions</option>
-          {ACTION_FILTER_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger className="h-9 w-[200px] rounded-xl border-[#c2c2c2] text-sm">
+            <SelectValue placeholder="All Actions" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Actions</SelectItem>
+            {ACTION_FILTER_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <div className="flex items-center gap-2">
-          <Calendar className="h-4 w-4 text-[#858585]" />
           <input
             type="date"
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
-            className="h-9 rounded-lg border-[#ececec] bg-white px-3 text-sm"
+            className="h-9 rounded-xl border bg-white px-3 text-sm"
             placeholder="From"
           />
           <input
             type="date"
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
-            className="h-9 rounded-lg border-[#ececec] bg-white px-3 text-sm"
+            className="h-9 rounded-xl border bg-white px-3 text-sm"
             placeholder="To"
           />
         </div>
@@ -160,6 +166,7 @@ export const ActivityLogPanel = () => {
           className="rounded-full"
           onClick={fetchEntries}
         >
+          <RotateCw className="mr-1 h-4 w-4 text-green-400" />
           Refresh
         </Button>
         <Button
@@ -169,35 +176,54 @@ export const ActivityLogPanel = () => {
           className="rounded-full"
           onClick={() => setConfirmDelete(true)}
         >
-          <Trash2 className="mr-1 h-4 w-4" />
+          <Trash2 className="mr-1 h-4 w-4 text-red-400" />
           Delete Old
         </Button>
       </div>
 
       {entries.length === 0 ? (
-        <p className="py-16 text-center text-sm text-[#777]">No activity logs found.</p>
+        <p className="py-16 text-center text-sm text-[#777]">
+          No activity logs found.
+        </p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1000px] table-fixed border-collapse text-sm">
             <thead>
               <tr className="rounded-md bg-[#efefef] text-[#2f2f2f]">
-                <th className="w-[15%] rounded-l-md px-2 py-2 text-left font-medium">Timestamp</th>
-                <th className="w-[15%] px-2 py-2 text-left font-medium">Admin</th>
-                <th className="w-[20%] px-2 py-2 text-left font-medium">Action</th>
-                <th className="w-[20%] px-2 py-2 text-left font-medium">Target</th>
-                <th className="w-[15%] px-2 py-2 text-left font-medium">Target Model</th>
-                <th className="w-[15%] rounded-r-md px-2 py-2 text-left font-medium">Target ID</th>
+                <th className="w-[15%] rounded-l-md px-2 py-2 text-left font-medium">
+                  Timestamp
+                </th>
+                <th className="w-[15%] px-2 py-2 text-left font-medium">
+                  Admin
+                </th>
+                <th className="w-[20%] px-2 py-2 text-left font-medium">
+                  Action
+                </th>
+                <th className="w-[20%] px-2 py-2 text-left font-medium">
+                  Target
+                </th>
+                <th className="w-[15%] px-2 py-2 text-left font-medium">
+                  Target Model
+                </th>
+                <th className="w-[15%] rounded-r-md px-2 py-2 text-left font-medium">
+                  Target ID
+                </th>
               </tr>
             </thead>
             <tbody>
               {entries.map((entry) => (
-                <tr key={entry._id} className="border-b border-[#ededed] text-[#303030]">
+                <tr
+                  key={entry._id}
+                  className="border-b border-[#ededed] text-[#303030]"
+                >
                   <td className="px-2 py-3">{formatDate(entry.timestamp)}</td>
                   <td className="truncate px-2 py-3">{entry.admin}</td>
                   <td className="px-2 py-3">{entry.action}</td>
                   <td className="truncate px-2 py-3">{entry.target || "-"}</td>
                   <td className="px-2 py-3">{entry.target_model || "-"}</td>
-                  <td className="truncate px-2 py-3">{entry.target_id || "-"}</td>
+                  <td className="truncate px-2 py-3">
+                    {entry.target_id || "-"}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -208,7 +234,8 @@ export const ActivityLogPanel = () => {
       {totalPages > 1 && (
         <div className="mt-4 flex items-center justify-between">
           <span className="text-sm text-[#8a8a8a]">
-            Showing {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, total)} of {total}
+            Showing {(page - 1) * pageSize + 1}-
+            {Math.min(page * pageSize, total)} of {total}
           </span>
           <div className="flex items-center gap-2">
             <Button
@@ -221,7 +248,9 @@ export const ActivityLogPanel = () => {
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="text-sm text-[#8a8a8a]">Page {page} of {totalPages}</span>
+            <span className="text-sm text-[#8a8a8a]">
+              Page {page} of {totalPages}
+            </span>
             <Button
               type="button"
               variant="outline"
@@ -246,7 +275,9 @@ export const ActivityLogPanel = () => {
             <span className="font-medium">{deleteDays} days</span>.
           </p>
           <div className="mt-4">
-            <label className="mb-2 block text-sm font-medium">Days to keep</label>
+            <label className="mb-2 block text-sm font-medium">
+              Days to keep
+            </label>
             <input
               type="number"
               min="1"

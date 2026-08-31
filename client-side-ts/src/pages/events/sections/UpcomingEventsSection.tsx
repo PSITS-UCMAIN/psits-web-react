@@ -5,17 +5,31 @@ import {
   CarouselItem,
 } from "@/components/ui/carousel";
 import { Calendar, MapPin } from "lucide-react";
-import { upcomingEventsData } from "@/data/sections-data";
+import { eventsData } from "@/data/sections-data";
+import { isEventPast, formatEventDateRange } from "@/data/events.utils";
 import { OptimizedImage } from "@/components/common/OptimizedImage";
 
+const currentYear = new Intl.DateTimeFormat("en-US", {
+  timeZone: "Asia/Manila",
+  year: "numeric",
+}).format(new Date());
+
 export const UpcomingEventsSection = () => {
-  const { header, events } = upcomingEventsData;
+  const events = eventsData.events
+    .filter((event) => !isEventPast(event))
+    .sort(
+      (a, b) =>
+        new Date(a.startDateTime).getTime() -
+        new Date(b.startDateTime).getTime()
+    );
 
   return (
     <section className="mx-auto max-w-7xl overflow-hidden px-4 py-12 md:px-8">
       <div className="mb-8 flex flex-col">
-        <h2 className="text-foreground text-3xl font-black">{header.title}</h2>
-        <p className="text-muted-foreground font-medium">{header.year}</p>
+        <h2 className="text-foreground text-3xl font-black">
+          Upcoming Events
+        </h2>
+        <p className="text-muted-foreground font-medium">{currentYear}</p>
       </div>
 
       <div className="relative">
@@ -53,7 +67,7 @@ export const UpcomingEventsSection = () => {
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-2 text-xs text-white/80">
                         <Calendar className="text-primary h-3.5 w-3.5" />
-                        <span>{event.date}</span>
+                        <span>{formatEventDateRange(event)}</span>
                       </div>
 
                       <div className="flex items-center gap-2 text-xs text-white/80">

@@ -78,6 +78,7 @@ export interface LogQueryParams {
   action?: string;
   admin?: string;
   target?: string;
+  search?: string;
   dateFrom?: string;
   dateTo?: string;
   limit?: number;
