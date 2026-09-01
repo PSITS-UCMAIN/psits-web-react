@@ -320,7 +320,7 @@ export const forgotPasswordMail = async (
       token.slice(0, 8)
     );
 
-    await sendPsitsTemplatedEmail({
+    const id = await sendPsitsTemplatedEmail({
       to: studentMail,
       subject: "Reset Your Password",
       category: "Philippine Technology of Information Technology Students",
@@ -348,6 +348,9 @@ export const forgotPasswordMail = async (
       `,
     });
 
+    if (id?.id) {
+      await emailService.updateEmailIdById(queueEntry._id.toString(), id.id);
+    }
     await emailService.updateStatusById(queueEntry._id.toString(), "sent");
 
     return { status: true, message: "Email Sent" };
