@@ -5,6 +5,7 @@ export interface EmailQueueEntry {
   email: string;
   status: string;
   referenceCode?: string;
+  emailId?: string;
   retryCount: number;
   timestamp: Date;
 }

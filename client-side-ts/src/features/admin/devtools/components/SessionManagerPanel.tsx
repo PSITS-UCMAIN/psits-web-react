@@ -271,11 +271,12 @@ export const SessionManagerPanel = () => {
         <table className="w-full min-w-[700px] table-fixed border-collapse text-sm">
           <thead>
             <tr className="rounded-md bg-[#efefef] text-[#2f2f2f]">
-              <th className="w-10 rounded-l-md px-2 py-2 text-center">
+              <th className="w-10 rounded-l-md px-2 py-2.5 text-center">
                 <Checkbox
                   checked={allOnPageSelected}
                   onCheckedChange={toggleSelectAll}
                   aria-label="Select all on page"
+                  className="border-gray-300 bg-white"
                 />
               </th>
               <th className="w-[20%] px-2 py-2 text-left font-medium">Name</th>
@@ -315,6 +316,7 @@ export const SessionManagerPanel = () => {
                     checked={selected.has(session.id)}
                     onCheckedChange={() => toggleSelect(session.id)}
                     aria-label={`Select ${session.name}`}
+                    className="border-gray-300"
                   />
                 </td>
                 <td className="truncate px-2 py-3">{session.name}</td>

@@ -172,6 +172,11 @@ export const EmailQueuePanel = () => {
     return `${base} bg-orange-50 text-orange-600`;
   };
 
+  const getReferenceDisplay = (entry: EmailQueueEntry) =>
+    entry.type === "auth" || entry.type === "recruitment"
+      ? entry.emailId || "-"
+      : entry.referenceCode || "-";
+
   const totalPages = Math.ceil(total / pageSize);
   const pendingEntries = entries.filter((e) => e.status === "pending").length;
 
@@ -437,7 +442,7 @@ export const EmailQueuePanel = () => {
                     className="border-b border-[#ededed] text-[#303030] last:border-b-0"
                   >
                     <td className="truncate px-2.5 py-3.5">
-                      {entry.referenceCode || "-"}
+                      {getReferenceDisplay(entry)}
                     </td>
 
                     <td className="truncate px-2.5 py-3.5">{entry.email}</td>
