@@ -48,6 +48,7 @@ export const ActivityLogPanel = () => {
   const [loading, setLoading] = useState(true);
   const [actionFilter, setActionFilter] = useState("");
   const [searchFilter, setSearchFilter] = useState("");
+  const [appliedSearchFilter, setAppliedSearchFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
@@ -63,7 +64,7 @@ export const ActivityLogPanel = () => {
         skip: (page - 1) * pageSize,
       };
       if (actionFilter) params.action = actionFilter;
-      if (searchFilter) params.search = searchFilter;
+      if (appliedSearchFilter) params.search = appliedSearchFilter;
       if (dateFrom) params.dateFrom = dateFrom;
       if (dateTo) params.dateTo = dateTo;
 
@@ -78,12 +79,20 @@ export const ActivityLogPanel = () => {
   };
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setAppliedSearchFilter(searchFilter.trim());
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchFilter]);
+
+  useEffect(() => {
     setPage(1);
-  }, [actionFilter, searchFilter, dateFrom, dateTo]);
+  }, [actionFilter, appliedSearchFilter, dateFrom, dateTo]);
 
   useEffect(() => {
     fetchEntries();
-  }, [page, actionFilter, searchFilter, dateFrom, dateTo]);
+  }, [page, actionFilter, appliedSearchFilter, dateFrom, dateTo]);
 
   const handleDeleteOld = async () => {
     try {
@@ -101,16 +110,6 @@ export const ActivityLogPanel = () => {
     const date = new Date(dateStr);
     return date.toLocaleString("en-PH", { timeZone: "Asia/Manila" });
   };
-
-  if (loading) {
-    return (
-      <div className="space-y-2">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <Skeleton key={i} className="h-12 w-full" />
-        ))}
-      </div>
-    );
-  }
 
   return (
     <div>
@@ -181,7 +180,13 @@ export const ActivityLogPanel = () => {
         </Button>
       </div>
 
-      {entries.length === 0 ? (
+      {loading ? (
+        <div className="space-y-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-12 w-full" />
+          ))}
+        </div>
+      ) : entries.length === 0 ? (
         <p className="py-16 text-center text-sm text-[#777]">
           No activity logs found.
         </p>
