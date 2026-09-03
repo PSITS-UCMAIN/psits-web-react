@@ -192,7 +192,7 @@ export const aiAgentController = catchAsync(
     const { message, persona = "DATA_ANALYST", sessionId, destroy } = req.body;
     const resolvedUserAccess = req.userV2.access!;
     const userName = req.admin.name;
-    
+
     if (destroy) {
       const result = await queryNoetixAiAgent(
         persona,
@@ -208,10 +208,11 @@ export const aiAgentController = catchAsync(
       });
     }
 
-    if (!message) {
+    if (!message || !message.trim()) {
       return res.status(400).json({ error: "message is required" });
     }
 
+    const trimmedMessage = message.trim();
     const newSessionId = crypto.randomUUID();
     let effectiveSessionId = sessionId || newSessionId;
     let history = "";
@@ -219,6 +220,8 @@ export const aiAgentController = catchAsync(
     let sessionSuccess = false;
     let finalToolName: string | undefined;
     const allToolNames: string[] = [];
+    let consecutiveFailures = 0;
+    let lastFailedTool: string | undefined;
 
     const logUsage = async () => {
       try {
@@ -226,7 +229,7 @@ export const aiAgentController = catchAsync(
           session_id: effectiveSessionId,
           admin: req.admin.name,
           admin_id: req.admin._id.toString(),
-          goal: message,
+          goal: trimmedMessage,
           tool_names: allToolNames,
           success: sessionSuccess,
           error: history.includes("error:") ? history.slice(-500) : undefined,
@@ -257,7 +260,7 @@ export const aiAgentController = catchAsync(
       try {
         agentResult = await queryNoetixAiAgent(
           persona,
-          message,
+          trimmedMessage,
           tools,
           effectiveSessionId,
           history || undefined,
@@ -271,7 +274,7 @@ export const aiAgentController = catchAsync(
         ) {
           agentResult = await queryNoetixAiAgent(
             persona,
-            message,
+            trimmedMessage,
             tools,
             undefined,
             history || undefined,
@@ -331,11 +334,19 @@ export const aiAgentController = catchAsync(
         resolvedArgs =
           noetixArgs && Object.keys(noetixArgs).length > 0
             ? (noetixArgs as Record<string, string>)
-            : extractToolArgs(finalToolName, message, history, tool.args);
+            : extractToolArgs(finalToolName, trimmedMessage, history, tool.args);
 
-        toolResult = await tool.execute(resolvedArgs, resolvedUserAccess, userName);
+        toolResult = await tool.execute(
+          resolvedArgs,
+          resolvedUserAccess,
+          userName
+        );
         const resultSummary = summarizeToolResult(toolResult) || "null";
-        toolLog.push({ tool: finalToolName, success: true, summary: resultSummary });
+        toolLog.push({
+          tool: finalToolName,
+          success: true,
+          summary: resultSummary,
+        });
         history = `${history} Called ${finalToolName}, result: ${
           resultSummary.length > 6000
             ? `${resultSummary.slice(0, 6000)}... (truncated)`
@@ -348,7 +359,11 @@ export const aiAgentController = catchAsync(
             : err instanceof Error
               ? err.message
               : "unknown error";
-        toolLog.push({ tool: finalToolName, success: false, summary: errorMsg });
+        toolLog.push({
+          tool: finalToolName,
+          success: false,
+          summary: errorMsg,
+        });
         history = `${history} Called ${finalToolName}, error: ${errorMsg}.\n`;
 
         if (tool.permission !== "read") {
@@ -357,6 +372,27 @@ export const aiAgentController = catchAsync(
             admin_id: req.admin._id,
             action: `${logs_action.NOETIX_AI_ACTION}: ${tool.name} (failed)`,
             target: `Error: ${errorMsg}`,
+          });
+        }
+
+        if (lastFailedTool === finalToolName) {
+          consecutiveFailures++;
+        } else {
+          consecutiveFailures = 1;
+          lastFailedTool = finalToolName;
+        }
+        if (consecutiveFailures >= 2) {
+          sessionSuccess = false;
+          await logUsage();
+          return res.status(200).json({
+            success: true,
+            data: {
+              sessionId: effectiveSessionId,
+              persona,
+              result: `The tool '${finalToolName}' encountered an issue and could not complete the request. Please try again with more details.`,
+              history: buildCleanToolHistory(toolLog),
+              iterations: iteration,
+            },
           });
         }
       }
@@ -377,23 +413,12 @@ export const aiAgentController = catchAsync(
 
     await logUsage();
 
-    // Build a clean, professional summary from tool calls for the max-iterations case.
-    const toolSummaries = toolLog
-      .map((entry) =>
-        entry.success
-          ? `Executed ${entry.tool}.`
-          : `Action '${entry.tool}' could not be completed: ${entry.summary}.`
-      )
-      .join(" ");
-
     return res.status(200).json({
       success: true,
       data: {
         sessionId: effectiveSessionId,
         persona,
-        result:
-          "The AI agent reached the maximum iteration limit. The goal may need simplification. " +
-          toolSummaries,
+        result: "I was unable to complete this request within the available steps. Please try rephrasing your question with more specific details.",
         history: buildCleanToolHistory(toolLog),
         iterations: iteration,
       },

@@ -1,11 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/features/auth";
-import {
-  sendAiAgentMessage,
-  destroyChatSession,
-} from "../api/chat.api";
-import type { ChatMessage } from "../types/chat.types";
+import { sendAiAgentMessage, destroyChatSession } from "../api/chat.api";
+import type { ChatMessage, ToolCallEntry } from "../types/chat.types";
 import { PERSONA_DATA_ANALYST } from "../types/chat.types";
 
 export const useChat = () => {
@@ -24,112 +21,126 @@ export const useChat = () => {
     scrollToBottom();
   }, [messages, isLoading, scrollToBottom]);
 
-  const sendMessage = useCallback(async (text: string) => {
-    if (!text.trim() || isLoading) return;
+  const sendMessage = useCallback(
+    async (text: string) => {
+      if (!text.trim() || isLoading) return;
 
-    const userMessage: ChatMessage = {
-      id: crypto.randomUUID(),
-      role: "user",
-      content: text.trim(),
-      timestamp: new Date(),
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
-    setInput("");
-    setIsLoading(true);
-
-    try {
-      const response = await sendAiAgentMessage({
-        message: text.trim(),
-        persona: PERSONA_DATA_ANALYST,
-        sessionId: sessionId || undefined,
-      });
-
-      if (!response.success) {
-        throw new Error("Invalid response from AI service");
-      }
-
-      const {
-        data: { result, sessionId: newSessionId, history },
-      } = response;
-
-      setSessionId(newSessionId);
-
-      const assistantMessage: ChatMessage = {
+      const userMessage: ChatMessage = {
         id: crypto.randomUUID(),
-        role: "assistant",
-        content: result || "Response received.",
+        role: "user",
+        content: text.trim(),
         timestamp: new Date(),
       };
 
-      setMessages((prev) => [...prev, assistantMessage]);
+      setMessages((prev) => [...prev, userMessage]);
+      setInput("");
+      setIsLoading(true);
 
-      // Display tool call summary as a system message if present.
-      if (history?.trim()) {
-        const systemMsg: ChatMessage = {
-          id: crypto.randomUUID(),
-          role: "system",
-          content: history.trim(),
-          timestamp: new Date(),
-        };
-        setMessages((prev) => [...prev, systemMsg]);
-      }
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "An error occurred";
+      try {
+        const response = await sendAiAgentMessage({
+          message: text.trim(),
+          persona: PERSONA_DATA_ANALYST,
+          sessionId: sessionId || undefined,
+        });
 
-      if (
-        message.includes("SESSION_EXPIRED") ||
-        message.includes("SESSION_NOT_FOUND")
-      ) {
-        if (sessionId) {
-          await destroyChatSession(sessionId).catch(() => {});
+        if (!response.success) {
+          throw new Error("Invalid response from AI service");
         }
-        setSessionId(null);
-        const systemMsg: ChatMessage = {
+
+        const {
+          data: { result, sessionId: newSessionId, history },
+        } = response;
+
+        setSessionId(newSessionId);
+
+        const assistantMessage: ChatMessage = {
           id: crypto.randomUUID(),
-          role: "system",
-          content: "Session reset — fresh data loaded",
+          role: "assistant",
+          content: result || "Response received.",
           timestamp: new Date(),
         };
-        setMessages((prev) => [...prev, systemMsg]);
-        toast.info("Session reset — fresh data loaded.");
-        await sendMessage(text);
-        return;
-      }
 
-      if (message.includes("Permission")) {
+        setMessages((prev) => [...prev, assistantMessage]);
+
+        // Display tool call summary as a system message if present.
+        if (history) {
+          const formatHistory = (h: ToolCallEntry[] | string): string => {
+            if (typeof h === "string") return h.trim();
+            if (!h.length) return "";
+            return h
+              .map((entry) =>
+                entry.success
+                  ? `Executed ${entry.tool}.`
+                  : `Action '${entry.tool}' could not be completed: ${entry.summary}.`
+              )
+              .join(" ");
+          };
+          const systemMsg: ChatMessage = {
+            id: crypto.randomUUID(),
+            role: "system",
+            content: formatHistory(history),
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, systemMsg]);
+        }
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "An error occurred";
+
+        if (
+          message.includes("SESSION_EXPIRED") ||
+          message.includes("SESSION_NOT_FOUND")
+        ) {
+          if (sessionId) {
+            await destroyChatSession(sessionId).catch(() => {});
+          }
+          setSessionId(null);
+          const systemMsg: ChatMessage = {
+            id: crypto.randomUUID(),
+            role: "system",
+            content: "Session reset — fresh data loaded",
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, systemMsg]);
+          toast.info("Session reset — fresh data loaded.");
+          await sendMessage(text);
+          return;
+        }
+
+        if (message.includes("Permission")) {
+          const errorMessage: ChatMessage = {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: `Access denied: ${message}. Please contact an administrator.`,
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, errorMessage]);
+          toast.warning("Permission denied for this action.");
+          setIsLoading(false);
+          return;
+        }
+
+        toast.error(
+          message.includes("NOETIX_API_KEY")
+            ? "AI service unavailable. Contact administrator."
+            : message
+        );
+
         const errorMessage: ChatMessage = {
           id: crypto.randomUUID(),
           role: "assistant",
-          content: `Access denied: ${message}. Please contact an administrator.`,
+          content:
+            "I'm sorry, I encountered an error processing your request. Please try again.",
           timestamp: new Date(),
         };
         setMessages((prev) => [...prev, errorMessage]);
-        toast.warning("Permission denied for this action.");
+      } finally {
         setIsLoading(false);
-        return;
+        setTimeout(scrollToBottom, 100);
       }
-
-      toast.error(
-        message.includes("NOETIX_API_KEY")
-          ? "AI service unavailable. Contact administrator."
-          : message
-      );
-
-      const errorMessage: ChatMessage = {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content:
-          "I'm sorry, I encountered an error processing your request. Please try again.",
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-    } finally {
-      setIsLoading(false);
-      setTimeout(scrollToBottom, 100);
-    }
-  }, [isLoading, sessionId, user, scrollToBottom]);
+    },
+    [isLoading, sessionId, user, scrollToBottom]
+  );
 
   const handleRefresh = useCallback(async () => {
     if (sessionId) {

@@ -285,7 +285,10 @@ const readTools: ChatTool[] = [
       )
         .limit(25)
         .lean();
-      return { count: students.length, students };
+      const name = students.map((s) =>
+        `${s.first_name} ${s.middle_name ?? ""} ${s.last_name}`.trim()
+      );
+      return { count: students.length, students, name };
     },
   },
   {
