@@ -29,20 +29,6 @@ const receiptDateTimeFormatter = new Intl.DateTimeFormat("en-US", {
 });
 
 /**
- * Formats a date for display inside receipt emails.
- *
- * The EJS receipt templates are "dumb" - they never format, so every caller has
- * to hand them a ready-to-print string. Passing a raw Date makes EJS stringify
- * it as "Fri Sep 04 2026 10:00:00 GMT+0800 (Singapore Standard Time)".
- *
- * The timezone is pinned to Asia/Manila so the rendered time does not shift
- * with whatever timezone the server happens to run in.
- *
- * The output is assembled from the formatter's individual parts rather than
- * from `toLocaleString`, so the result never picks up the locale's connector
- * wording ("... at 10:00 AM") nor the narrow no-break space Node emits before
- * AM/PM - both of which make the string awkward to copy out of the email.
- *
  * @param value - A Date, ISO string, or timestamp. May be null/undefined.
  * @returns e.g. "September 4, 2026 10:00 AM", or "N/A" when missing/invalid
  */
