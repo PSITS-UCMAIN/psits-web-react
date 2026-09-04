@@ -12,6 +12,7 @@ import fs from "fs/promises";
 import os from "os";
 import mongoose, { Types } from "mongoose";
 import { emailService } from "./email.service";
+import { formatReceiptDateTime } from "../mail_template/mail.template";
 import { account_status } from "../enums/status.enums";
 
 export const getEmailQueueEntries = async ({
@@ -140,13 +141,7 @@ export const resendSingleEmail = async (id: string) => {
     );
     html = await ejs.renderFile(templatePath, {
       reference_code: order.reference_code,
-      transaction_date: order.transaction_date
-        ? new Date(order.transaction_date).toLocaleDateString("en-US", {
-            month: "long",
-            day: "numeric",
-            year: "numeric",
-          })
-        : "N/A",
+      transaction_date: formatReceiptDateTime(order.transaction_date),
       student_name: order.student_name,
       id_number: order.id_number,
       course: order.course,

@@ -287,6 +287,16 @@ class OrderService {
       if (!findMerch.data) {
         throw new AppError("Could not find Merchandise", 404);
       }
+      //Check if merchandise is available, an expired sale period is reported
+      //separately so the buyer knows why the item was rejected
+      if (!findMerch.status) {
+        throw new AppError(
+          findMerch.reason === "expired"
+            ? "This product's sale period has ended"
+            : "Merchandise is not available",
+          400
+        );
+      }
       //Check sufficient stocks if it is applicable for deduction, it does not less than 0
       const checkStocks = merchandiseService.checkSufficientStocks(
         findMerch.data.stocks,
@@ -294,10 +304,6 @@ class OrderService {
       );
       if (!checkStocks) {
         throw new AppError("Insufficient stocks to deduct!", 404);
-      }
-      //Check if merchandise is available
-      if (!findMerch.status) {
-        throw new AppError("Merchandise is not available", 404);
       }
 
       //Actual price

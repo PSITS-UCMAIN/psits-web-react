@@ -6,6 +6,7 @@ import { Orders } from "../models/orders.model";
 import { MembershipHistory } from "../models/history.model";
 import { orderService } from "./order.service";
 import { format } from "date-fns";
+import { formatReceiptDateTime } from "../mail_template/mail.template";
 import { Resend } from "resend";
 import { EmailQueue } from "../models/email.model";
 import { AutomationJob } from "../models/automationJob.model";
@@ -287,9 +288,7 @@ const resendOrder = async (entry: PendingEntry) => {
   const cash = order.total;
   const receiptData = {
     reference_code: order.reference_code,
-    transaction_date: order.transaction_date
-      ? format(new Date(order.transaction_date), "MMMM d, yyyy")
-      : "N/A",
+    transaction_date: formatReceiptDateTime(order.transaction_date),
     student_name: order.student_name,
     id_number: order.id_number,
     course: order.course,

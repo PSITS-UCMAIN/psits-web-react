@@ -16,6 +16,36 @@ dotenv.config();
 import { emailService } from "../services/email.service";
 import { AppError } from "../util/app.error.util";
 
+const MANILA_TIME_ZONE = "Asia/Manila";
+
+const receiptDateTimeFormatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: MANILA_TIME_ZONE,
+  month: "long",
+  day: "numeric",
+  year: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true,
+});
+
+/**
+ * @param value - A Date, ISO string, or timestamp. May be null/undefined.
+ * @returns e.g. "September 4, 2026 10:00 AM", or "N/A" when missing/invalid
+ */
+export const formatReceiptDateTime = (
+  value?: Date | string | number | null
+): string => {
+  if (!value) return "N/A";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "N/A";
+
+  const parts = receiptDateTimeFormatter.formatToParts(date);
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((p) => p.type === type)?.value ?? "";
+
+  return `${part("month")} ${part("day")}, ${part("year")} ${part("hour")}:${part("minute")} ${part("dayPeriod")}`;
+};
+
 type EmailTemplateOptions = {
   category: string;
   title: string;
