@@ -17,7 +17,6 @@ import {
   Search,
   Trash2,
   UserCog,
-  UserRoundPlus,
   UserRoundCheck,
   UsersRound,
   X,
