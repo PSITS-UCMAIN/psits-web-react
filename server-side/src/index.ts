@@ -40,7 +40,7 @@ import contributionsV2Routes from "./routes/contributions.v2.route";
 import automationRoutes from "./routes/automation.v2.route";
 import noetixChatRoutes from "./routes/noetix-chat.v2.route";
 import { automationService } from "./services/automation.service";
-
+import webhookRoutes from "./routes/webhook.route";
 dotenv.config();
 
 const app = express();
@@ -65,7 +65,7 @@ app.use(
     credentials: true,
   })
 );
-
+app.use("/api/webhooks",bodyParser.raw({ type: "application/json" }), webhookRoutes);
 app.set("trust proxy", 1);
 app.use(bodyParser.json());
 

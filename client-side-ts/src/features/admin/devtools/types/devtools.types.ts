@@ -5,6 +5,7 @@ export interface EmailQueueEntry {
   email: string;
   status: string;
   referenceCode?: string;
+  emailId?: string;
   retryCount: number;
   timestamp: Date;
 }
@@ -78,6 +79,7 @@ export interface LogQueryParams {
   action?: string;
   admin?: string;
   target?: string;
+  search?: string;
   dateFrom?: string;
   dateTo?: string;
   limit?: number;
@@ -194,4 +196,52 @@ export interface StudentYearDecrementResult {
 export interface MigrationStatus {
   studentCreatedAtBackfilled: boolean;
   studentYearLastUpdated: string | null;
+}
+
+export interface NoetixUsageLog {
+  _id: string;
+  session_id: string;
+  admin: string;
+  admin_id: string;
+  goal: string;
+  tool_names: string[];
+  success: boolean;
+  error?: string;
+  iterations: number;
+  mode: "agent" | "goal";
+  timestamp: Date;
+}
+
+export interface NoetixUsageStats {
+  totalCalls: number;
+  successfulCalls: number;
+  failedCalls: number;
+  totalIterations: number;
+  avgIterations: number;
+  topTools: Array<{ name: string; count: number }>;
+  byAdmin: Array<{ admin: string; count: number }>;
+  todayCalls: number;
+  yesterdayCalls: number;
+}
+
+export interface NoetixUsageQueryParams {
+  admin?: string;
+  success?: string;
+  toolName?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  limit?: number;
+  skip?: number;
+}
+
+export interface NoetixToolItem {
+  name: string;
+  description: string;
+  permission: "read" | "admin_finance" | "admin_only" | "admin_full";
+  category: string;
+  enabled: boolean;
+}
+
+export interface NoetixMaxIterations {
+  noetixMaxIterations: number;
 }

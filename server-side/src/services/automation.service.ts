@@ -16,7 +16,7 @@ import { logService } from "./log.service";
 import { logs_action } from "../enums/logs.enums";
 import { account_status } from "../enums/status.enums";
 import { psits_roles } from "../enums/role.enums";
-import { generateEmailBody } from "./noetix-chat.service";
+import { queryNoetixAiAgent } from "./noetix-chat.service";
 
 const LOG_RETENTION_DAYS = 90;
 const LOCK_KEY = "automation_job_lock";
@@ -317,10 +317,21 @@ const queueReportEmail = async (
   if (job.emailConfig.useNoetix) {
     const noetixData = compressResultsForNoetix(results);
     try {
-      const noetixMarkdown = await generateEmailBody(
-        `Generate a professional daily operational report for "${job.name}". Include key metrics, highlights, and any concerns from the data below.`,
-        noetixData
-      );
+      const noetixMarkdown = await (async () => {
+        const tools = (await import("../types/chat-tool.types")).getToolRegistry().map((t) => ({
+          name: t.name,
+          description: t.description,
+        }));
+        const res = await queryNoetixAiAgent(
+          "EMAIL_SENDER",
+          `Generate a professional daily operational report for "${job.name}". Include key metrics, highlights, and any concerns from the data below.`,
+          tools,
+          undefined,
+          JSON.stringify(noetixData),
+          false
+        );
+        return res.data.final_result;
+      })();
       htmlBody = marked(noetixMarkdown) as string;
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);

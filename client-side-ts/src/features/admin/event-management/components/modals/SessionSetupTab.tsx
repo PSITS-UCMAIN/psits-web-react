@@ -34,8 +34,14 @@ const SESSION_FIELDS: SessionField[] = [
   },
 ];
 
-const DEFAULT_START = "07:30";
-const DEFAULT_END = "12:00";
+const SESSION_DEFAULTS: Record<
+  SessionField["key"],
+  { start: string; end: string }
+> = {
+  morning: { start: "07:30", end: "12:00" },
+  afternoon: { start: "13:00", end: "17:00" },
+  evening: { start: "18:00", end: "21:00" },
+};
 
 const formatDateLabel = (date?: Date): string => {
   if (!date || Number.isNaN(date.getTime())) return "TBD";
@@ -62,11 +68,12 @@ export const SessionSetupTab: React.FC<SessionSetupTabProps> = ({
     setFormData((prev) => {
       const current = prev.sessionConfig[sessionKey];
       const [start, end] = current.timeRange.split(" - ");
+      const defaults = SESSION_DEFAULTS[sessionKey];
 
       const range =
         field === "startTime"
-          ? `${value} - ${end?.trim() || DEFAULT_END}`
-          : `${start?.trim() || DEFAULT_START} - ${value}`;
+          ? `${value} - ${end?.trim() || defaults.end}`
+          : `${start?.trim() || defaults.start} - ${value}`;
 
       return {
         ...prev,
@@ -81,9 +88,10 @@ export const SessionSetupTab: React.FC<SessionSetupTabProps> = ({
   const toggleEnabled = (sessionKey: SessionField["key"], enabled: boolean) => {
     setFormData((prev) => {
       const current = prev.sessionConfig[sessionKey];
+      const defaults = SESSION_DEFAULTS[sessionKey];
       const timeRange =
         enabled && !current.timeRange.trim()
-          ? `${DEFAULT_START} - ${DEFAULT_END}`
+          ? `${defaults.start} - ${defaults.end}`
           : current.timeRange;
 
       return {

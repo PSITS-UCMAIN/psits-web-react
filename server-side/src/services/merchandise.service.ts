@@ -19,48 +19,48 @@
       }
       return count;
     };
-    //Check if product exist
+    //Check if product exist and is purchasable, the data is always returned so
+    //the caller can report why it was rejected
     checkExist = async (product_id: Types.ObjectId) => {
       const result = await Merch.findById({ _id: product_id });
       if (!result) {
         throw new AppError("Product doesn't exist", 404);
       }
 
-      if (this.checkAvailable(result) && this.checkStocks(result.stocks)) {
-        return { status: true, data: result, message: "Product exist" };
-      } else {
-        return { status: false };
+      const reason = this.checkUnavailableReason(result);
+      if (reason) {
+        return { status: false, data: result, reason, message: reason };
       }
+
+      return {
+        status: true,
+        data: result,
+        reason: null,
+        message: "Product exist",
+      };
+    };
+    //Why a product cannot be purchased, null when it is available
+    checkUnavailableReason = (
+      product: IMerch
+    ): "inactive" | "expired" | "out-of-stock" | null => {
+      if (!product.is_active) return "inactive";
+      if (this.checkExpired(product)) return "expired";
+      if (!this.checkStocks(product.stocks)) return "out-of-stock";
+      return null;
     };
     //Check if product is available
     checkAvailable = (product: IMerch) => {
-      return product.is_active ? true : false;
+      return this.checkUnavailableReason(product) === null;
     };
     //Check if stocks is sufficient
     checkStocks = (stocks: number) => {
       return stocks > 0 ? true : false;
     };
-    //Check if merchandise is expired
-    checkExpired = async (product_id: Types.ObjectId) => {
-      try {
-        const result: any = await this.checkExist(product_id);
-
-        //If not exist
-        if (!result.status && !result.data) {
-          return { status: false, message: result.message };
-        }
-        //Exist
-        const currentDate = new Date(); //Depends on the local time of the server and pc
-        //Check if expired
-        const isExpired = currentDate > result.data.end_date;
-        //Return the result using ternary operator
-        return isExpired
-          ? { status: true, message: "Item expired" }
-          : { status: false, message: "Item is active" };
-      } catch (error) {
-        console.error(error);
-        throw error;
-      }
+    //Check if the sale period of a merchandise has already ended,
+    //a product without an end date never expires
+    checkExpired = (product: Pick<IMerch, "end_date">) => {
+      if (!product.end_date) return false;
+      return new Date() > new Date(product.end_date);
     };
     //Check stocks if sufficient for the quantity orders to be deduct
     checkSufficientStocks = (
@@ -141,6 +141,33 @@
         { _id: product_id },
         { $inc: { stocks: quantity } }
       ).session(session);
+    };
+
+    toggleMerchActive = async (product_id: Types.ObjectId, active: boolean) => {
+      const result = await Merch.findByIdAndUpdate(
+        product_id,
+        { is_active: active },
+        { new: true }
+      );
+      if (!result) {
+        throw new AppError("Product not found", 404);
+      }
+      return result;
+    };
+
+    updateStockById = async (
+      product_id: Types.ObjectId,
+      stocks: number
+    ) => {
+      const result = await Merch.findByIdAndUpdate(
+        product_id,
+        { $set: { stocks } },
+        { new: true }
+      );
+      if (!result) {
+        throw new AppError("Product not found", 404);
+      }
+      return result;
     };
   }
 

@@ -29,7 +29,6 @@ const studentSchema = new Schema<IStudentDocument>({
   },
   email: {
     type: String,
-    required: true,
   },
   course: {
     type: String,

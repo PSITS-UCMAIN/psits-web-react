@@ -9,13 +9,19 @@ export interface ChatMessage {
   timestamp: Date;
 }
 
+export interface ToolCallEntry {
+  tool: string;
+  success: boolean;
+  summary: string;
+}
+
 export interface AiAgentResponse {
   success: boolean;
   data: {
     sessionId: string;
     persona: string;
     result: string;
-    history: string;
+    history: ToolCallEntry[] | string;
     iterations: number;
   };
 }
@@ -33,5 +39,4 @@ export interface ChatRequestBody {
   persona?: string;
   sessionId?: string;
   destroy?: boolean;
-  userAccess?: string;
 }

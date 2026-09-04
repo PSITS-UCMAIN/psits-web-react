@@ -25,28 +25,16 @@ const Officers = () => {
     },
     executiveAndAdminConditionalAccess()
       ? {
-          path: "/admin/officers/request",
-          text: `Members Request `,
-          icon: "fas fa-envelope-open-text",
-        }
+        path: "/admin/officers/admin-request",
+        text: `Admin Request `,
+        icon: "fas fa-envelope",
+      }
       : {
-          path: "#",
-          text: `Disabled `,
-          icon: "fas fa-lock",
-          disabled: true,
-        },
-    executiveAndAdminConditionalAccess()
-      ? {
-          path: "/admin/officers/admin-request",
-          text: `Admin Request `,
-          icon: "fas fa-envelope",
-        }
-      : {
-          path: "#",
-          text: `Disabled `,
-          icon: "fas fa-lock",
-          disabled: true,
-        },
+        path: "#",
+        text: `Disabled `,
+        icon: "fas fa-lock",
+        disabled: true,
+      },
   ];
 
   return (

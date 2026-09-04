@@ -17,7 +17,6 @@ import {
   Search,
   Trash2,
   UserCog,
-  UserRoundPlus,
   UserRoundCheck,
   UsersRound,
   X,
@@ -73,7 +72,6 @@ const tabs: Array<{
   { key: "admins", label: "Admins", icon: UserCog },
   { key: "members", label: "Members", icon: UsersRound },
   { key: "suspended", label: "Suspended", icon: CircleSlash },
-  { key: "memberRequests", label: "Members Request", icon: UserRoundPlus },
   { key: "adminRequests", label: "Admin Request", icon: Mail },
 ];
 
@@ -846,15 +844,36 @@ const AccountFormDialog = ({
           <div className="space-y-4">
             <div>
               <Label className="text-xs font-medium">Student ID Number</Label>
-              <Input
-                value={values.id_number}
-                onChange={(event) =>
-                  updateValue("id_number", event.target.value)
-                }
-                className="mt-1 h-10 rounded-lg border-[#eeeeee] bg-[#f1f1f1]"
-                disabled={!isCreate}
-                required
-              />
+              <div className="relative mt-1">
+                <Input
+                  value={values.id_number}
+                  onChange={(event) =>
+                    //"-admin" is shown as a fixed affix, so it never belongs in
+                    //the typed value, the server appends it on create
+                    updateValue(
+                      "id_number",
+                      event.target.value.replace(/-admin$/i, "")
+                    )
+                  }
+                  className={cn(
+                    "h-10 rounded-lg border-[#eeeeee] bg-[#f1f1f1]",
+                    isCreate && "pr-16"
+                  )}
+                  disabled={!isCreate}
+                  required
+                />
+                {isCreate && (
+                  <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm font-medium text-[#8b8b8b]">
+                    -admin
+                  </span>
+                )}
+              </div>
+              {isCreate && (
+                <p className="mt-1 text-[11px] text-[#8b8b8b]">
+                  The account will be saved as{" "}
+                  {values.id_number.trim() || "<student ID>"}-admin
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">

@@ -1,5 +1,7 @@
+import { useEffect, useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import * as z from "zod";
+import { Loader2 } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -21,8 +23,25 @@ const forgotPasswordSchema = z.object({
 export type ForgotPasswordCredentials = z.infer<typeof forgotPasswordSchema>;
 
 export interface ForgotPasswordFormProps {
-  onSubmit?: (values: ForgotPasswordCredentials) => void;
+  onSubmit?: (
+    values: ForgotPasswordCredentials
+  ) => boolean | void | Promise<boolean | void>;
 }
+
+const RESEND_COOLDOWN_SECONDS = 120;
+const COOLDOWN_STORAGE_KEY = "forgotPasswordCooldownEnd";
+
+const formatCooldown = (seconds: number) => {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${String(secs).padStart(2, "0")}`;
+};
+
+const getStoredRemainingSeconds = () => {
+  const storedEnd = Number(sessionStorage.getItem(COOLDOWN_STORAGE_KEY));
+  if (!storedEnd) return 0;
+  return Math.max(0, Math.ceil((storedEnd - Date.now()) / 1000));
+};
 
 // Matches LoginForm.tsx / SignupForm.tsx exactly
 const inputClasses =
@@ -34,6 +53,17 @@ const floatingLabelClasses =
 export default function ForgotPasswordForm({
   onSubmit,
 }: ForgotPasswordFormProps) {
+  const [cooldown, setCooldown] = useState(getStoredRemainingSeconds);
+
+  useEffect(() => {
+    if (cooldown <= 0) {
+      sessionStorage.removeItem(COOLDOWN_STORAGE_KEY);
+      return;
+    }
+    const id = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(id);
+  }, [cooldown]);
+
   const form = useForm({
     defaultValues: {
       id: "",
@@ -42,8 +72,17 @@ export default function ForgotPasswordForm({
     validators: {
       onSubmit: forgotPasswordSchema,
     },
-    onSubmit: async ({ value }: { value: ForgotPasswordCredentials }) =>
-      onSubmit && onSubmit(value),
+    onSubmit: async ({ value }: { value: ForgotPasswordCredentials }) => {
+      if (!onSubmit) return;
+      const result = await onSubmit(value);
+      if (result !== false) {
+        sessionStorage.setItem(
+          COOLDOWN_STORAGE_KEY,
+          String(Date.now() + RESEND_COOLDOWN_SECONDS * 1000)
+        );
+        setCooldown(RESEND_COOLDOWN_SECONDS);
+      }
+    },
   });
 
   return (
@@ -143,12 +182,26 @@ export default function ForgotPasswordForm({
             </FieldSet>
 
             <Field orientation="vertical">
-              <Button
-                type="submit"
-                className="h-11 w-full rounded-full bg-[#1C9DDE] text-base font-semibold shadow-sm hover:bg-sky-600"
-              >
-                Reset Password
-              </Button>
+              <form.Subscribe selector={(state) => state.isSubmitting}>
+                {(isSubmitting) => (
+                  <Button
+                    type="submit"
+                    disabled={isSubmitting || cooldown > 0}
+                    className="h-11 w-full rounded-full bg-[#1C9DDE] text-base font-semibold shadow-sm hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isSubmitting ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Sending...
+                      </span>
+                    ) : cooldown > 0 ? (
+                      `Resend in ${formatCooldown(cooldown)}`
+                    ) : (
+                      "Reset Password"
+                    )}
+                  </Button>
+                )}
+              </form.Subscribe>
               <Link to="/auth/login">
                 <Button
                   type="button"

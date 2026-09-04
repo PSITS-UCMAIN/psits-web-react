@@ -21,6 +21,8 @@ import {
   getMembershipRevenue,
   getStockAlerts,
   getSystemSettings,
+  isChatbotEnabled,
+  setChatbotEnabled,
   getEmailQueueStats,
   getFailedEmailDetails,
   bulkUpdateEmailStatus,
@@ -35,7 +37,21 @@ import {
   backfillCreatedAt,
   updateStudentYears,
   decrementStudentYears,
+  getNoetixDisabledAdmins,
+  addNoetixDisabledAdmin,
+  removeNoetixDisabledAdmin,
+  getNoetixDisabledTools,
+  addNoetixDisabledTool,
+  removeNoetixDisabledTool,
+  getNoetixToolRegistry,
+  getNoetixMaxIterations,
+  setNoetixMaxIterations,
 } from "../services/devtools.service";
+import {
+  getNoetixUsageLogs,
+  getNoetixUsageStats,
+  deleteOldNoetixUsageLogs,
+} from "../services/noetix-usage.service";
 import { emailService } from "../services/email.service";
 import { resendPendingEmails } from "../services/email.resend.service";
 import { checkPromos } from "../custom_function/check_promo";
@@ -376,11 +392,13 @@ class DevToolsController {
     if (!ALLOWED_CAMPUS.includes(req.userV2.campus)) {
       return res.status(403).json({ message: "Campus not authorized" });
     }
-    const { action, admin, target, dateFrom, dateTo, limit, skip } = req.query;
+    const { action, admin, target, search, dateFrom, dateTo, limit, skip } =
+      req.query;
     const { entries, total } = await getLogEntries({
       action: action as string,
       admin: admin as string,
       target: target as string,
+      search: search as string,
       dateFrom: dateFrom ? new Date(dateFrom as string) : undefined,
       dateTo: dateTo ? new Date(dateTo as string) : undefined,
       limit: limit ? parseInt(limit as string) : 100,
@@ -495,6 +513,36 @@ class DevToolsController {
     }
     const settings = await getSystemSettings();
     res.status(200).json({ data: settings });
+  });
+
+  // Readable by any authenticated admin (any campus/access level) so the
+  // floating chat button can decide whether to render. Toggling it is
+  // restricted (see toggleChatbot).
+  getChatbotEnabled = catchAsync(async (req: Request, res: Response) => {
+    const enabled = await isChatbotEnabled();
+    res.status(200).json({ enabled });
+  });
+
+  toggleChatbot = catchAsync(async (req: Request, res: Response) => {
+    if (!ALLOWED_CAMPUS.includes(req.userV2.campus)) {
+      return res.status(403).json({ message: "Campus not authorized" });
+    }
+    const { enabled } = req.body as { enabled?: boolean };
+    if (typeof enabled !== "boolean") {
+      return res.status(400).json({ message: "enabled must be a boolean" });
+    }
+
+    await setChatbotEnabled(enabled);
+
+    await logService.create({
+      admin: req.admin.name,
+      admin_id: req.admin._id,
+      action: logs_action.TOGGLE_CHATBOT,
+      target: `Chatbot ${enabled ? "enabled" : "disabled"}`,
+      target_model: "Settings",
+    });
+
+    res.status(200).json({ enabled });
   });
 
   getRateLimitViolations = catchAsync(async (req: Request, res: Response) => {
@@ -680,6 +728,191 @@ class DevToolsController {
       message: "Student years decremented",
       data: result,
     });
+  });
+
+  // Noetix AI Usage
+  getNoetixUsageLogs = catchAsync(async (req: Request, res: Response) => {
+    if (!ALLOWED_CAMPUS.includes(req.userV2.campus)) {
+      return res.status(403).json({ message: "Campus not authorized" });
+    }
+    const { admin, success, toolName, dateFrom, dateTo, limit, skip } = req.query;
+    const { entries, total } = await getNoetixUsageLogs({
+      admin: admin as string | undefined,
+      success: success as string | undefined,
+      toolName: toolName as string | undefined,
+      dateFrom: dateFrom ? new Date(dateFrom as string) : undefined,
+      dateTo: dateTo ? new Date(dateTo as string) : undefined,
+      limit: limit ? parseInt(limit as string) : 50,
+      skip: skip ? parseInt(skip as string) : 0,
+    });
+    res.status(200).json({ data: entries, total });
+  });
+
+  getNoetixUsageStats = catchAsync(async (_req: Request, res: Response) => {
+    if (!ALLOWED_CAMPUS.includes(_req.userV2.campus)) {
+      return res.status(403).json({ message: "Campus not authorized" });
+    }
+    const stats = await getNoetixUsageStats();
+    res.status(200).json({ data: stats });
+  });
+
+  deleteOldNoetixUsageLogs = catchAsync(async (req: Request, res: Response) => {
+    if (!ALLOWED_CAMPUS.includes(req.userV2.campus)) {
+      return res.status(403).json({ message: "Campus not authorized" });
+    }
+    const { days } = req.query;
+    if (!days) {
+      return res.status(400).json({ message: "days parameter required" });
+    }
+    const deletedCount = await deleteOldNoetixUsageLogs(parseInt(days as string));
+    await logService.create({
+      admin: req.admin.name,
+      admin_id: req.admin._id,
+      action: "Deleted Noetix usage logs",
+      target: `Deleted ${deletedCount} noetix usage entries older than ${days} days`,
+      target_model: "Settings",
+    });
+    res.status(200).json({ message: `Deleted ${deletedCount} noetix usage logs`, deletedCount });
+  });
+
+  getNoetixDisabledAdmins = catchAsync(async (_req: Request, res: Response) => {
+    if (!ALLOWED_CAMPUS.includes(_req.userV2.campus)) {
+      return res.status(403).json({ message: "Campus not authorized" });
+    }
+    const admins = await getNoetixDisabledAdmins();
+    res.status(200).json({ data: { noetixDisabledAdmins: admins } });
+  });
+
+  addNoetixDisabledAdmin = catchAsync(async (req: Request, res: Response) => {
+    if (!ALLOWED_CAMPUS.includes(req.userV2.campus)) {
+      return res.status(403).json({ message: "Campus not authorized" });
+    }
+    const { adminId } = req.body as { adminId?: string };
+    if (!adminId) {
+      return res.status(400).json({ message: "adminId is required" });
+    }
+    const admins = await addNoetixDisabledAdmin(adminId);
+    await logService.create({
+      admin: req.admin.name,
+      admin_id: req.admin._id,
+      action: "Disabled Noetix Admin",
+      target: adminId,
+      target_model: "Admin",
+    });
+    res.status(200).json({ data: { noetixDisabledAdmins: admins } });
+  });
+
+  removeNoetixDisabledAdmin = catchAsync(async (req: Request, res: Response) => {
+    if (!ALLOWED_CAMPUS.includes(req.userV2.campus)) {
+      return res.status(403).json({ message: "Campus not authorized" });
+    }
+    const adminId = typeof req.params.adminId === "string" ? req.params.adminId : undefined;
+    if (!adminId) {
+      return res.status(400).json({ message: "adminId is required" });
+    }
+    const admins = await removeNoetixDisabledAdmin(adminId);
+    await logService.create({
+      admin: req.admin.name,
+      admin_id: req.admin._id,
+      action: "Re-enabled Noetix Admin",
+      target: adminId,
+      target_model: "Admin",
+    });
+    res.status(200).json({ data: { noetixDisabledAdmins: admins } });
+  });
+
+  getNoetixDisabledTools = catchAsync(async (_req: Request, res: Response) => {
+    if (!ALLOWED_CAMPUS.includes(_req.userV2.campus)) {
+      return res.status(403).json({ message: "Campus not authorized" });
+    }
+    const tools = await getNoetixDisabledTools();
+    res.status(200).json({ data: { noetixDisabledTools: tools } });
+  });
+
+  getNoetixToolRegistry = catchAsync(async (_req: Request, res: Response) => {
+    if (!ALLOWED_CAMPUS.includes(_req.userV2.campus)) {
+      return res.status(403).json({ message: "Campus not authorized" });
+    }
+    const [disabledTools, registry] = await Promise.all([
+      getNoetixDisabledTools(),
+      getNoetixToolRegistry(),
+    ]);
+    const disabledSet = new Set(disabledTools);
+    res.status(200).json({
+      data: registry.map((t) => ({
+        ...t,
+        enabled: !disabledSet.has(t.name),
+      })),
+    });
+  });
+
+  addNoetixDisabledTool = catchAsync(async (req: Request, res: Response) => {
+    if (!ALLOWED_CAMPUS.includes(req.userV2.campus)) {
+      return res.status(403).json({ message: "Campus not authorized" });
+    }
+    const { toolName } = req.body as { toolName?: string };
+    if (!toolName) {
+      return res.status(400).json({ message: "toolName is required" });
+    }
+    const tools = await addNoetixDisabledTool(toolName);
+    await logService.create({
+      admin: req.admin.name,
+      admin_id: req.admin._id,
+      action: "Disabled Noetix Tool",
+      target: toolName,
+      target_model: "Settings",
+    });
+    res.status(200).json({ data: { noetixDisabledTools: tools } });
+  });
+
+  removeNoetixDisabledTool = catchAsync(async (req: Request, res: Response) => {
+    if (!ALLOWED_CAMPUS.includes(req.userV2.campus)) {
+      return res.status(403).json({ message: "Campus not authorized" });
+    }
+    const toolName = typeof req.params.toolName === "string" ? req.params.toolName : undefined;
+    if (!toolName) {
+      return res.status(400).json({ message: "toolName is required" });
+    }
+    const tools = await removeNoetixDisabledTool(toolName);
+    await logService.create({
+      admin: req.admin.name,
+      admin_id: req.admin._id,
+      action: "Enabled Noetix Tool",
+      target: toolName,
+      target_model: "Settings",
+    });
+    res.status(200).json({ data: { noetixDisabledTools: tools } });
+  });
+
+  getNoetixMaxIterations = catchAsync(async (_req: Request, res: Response) => {
+    if (!ALLOWED_CAMPUS.includes(_req.userV2.campus)) {
+      return res.status(403).json({ message: "Campus not authorized" });
+    }
+    const value = await getNoetixMaxIterations();
+    res.status(200).json({ data: { noetixMaxIterations: value } });
+  });
+
+  setNoetixMaxIterations = catchAsync(async (req: Request, res: Response) => {
+    if (!ALLOWED_CAMPUS.includes(req.userV2.campus)) {
+      return res.status(403).json({ message: "Campus not authorized" });
+    }
+    const { value } = req.body as { value?: unknown };
+    if (value === undefined || value === null) {
+      return res.status(400).json({ message: "value is required" });
+    }
+    const parsed = parseInt(String(value), 10);
+    if (isNaN(parsed) || parsed < 1 || parsed > 50) {
+      return res.status(400).json({ message: "value must be between 1 and 50" });
+    }
+    const updated = await setNoetixMaxIterations(parsed);
+    await logService.create({
+      admin: req.admin.name,
+      admin_id: req.admin._id,
+      action: "Updated Noetix Max Iterations",
+      target: String(updated),
+      target_model: "Settings",
+    });
+    res.status(200).json({ data: { noetixMaxIterations: updated } });
   });
 }
 

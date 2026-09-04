@@ -12,6 +12,7 @@ import fs from "fs/promises";
 import os from "os";
 import mongoose, { Types } from "mongoose";
 import { emailService } from "./email.service";
+import { formatReceiptDateTime } from "../mail_template/mail.template";
 import { account_status } from "../enums/status.enums";
 
 export const getEmailQueueEntries = async ({
@@ -140,13 +141,7 @@ export const resendSingleEmail = async (id: string) => {
     );
     html = await ejs.renderFile(templatePath, {
       reference_code: order.reference_code,
-      transaction_date: order.transaction_date
-        ? new Date(order.transaction_date).toLocaleDateString("en-US", {
-            month: "long",
-            day: "numeric",
-            year: "numeric",
-          })
-        : "N/A",
+      transaction_date: formatReceiptDateTime(order.transaction_date),
       student_name: order.student_name,
       id_number: order.id_number,
       course: order.course,
@@ -484,6 +479,7 @@ export interface LogQueryParams {
   action?: string;
   admin?: string;
   target?: string;
+  search?: string;
   dateFrom?: Date;
   dateTo?: Date;
   limit?: number;
@@ -494,6 +490,7 @@ export const getLogEntries = async ({
   action,
   admin,
   target,
+  search,
   dateFrom,
   dateTo,
   limit = 100,
@@ -505,6 +502,12 @@ export const getLogEntries = async ({
   if (action) query.action = { $regex: action, $options: "i" };
   if (admin) query.admin = { $regex: admin, $options: "i" };
   if (target) query.target = { $regex: target, $options: "i" };
+  if (search) {
+    query.$or = [
+      { admin: { $regex: search, $options: "i" } },
+      { target: { $regex: search, $options: "i" } },
+    ];
+  }
   if (dateFrom || dateTo) {
     const timestampQuery: Record<string, Date> = {};
     if (dateFrom) timestampQuery.$gte = dateFrom;
@@ -695,12 +698,165 @@ export const getStockAlerts = async (threshold = 5): Promise<StockAlert[]> => {
 
 export interface SystemSettings {
   membership_price: number;
+  chatbotEnabled?: boolean;
+  noetixDisabledAdmins?: string[];
 }
 
 export const getSystemSettings = async (): Promise<SystemSettings | null> => {
   const { Settings } = await import("../models/settings.model");
   const settings = await Settings.findOne().lean();
   return settings as SystemSettings | null;
+};
+
+export const isChatbotEnabled = async (): Promise<boolean> => {
+  const settings = await getSystemSettings();
+  return settings?.chatbotEnabled ?? true;
+};
+
+export const setChatbotEnabled = async (enabled: boolean): Promise<void> => {
+  const { Settings } = await import("../models/settings.model");
+  const existing = await Settings.find();
+
+  if (existing.length === 0) {
+    await new Settings({ chatbotEnabled: enabled }).save();
+    return;
+  }
+
+  await Settings.updateOne({}, { $set: { chatbotEnabled: enabled } });
+};
+
+export const getNoetixDisabledAdmins = async (): Promise<string[]> => {
+  const { Settings } = await import("../models/settings.model");
+  const settings = await Settings.findOne().lean();
+  return (settings as { noetixDisabledAdmins?: string[] } | null)?.noetixDisabledAdmins ?? [];
+};
+
+export const addNoetixDisabledAdmin = async (
+  adminId: string
+): Promise<string[]> => {
+  const { Settings } = await import("../models/settings.model");
+  const existing = await Settings.find();
+
+  if (existing.length === 0) {
+    await new Settings({ noetixDisabledAdmins: [adminId] }).save();
+    return [adminId];
+  }
+
+  await Settings.updateOne(
+    { noetixDisabledAdmins: { $ne: adminId } },
+    { $addToSet: { noetixDisabledAdmins: adminId } }
+  );
+
+  const updated = await Settings.findOne().lean();
+  return (updated as { noetixDisabledAdmins?: string[] } | null)?.noetixDisabledAdmins ?? [];
+};
+
+export const removeNoetixDisabledAdmin = async (
+  adminId: string
+): Promise<string[]> => {
+  const { Settings } = await import("../models/settings.model");
+  const existing = await Settings.find();
+
+  if (existing.length === 0) return [];
+
+  await Settings.updateOne(
+    {},
+    { $pull: { noetixDisabledAdmins: adminId } }
+  );
+
+  const updated = await Settings.findOne().lean();
+  return (updated as { noetixDisabledAdmins?: string[] } | null)?.noetixDisabledAdmins ?? [];
+};
+
+export const getNoetixDisabledTools = async (): Promise<string[]> => {
+  const { Settings } = await import("../models/settings.model");
+  const settings = await Settings.findOne().lean();
+  return (settings as { noetixDisabledTools?: string[] } | null)?.noetixDisabledTools ?? [];
+};
+
+export const getNoetixToolRegistry = async (): Promise<Array<{
+  name: string;
+  description: string;
+  permission: string;
+  category: string;
+}>> => {
+  const { getToolRegistry } = await import("../types/chat-tool.types");
+  return getToolRegistry().map((t) => ({
+    name: t.name,
+    description: t.description,
+    permission: t.permission,
+    category: t.category,
+  }));
+};
+
+export const addNoetixDisabledTool = async (
+  toolName: string
+): Promise<string[]> => {
+  const { Settings } = await import("../models/settings.model");
+  const existing = await Settings.find();
+
+  if (existing.length === 0) {
+    await new Settings({ noetixDisabledTools: [toolName] }).save();
+    return [toolName];
+  }
+
+  await Settings.updateOne(
+    { noetixDisabledTools: { $ne: toolName } },
+    { $addToSet: { noetixDisabledTools: toolName } }
+  );
+
+  const updated = await Settings.findOne().lean();
+  return (updated as { noetixDisabledTools?: string[] } | null)?.noetixDisabledTools ?? [];
+};
+
+export const removeNoetixDisabledTool = async (
+  toolName: string
+): Promise<string[]> => {
+  const { Settings } = await import("../models/settings.model");
+  const existing = await Settings.find();
+
+  if (existing.length === 0) return [];
+
+  await Settings.updateOne(
+    {},
+    { $pull: { noetixDisabledTools: toolName } }
+  );
+
+  const updated = await Settings.findOne().lean();
+  return (updated as { noetixDisabledTools?: string[] } | null)?.noetixDisabledTools ?? [];
+};
+
+export const isNoetixAdminDisabled = async (
+  adminId: string
+): Promise<boolean> => {
+  const disabled = await getNoetixDisabledAdmins();
+  return disabled.includes(adminId);
+};
+
+export const getNoetixMaxIterations = async (): Promise<number> => {
+  const { Settings } = await import("../models/settings.model");
+  const settings = await Settings.findOne().lean();
+  const value = (settings as { noetixMaxIterations?: number } | null)?.noetixMaxIterations;
+  if (value === undefined || value === null) return 10;
+  if (typeof value !== "number" || value < 1 || value > 50) return 10;
+  return value;
+};
+
+export const setNoetixMaxIterations = async (value: number): Promise<number> => {
+  const parsed = parseInt(String(value), 10);
+  if (isNaN(parsed) || parsed < 1 || parsed > 50) {
+    throw new Error("noetixMaxIterations must be between 1 and 50");
+  }
+  const { Settings } = await import("../models/settings.model");
+  const existing = await Settings.find();
+
+  if (existing.length === 0) {
+    await new Settings({ noetixMaxIterations: parsed }).save();
+    return parsed;
+  }
+
+  await Settings.updateOne({}, { $set: { noetixMaxIterations: parsed } });
+  return parsed;
 };
 
 export interface ExportCollectionParams {

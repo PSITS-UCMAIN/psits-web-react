@@ -13,13 +13,20 @@ import { account_status, membership_status } from "../enums/status.enums";
 import { applicationStatus } from "../enums/recruitment.enums";
 import { startOfDay, endOfDay } from "date-fns";
 import { Log } from "../models/log.model";
+import { Settings } from "../models/settings.model";
 import { orderService } from "../services/order.service";
 import { studentService } from "../services/student.service";
 import { refundService } from "../services/refund.service";
 import { membershipService } from "../services/membership.service";
+import { merchandiseService } from "../services/merchandise.service";
+import { EventV2Service } from "../services/eventV2.service";
+import { markAttendance } from "../services/attendance.service";
+import { recruitmentService } from "../services/recruitment.service";
+import { adminService } from "../services/admin.service";
 import mongoose, { Types } from "mongoose";
 import bcrypt from "bcryptjs";
 import { psits_roles } from "../enums/role.enums";
+import { orderController } from "../controllers/order.v2.controller";
 
 // ─── Permission Types ────────────────────────────────────────────────────────
 
@@ -68,14 +75,9 @@ const checkPermission = (
   toolPerm: ToolPermission,
   userAccess: string
 ): void => {
-  console.log(
-    `Checking permission for tool "${toolPerm}" with user access:`,
-    userAccess
-  );
   if (toolPerm === "read") return;
   const allowed = PERMISSION_MAP[toolPerm];
   const normalized = normalizeAccessKey(userAccess);
-  console.log(normalized, allowed.includes(normalized));
   if (!allowed.includes(normalized)) {
     throw new ToolPermissionError(toolPerm, toolPerm, userAccess);
   }
@@ -249,7 +251,7 @@ const readTools: ChatTool[] = [
   {
     name: "find_student",
     description:
-      "Searches for student by name using a partial wildcard match, so incomplete names still find results. Returns matching students with their ID number, name, course, year, and campus. And use it to other tools add_attendee, create order, approve order, and more",
+      "Searches for student by name using a partial wildcard match, so incomplete names still find results. Returns matching students with their ID number, name, course, year, and campus. And use it to other tools add_attendee, create order, approve order, and more. Note that you need to provide the partial name of the student you want to search for, and it will return a list of matching students. Do not call this tool without a name argument, as it will throw an error. Use the returned ID number to perform other actions on the student.",
     category: "Students",
     permission: "read",
     args: [
@@ -283,7 +285,50 @@ const readTools: ChatTool[] = [
       )
         .limit(25)
         .lean();
-      return { count: students.length, students };
+      const name = students.map((s) =>
+        `${s.first_name} ${s.middle_name ?? ""} ${s.last_name}`.trim()
+      );
+      return { count: students.length, students, name };
+    },
+  },
+  {
+    name: "get_student_by_name",
+    description:
+      "Searches for a student by partial name using wildcard matching on first_name, middle_name, and last_name. Returns matching students with their full name, id_number, year, and course. Use this tool to check if a student exists by name. Do not call without a name argument — it will throw an error.",
+    category: "Students",
+    permission: "read",
+    args: [
+      {
+        name: "name",
+        description:
+          "Partial or full student name to search for. Supports incomplete names (e.g. 'john' matches 'John').",
+      },
+    ],
+    execute: async (args: unknown) => {
+      const parsed = args as { name?: string };
+      const query = parsed.name?.trim();
+      if (!query) throw new Error("name is required");
+      const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const regex = new RegExp(escaped, "i");
+      const students = await Student.find(
+        {
+          $or: [
+            { first_name: regex },
+            { middle_name: regex },
+            { last_name: regex },
+          ],
+        },
+        "id_number first_name middle_name last_name course year -_id"
+      )
+        .limit(20)
+        .lean();
+      const results = students.map((s) => ({
+        name: `${s.first_name} ${s.middle_name ?? ""} ${s.last_name}`.trim(),
+        id_number: s.id_number,
+        year: s.year,
+        course: s.course,
+      }));
+      return { count: results.length, students: results };
     },
   },
 
@@ -361,14 +406,16 @@ const readTools: ChatTool[] = [
   // ── Orders & Payments (10) ─────────────────────────────────────────────────
   {
     name: "get_total_orders",
-    description: "Returns the total count of all orders.",
+    description:
+      "Returns the total count of all orders without filtering by student order",
     category: "Orders",
     permission: "read",
     execute: () => Orders.countDocuments(),
   },
   {
     name: "get_paid_orders_count",
-    description: "Returns the count of orders with PAID status.",
+    description:
+      "Returns the count of orders with PAID status without filtering by student order",
     category: "Orders",
     permission: "read",
     execute: () => Orders.countDocuments({ order_status: "Paid" }),
@@ -379,6 +426,71 @@ const readTools: ChatTool[] = [
     category: "Orders",
     permission: "read",
     execute: () => Orders.countDocuments({ order_status: "Pending" }),
+  },
+  {
+    name: "get_pending_orders",
+    description:
+      "Returns a paginated list of pending orders with order_id, student name/id_number/course/year, items (product_name, quantity, sub_total), total, and order_date. Use limit (default 20) and skip (default 0) to paginate. Do not return all pending orders at once — paginate using skip.",
+    category: "Orders",
+    permission: "read",
+    args: [
+      {
+        name: "limit",
+        description: "Number of orders to return (default 20, max 100).",
+        pattern: "^\\d+$",
+      },
+      {
+        name: "skip",
+        description: "Number of orders to skip for pagination (default 0).",
+        pattern: "^\\d+$",
+      },
+    ],
+    execute: async (args: unknown) => {
+      const parsed = args as { limit?: string; skip?: string };
+      const limit = Math.min(parseInt(parsed.limit ?? "20", 10) || 20, 100);
+      const skip = parseInt(parsed.skip ?? "0", 10) || 0;
+      const total = await Orders.countDocuments({ order_status: "Pending" });
+      const orders = await Orders.find({ order_status: "Pending" })
+        .sort({ order_date: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean();
+      return {
+        total,
+        limit,
+        skip,
+        returned: orders.length,
+        orders: orders.map((o) => ({
+          order_id: o._id.toString(),
+          student: {
+            name: o.student_name,
+            id_number: o.id_number,
+            course: o.course,
+            year: o.year,
+          },
+          items: (
+            o.items as Array<{
+              product_name: string;
+              quantity: number;
+              sub_total: number;
+              batch?: string | number;
+              sizes?: string[];
+              variation?: string[];
+            }>
+          ).map((item) => ({
+            product_name: item.product_name,
+            quantity: item.quantity,
+            sub_total: item.sub_total,
+            batch: item.batch,
+            sizes: item.sizes,
+            variation: item.variation,
+          })),
+          total: o.total,
+          order_date: o.order_date,
+          reference_code: o.reference_code,
+        })),
+      };
+    },
   },
   {
     name: "get_refunded_orders_count",
@@ -512,7 +624,7 @@ const readTools: ChatTool[] = [
   {
     name: "find_merch",
     description:
-      "Searches for merchandise products by name using a partial wildcard match, so incomplete product names still find results. Returns matching products with their product_id, name, price, stock, and active state. And use it to other tools create_order, approve_order, publish_merch, update_merch_stock, and more",
+      "Searches for merchandise products by name using a partial wildcard match, so incomplete product names still find results. Returns matching products with their product_id, name, price, stock, and active state. And use it to other tools create_order, approve_order, publish_merch, update_merch_stock, and more. Do not call this tool without a name argument, as it will throw an error. Use the returned product_id to perform other actions on the merchandise.",
     category: "Merch",
     permission: "read",
     args: [
@@ -1034,6 +1146,485 @@ const readTools: ChatTool[] = [
       }
     },
   },
+
+  // ── Students Extra (3) ────────────────────────────────────────────────────
+  {
+    name: "get_student_by_id_number",
+    description:
+      "Returns the full student profile (id_number, first_name, middle_name, last_name, email, course, year, campus, status, membershipStatus) for a student with the given 8-digit ID number. Use find_student first to locate the student, then this tool for complete details.",
+    category: "Students",
+    permission: "read",
+    args: [
+      {
+        name: "id_number",
+        description: "Student ID number composed of 8 digits.",
+        pattern: "^\\d{8}$",
+      },
+    ],
+    execute: async (args: unknown) => {
+      const parsed = args as { id_number?: string };
+      if (!parsed.id_number) throw new Error("id_number is required");
+      const student = await Student.findOne(
+        { id_number: parsed.id_number.trim() },
+        "id_number first_name middle_name last_name email course year campus status membershipStatus -_id"
+      ).lean();
+      if (!student) return { message: "Student not found", student: null };
+      return { student };
+    },
+  },
+  {
+    name: "get_student_cart_contents",
+    description:
+      "Returns the cart items for a student by their 8-digit ID number. Shows product names, quantities, and prices. Use find_student first to confirm the student exists.",
+    category: "Students",
+    permission: "read",
+    args: [
+      {
+        name: "id_number",
+        description: "Student ID number composed of 8 digits.",
+        pattern: "^\\d{8}$",
+      },
+    ],
+    execute: async (args: unknown) => {
+      const parsed = args as { id_number?: string };
+      if (!parsed.id_number) throw new Error("id_number is required");
+      const student = await Student.findOne(
+        { id_number: parsed.id_number.trim() },
+        "cart id_number -_id"
+      ).lean();
+      if (!student) return { message: "Student not found", cart: [] };
+      const items =
+        (student.cart as unknown as Array<Record<string, unknown>>) ?? [];
+      return { id_number: student.id_number, cart: items };
+    },
+  },
+  {
+    name: "get_new_students_this_month",
+    description: "Returns the count of students created in the last 30 days.",
+    category: "Students",
+    permission: "read",
+    execute: () => {
+      const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      return safeCount(() =>
+        Student.countDocuments({ createdAt: { $gte: monthAgo } })
+      );
+    },
+  },
+
+  // ── Orders Extra (2) ──────────────────────────────────────────────────────
+  {
+    name: "get_order_detail_by_id",
+    description:
+      "Returns full order details (student, items, total, status, date, reference_code) by MongoDB order _id. Requires ADMIN or FINANCE access.",
+    category: "Orders",
+    permission: "admin_finance",
+    args: [
+      {
+        name: "order_id",
+        description: "MongoDB ObjectId of the order to retrieve.",
+        pattern: "^[a-f0-9]{24}$",
+      },
+    ],
+    execute: async (args: unknown, userAccess: string) => {
+      checkPermission("admin_finance", userAccess);
+      const parsed = args as { order_id?: string };
+      if (!parsed.order_id) throw new Error("order_id is required");
+      const order = await Orders.findById(new Types.ObjectId(parsed.order_id))
+        .lean()
+        .exec();
+      if (!order) throw new Error("Order not found");
+      return { order };
+    },
+  },
+  {
+    name: "get_refunds_today",
+    description: "Returns the count of refunds processed today.",
+    category: "Orders",
+    permission: "read",
+    execute: async () => {
+      try {
+        return await Refund.countDocuments({
+          refund_date: {
+            $gte: startOfDay(new Date()),
+            $lte: endOfDay(new Date()),
+          },
+        });
+      } catch {
+        return 0;
+      }
+    },
+  },
+
+  // ── Merch Extra (2) ────────────────────────────────────────────────────────
+  {
+    name: "get_merch_by_category",
+    description:
+      "Returns a record mapping each active merch category to its product count.",
+    category: "Merch",
+    permission: "read",
+    execute: async () => {
+      try {
+        const result = await Merch.aggregate([
+          {
+            $match: {
+              is_active: true,
+              start_date: { $lte: new Date() },
+              end_date: { $gte: new Date() },
+            },
+          },
+          { $group: { _id: "$category", count: { $sum: 1 } } },
+        ]);
+        return (result ?? []).reduce<Record<string, number>>((acc, row) => {
+          if (row._id) acc[String(row._id)] = row.count;
+          return acc;
+        }, {});
+      } catch {
+        return {};
+      }
+    },
+  },
+  {
+    name: "get_low_stock_merch_list",
+    description:
+      "Returns up to 10 active products with stock <= 5, including product_id, name, and remaining stock.",
+    category: "Merch",
+    permission: "read",
+    execute: async () => {
+      try {
+        const products = await Merch.find(
+          {
+            is_active: true,
+            start_date: { $lte: new Date() },
+            end_date: { $gte: new Date() },
+            stocks: { $lte: 5, $gt: 0 },
+          },
+          "_id name stocks -_id"
+        )
+          .limit(10)
+          .lean();
+        return {
+          count: products.length,
+          products: products.map((p) => ({
+            product_id: p._id.toString(),
+            name: p.name,
+            stocks: p.stocks,
+          })),
+        };
+      } catch {
+        return { count: 0, products: [] };
+      }
+    },
+  },
+
+  // ── Events Extra (4) ───────────────────────────────────────────────────────
+  {
+    name: "get_event_detail_by_id",
+    description:
+      "Returns full event info (eventId, eventName, eventDescription, eventDate, status, totalRevenueAll, attendeeCount) by event ID.",
+    category: "Events",
+    permission: "read",
+    args: [
+      {
+        name: "event_id",
+        description: "MongoDB ObjectId of the event.",
+        pattern: "^[a-f0-9]{24}$",
+      },
+    ],
+    execute: async (args: unknown) => {
+      const parsed = args as { event_id?: string };
+      if (!parsed.event_id) throw new Error("event_id is required");
+      const event = await Event.findById(new Types.ObjectId(parsed.event_id))
+        .lean()
+        .exec();
+      if (!event) throw new Error("Event not found");
+      const attendeeCount = (event.attendees as unknown as unknown[]).length;
+      return {
+        eventId: event.eventId,
+        eventName: event.eventName,
+        eventDescription: event.eventDescription,
+        eventDate: event.eventDate,
+        status: event.status,
+        totalRevenueAll: event.totalRevenueAll,
+        attendeeCount,
+      };
+    },
+  },
+  {
+    name: "get_event_attendee_list",
+    description:
+      "Returns list of all registered attendees for an event by event_id or event_name. Each attendee includes id_number, name, course, year, campus.",
+    category: "Events",
+    permission: "read",
+    args: [
+      {
+        name: "event_id",
+        description: "MongoDB ObjectId of the event.",
+        pattern: "^[a-f0-9]{24}$",
+      },
+      {
+        name: "event_name",
+        description:
+          "Optional event name to identify the event instead of event_id.",
+      },
+    ],
+    execute: async (args: unknown) => {
+      const parsed = args as { event_id?: string; event_name?: string };
+      if (!parsed.event_id && !parsed.event_name)
+        throw new Error("event_id or event_name is required");
+      const filter: Record<string, unknown> = {};
+      if (parsed.event_id) filter.eventId = parsed.event_id;
+      if (parsed.event_name) filter.eventName = parsed.event_name;
+      const event = await Event.findOne(filter).lean();
+      if (!event) throw new Error("Event not found");
+      const attendees =
+        (event.attendees as Array<Record<string, unknown>>) ?? [];
+      return { count: attendees.length, attendees };
+    },
+  },
+  {
+    name: "get_event_attendance_rate",
+    description:
+      "Returns attendance percentages per session (morning/afternoon/evening) for an event by event_id.",
+    category: "Events",
+    permission: "read",
+    args: [
+      {
+        name: "event_id",
+        description: "MongoDB ObjectId of the event.",
+        pattern: "^[a-f0-9]{24}$",
+      },
+    ],
+    execute: async (args: unknown) => {
+      const parsed = args as { event_id?: string };
+      if (!parsed.event_id) throw new Error("event_id is required");
+      const event = await Event.findById(new Types.ObjectId(parsed.event_id))
+        .lean()
+        .exec();
+      if (!event) throw new Error("Event not found");
+      const attendees =
+        (event.attendees as Array<Record<string, unknown>>) ?? [];
+      const total = attendees.length;
+      if (total === 0) return { morning: 0, afternoon: 0, evening: 0, total };
+      let morningCount = 0;
+      let afternoonCount = 0;
+      let eveningCount = 0;
+      for (const attendee of attendees) {
+        const attendance = attendee.attendance as
+          | Record<string, unknown>
+          | undefined;
+        if (!attendance) continue;
+        if ((attendance.morning as { attended?: boolean })?.attended)
+          morningCount++;
+        if ((attendance.afternoon as { attended?: boolean })?.attended)
+          afternoonCount++;
+        if ((attendance.evening as { attended?: boolean })?.attended)
+          eveningCount++;
+      }
+      return {
+        morning: Math.round((morningCount / total) * 100),
+        afternoon: Math.round((afternoonCount / total) * 100),
+        evening: Math.round((eveningCount / total) * 100),
+        total,
+      };
+    },
+  },
+  {
+    name: "get_event_revenue_by_campus",
+    description:
+      "Returns revenue from event sales_data grouped by campus code (UC_MAIN, UC_BANILAD, etc.).",
+    category: "Events",
+    permission: "read",
+    execute: async () => {
+      try {
+        const result = await Event.aggregate([
+          { $unwind: "$sales_data" },
+          {
+            $group: {
+              _id: "$sales_data.campus",
+              totalRevenue: { $sum: "$sales_data.totalRevenue" },
+              unitsSold: { $sum: "$sales_data.unitsSold" },
+            },
+          },
+        ]);
+        return (result ?? []).reduce<
+          Record<string, { totalRevenue: number; unitsSold: number }>
+        >((acc, row) => {
+          if (row._id)
+            acc[String(row._id)] = {
+              totalRevenue: row.totalRevenue ?? 0,
+              unitsSold: row.unitsSold ?? 0,
+            };
+          return acc;
+        }, {});
+      } catch {
+        return {};
+      }
+    },
+  },
+
+  // ── Recruitment Extra (2) ──────────────────────────────────────────────────
+  {
+    name: "get_application_by_id",
+    description:
+      "Returns full application details (applicant snapshot, status, interview info, internal notes) by application _id. Requires ADMIN, FINANCE, DEVELOPER, EXECUTIVE, or HEAD_FINANCE access.",
+    category: "Recruitment",
+    permission: "admin_full",
+    args: [
+      {
+        name: "application_id",
+        description: "MongoDB ObjectId of the application.",
+        pattern: "^[a-f0-9]{24}$",
+      },
+    ],
+    execute: async (args: unknown, userAccess: string) => {
+      checkPermission("admin_full", userAccess);
+      const parsed = args as { application_id?: string };
+      if (!parsed.application_id) throw new Error("application_id is required");
+      const app = await Application.findById(
+        new Types.ObjectId(parsed.application_id)
+      )
+        .lean()
+        .exec();
+      if (!app) throw new Error("Application not found");
+      return { application: app };
+    },
+  },
+  {
+    name: "get_interviews_today",
+    description: "Returns the count of interviews scheduled for today.",
+    category: "Recruitment",
+    permission: "read",
+    execute: async () => {
+      try {
+        const todayStart = startOfDay(new Date());
+        const todayEnd = endOfDay(new Date());
+        const result = await Application.aggregate([
+          {
+            $match: {
+              "interview.scheduledAt": { $gte: todayStart, $lte: todayEnd },
+              "interview.status": "SCHEDULED",
+            },
+          },
+          { $count: "count" },
+        ]);
+        return result?.[0]?.count ?? 0;
+      } catch {
+        return 0;
+      }
+    },
+  },
+
+  // ── Contributions Extra (1) ────────────────────────────────────────────────
+  {
+    name: "get_contributions_this_week",
+    description:
+      "Returns the count of contributions recorded in the last 7 days.",
+    category: "Contributions",
+    permission: "read",
+    execute: async () => {
+      const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      try {
+        return await Contribution.countDocuments({
+          date: { $gte: weekAgo },
+        });
+      } catch {
+        return 0;
+      }
+    },
+  },
+
+  // ── Admin Extra (4) ────────────────────────────────────────────────────────
+  {
+    name: "get_active_admins_count",
+    description: "Returns the count of active admin accounts.",
+    category: "Admin",
+    permission: "read",
+    execute: () =>
+      safeCount(() => Admin.countDocuments({ status: account_status.ACTIVE })),
+  },
+  {
+    name: "get_all_active_admins",
+    description:
+      "Returns list of active admins (id_number, name, position, access, email). ADMIN only.",
+    category: "Admin",
+    permission: "admin_only",
+    execute: async (_args: unknown, userAccess: string) => {
+      checkPermission("admin_only", userAccess);
+      try {
+        const admins = await Admin.find(
+          { status: account_status.ACTIVE },
+          "id_number name position access email -_id"
+        )
+          .lean()
+          .exec();
+        return { count: admins.length, admins };
+      } catch {
+        return { count: 0, admins: [] };
+      }
+    },
+  },
+  {
+    name: "get_admin_action_count_today",
+    description: "Returns the count of activity logs recorded today.",
+    category: "Admin",
+    permission: "read",
+    execute: async () => {
+      try {
+        return await Log.countDocuments({
+          timestamp: {
+            $gte: startOfDay(new Date()),
+            $lte: endOfDay(new Date()),
+          },
+        });
+      } catch {
+        return 0;
+      }
+    },
+  },
+  {
+    name: "get_suspended_admins_count",
+    description: "Returns the count of suspended admin accounts.",
+    category: "Admin",
+    permission: "read",
+    execute: () =>
+      safeCount(() =>
+        Admin.countDocuments({ status: account_status.SUSPENDED })
+      ),
+  },
+
+  // ── Membership Extra (2) ───────────────────────────────────────────────────
+  {
+    name: "get_membership_expiry_risk_count",
+    description:
+      "Returns count of members whose membership is ACTIVE or RENEWED but who applied more than 90 days ago with no recent renewal activity.",
+    category: "Membership",
+    permission: "read",
+    execute: async () => {
+      const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+      try {
+        return await Student.countDocuments({
+          membershipStatus: {
+            $in: [membership_status.ACTIVE, membership_status.RENEWED],
+          },
+          createdAt: { $lte: ninetyDaysAgo },
+        });
+      } catch {
+        return 0;
+      }
+    },
+  },
+  {
+    name: "get_pending_membership_detail_count",
+    description: "Returns count of students with PENDING membership status.",
+    category: "Membership",
+    permission: "read",
+    execute: () =>
+      safeCount(() =>
+        Student.countDocuments({
+          membershipStatus: membership_status.PENDING,
+        })
+      ),
+  },
 ];
 
 // ─── Write Tools (15) ────────────────────────────────────────────────────────
@@ -1240,7 +1831,7 @@ const writeTools: ChatTool[] = [
   {
     name: "cancel_order",
     description:
-      "Cancels an order by its MongoDB _id and restores product stock. Requires ADMIN or FINANCE access.",
+      "Cancels Pending Orders by its MongoDB _id and restores product stock. Dont call this tool if the order is not pending. Requires ADMIN or FINANCE access.",
     category: "Orders",
     permission: "admin_finance",
     args: [
@@ -1416,12 +2007,12 @@ const writeTools: ChatTool[] = [
       checkPermission("admin_finance", userAccess);
       const parsed = args as { product_id?: string; active?: boolean };
       if (!parsed.product_id) throw new Error("product_id is required");
-      const result = await Merch.findByIdAndUpdate(
+      if (parsed.active === undefined)
+        throw new Error("active is required (true or false)");
+      const result = await merchandiseService.toggleMerchActive(
         new Types.ObjectId(parsed.product_id),
-        { is_active: parsed.active ?? !parsed.active },
-        { new: true }
+        parsed.active
       );
-      if (!result) throw new Error("Product not found");
       return {
         message: `Product ${parsed.active ? "published" : "unpublished"}`,
         product: result,
@@ -1451,12 +2042,10 @@ const writeTools: ChatTool[] = [
       const parsed = args as { product_id?: string; stocks?: number };
       if (!parsed.product_id || parsed.stocks === undefined)
         throw new Error("product_id and stocks are required");
-      const result = await Merch.findByIdAndUpdate(
+      const result = await merchandiseService.updateStockById(
         new Types.ObjectId(parsed.product_id),
-        { $set: { stocks: parsed.stocks } },
-        { new: true }
+        parsed.stocks
       );
-      if (!result) throw new Error("Product not found");
       return { message: "Stock updated", product: result };
     },
   },
@@ -1476,12 +2065,10 @@ const writeTools: ChatTool[] = [
       checkPermission("admin_finance", userAccess);
       const parsed = args as { product_id?: string };
       if (!parsed.product_id) throw new Error("product_id is required");
-      const result = await Merch.findByIdAndUpdate(
+      const result = await merchandiseService.toggleMerchActive(
         new Types.ObjectId(parsed.product_id),
-        { is_active: false },
-        { new: true }
+        false
       );
-      if (!result) throw new Error("Product not found");
       return { message: "Product soft-deleted", product: result };
     },
   },
@@ -1521,48 +2108,8 @@ const writeTools: ChatTool[] = [
       if (!parsed.id_number) throw new Error("id_number is required");
       if (!parsed.event_id && !parsed.event_name)
         throw new Error("event_id or event_name is required");
-      const filter: Record<string, unknown> = {};
-      if (parsed.event_id) filter.eventId = parsed.event_id;
-      if (parsed.event_name) filter.eventName = parsed.event_name;
-      const event = await Event.findOne(filter);
-      if (!event) throw new Error("Event not found");
-      const existing = (event.attendees as Array<{ id_number: string }>).find(
-        (a) => a.id_number === parsed.id_number
-      );
-      if (existing) {
-        return {
-          message: "Attendee already registered",
-          event_id: parsed.event_id,
-          event_name: parsed.event_name,
-          id_number: parsed.id_number,
-        };
-      }
-      const student = await Student.findOne({ id_number: parsed.id_number });
-      const attendeeData = student
-        ? {
-            id_number: student.id_number,
-            name: `${student.first_name} ${student.last_name}`,
-            course: student.course,
-            year: student.year,
-            campus: student.campus ?? "",
-          }
-        : {
-            id_number: parsed.id_number,
-            name: "Unknown",
-            course: "Unknown",
-            year: 0,
-            campus: "Unknown",
-          };
-      (event.attendees as unknown as Array<Record<string, unknown>>).push(
-        attendeeData
-      );
-      await event.save();
-      return {
-        message: "Attendee added",
-        event_id: parsed.event_id,
-        event_name: parsed.event_name,
-        id_number: parsed.id_number,
-      };
+      const eventId = parsed.event_id ?? "";
+      return EventV2Service.addAttendee(eventId, parsed.id_number);
     },
   },
   {
@@ -1660,41 +2207,26 @@ const writeTools: ChatTool[] = [
         | "morning"
         | "afternoon"
         | "evening";
-      const filter: Record<string, unknown> = {};
-      if (parsed.event_id) filter.eventId = parsed.event_id;
-      if (parsed.event_name) filter.eventName = parsed.event_name;
-      const event = await Event.findOne(filter);
-      if (!event) throw new Error("Event not found");
-      const attendees = event.attendees as unknown as Array<
-        Record<string, unknown>
-      >;
-      const idx = attendees.findIndex(
-        (a) => (a as { id_number: string }).id_number === parsed.id_number
-      );
-      if (idx === -1) throw new Error("Attendee not found in event");
-      const attendee = attendees[idx] as Record<string, unknown>;
-      const attendance = attendee.attendance as
-        | Record<string, unknown>
-        | undefined;
-      if (!attendance) {
-        attendee.attendance = {
-          morning: { attended: false, timestamp: null },
-          afternoon: { attended: false, timestamp: null },
-          evening: { attended: false, timestamp: null },
-        };
-      }
-      (attendance as Record<string, unknown>)[sessionKey] = {
-        attended: true,
-        timestamp: new Date(),
-      };
-      await event.save();
+      const eventId = parsed.event_id ?? "";
+      const student = await Student.findOne({ id_number: parsed.id_number });
+      const result = await markAttendance({
+        eventId,
+        attendeeIdNumber: parsed.id_number,
+        attendeeName: student
+          ? `${student.first_name} ${student.last_name}`
+          : "Unknown",
+        campus: student?.campus ?? "Unknown",
+        course: student?.course ?? "Unknown",
+        year: student?.year ?? 0,
+        confirmedByAdminName: "NoetixAI",
+      });
       return {
         message: `Attendance marked (${sessionKey})`,
         event_id: parsed.event_id,
         event_name: parsed.event_name,
         id_number: parsed.id_number,
         session: sessionKey,
-        attendee: attendees[idx],
+        attendee: result.attendee,
       };
     },
   },
@@ -1725,12 +2257,10 @@ const writeTools: ChatTool[] = [
       const parsed = args as { application_id?: string; status?: string };
       if (!parsed.application_id || !parsed.status)
         throw new Error("application_id and status are required");
-      const result = await Application.findByIdAndUpdate(
-        new Types.ObjectId(parsed.application_id),
-        { status: parsed.status },
-        { new: true }
+      const result = await recruitmentService.updateApplicationStatus(
+        parsed.application_id,
+        {} as any
       );
-      if (!result) throw new Error("Application not found");
       return { message: "Application status updated", application: result };
     },
   },
@@ -1751,17 +2281,14 @@ const writeTools: ChatTool[] = [
       checkPermission("admin_full", userAccess);
       const parsed = args as { position_id?: string };
       if (!parsed.position_id) throw new Error("position_id is required");
-      const position = await RecruitmentPosition.findById(
-        new Types.ObjectId(parsed.position_id)
+      const result = await recruitmentService.toggleHiringStatus(
+        parsed.position_id,
+        {} as any
       );
-      if (!position) throw new Error("Position not found");
-      position.hiringStatus =
-        position.hiringStatus === "OPEN" ? "CLOSED" : "OPEN";
-      await position.save();
       return {
-        message: `Position ${position.hiringStatus.toLowerCase()}`,
+        message: `Position ${result.hiringStatus.toLowerCase()}`,
         position_id: parsed.position_id,
-        hiringStatus: position.hiringStatus,
+        hiringStatus: result.hiringStatus,
       };
     },
   },
@@ -1785,14 +2312,7 @@ const writeTools: ChatTool[] = [
       checkPermission("admin_only", userAccess);
       const parsed = args as { id_number?: string };
       if (!parsed.id_number) throw new Error("id_number is required");
-      const admin = await Admin.findOne({ id_number: parsed.id_number });
-      if (!admin) throw new Error("Admin not found");
-      admin.status = account_status.SUSPENDED;
-      await admin.save();
-      return {
-        message: "Admin account suspended",
-        id_number: parsed.id_number,
-      };
+      return adminService.suspendByIdNumber(parsed.id_number);
     },
   },
   {
@@ -1844,22 +2364,613 @@ const writeTools: ChatTool[] = [
       ) {
         throw new Error("All fields are required");
       }
-      const existing = await Admin.findOne({ id_number: parsed.id_number });
-      if (existing) throw new Error("Admin with this ID already exists");
-      const passwordHash = await bcrypt.hash(parsed.password, 10);
-      const newAdmin = new Admin({
-        id_number: parsed.id_number,
-        name: parsed.name,
-        password: passwordHash,
-        access: psits_roles.STANDARD,
-        course: parsed.course,
-        position: parsed.position,
-        year: parsed.year,
-        email: parsed.email,
-        status: account_status.ACTIVE,
-      });
-      await newAdmin.save();
+      const result = await adminService.create(
+        {
+          id_number: parsed.id_number,
+          name: parsed.name,
+          password: parsed.password,
+          course: parsed.course,
+          position: parsed.position,
+          year: parsed.year,
+          email: parsed.email,
+        },
+        {} as any
+      );
       return { message: "Admin account created", id_number: parsed.id_number };
+    },
+  },
+
+  // ── Orders Extra (1) ───────────────────────────────────────────────────────
+  {
+    name: "approve_multiple_orders",
+    description:
+      "Approves multiple pending orders by their MongoDB _ids in a single call. Each order is processed independently. Requires ADMIN or FINANCE access.",
+    category: "Orders",
+    permission: "admin_finance",
+    args: [
+      {
+        name: "order_ids",
+        description: "Array of MongoDB ObjectIds of pending orders to approve.",
+      },
+    ],
+    execute: async (args: unknown, userAccess: string, userName: string) => {
+      checkPermission("admin_finance", userAccess);
+      const parsed = args as { order_ids?: string[] };
+      if (
+        !parsed.order_ids ||
+        !Array.isArray(parsed.order_ids) ||
+        parsed.order_ids.length === 0
+      )
+        throw new Error("order_ids is required and must be a non-empty array");
+      const session = await mongoose.startSession();
+      await session.startTransaction();
+      try {
+        const results: Array<{ order_id: string; status: string }> = [];
+        for (const orderId of parsed.order_ids) {
+          const oid = new Types.ObjectId(orderId);
+          const order = await Orders.findById(oid).session(session);
+          if (!order) continue;
+          if (order.order_status !== "Pending") {
+            results.push({ order_id: orderId, status: "not_pending" });
+            continue;
+          }
+          const result = await orderService.approveOrderService(
+            oid,
+            `${userName} (NoetixAI)`,
+            undefined,
+            session
+          );
+          if (result) {
+            results.push({ order_id: orderId, status: "approved" });
+          }
+        }
+        await session.commitTransaction();
+        session.endSession();
+        const approved = results.filter((r) => r.status === "approved").length;
+        return {
+          message: `${approved} order(s) approved`,
+          results,
+        };
+      } catch (err) {
+        if (session.inTransaction()) await session.abortTransaction();
+        if (session.transaction) session.endSession();
+        throw err;
+      }
+    },
+  },
+
+  // ── Merch Extra (3) ────────────────────────────────────────────────────────
+  {
+    name: "create_merch_product",
+    description:
+      "Creates a new merchandise product with name, price, stock, category, and type. Requires ADMIN or FINANCE access.",
+    category: "Merch",
+    permission: "admin_finance",
+    args: [
+      { name: "name", description: "Product name." },
+      {
+        name: "price",
+        description: "Product price as a positive number.",
+        pattern: "^\\d+(\\.\\d+)?$",
+      },
+      {
+        name: "stocks",
+        description: "Initial stock count.",
+        pattern: "^\\d+$",
+      },
+      {
+        name: "category",
+        description: "Product category (e.g. shirt, pant, accessory).",
+      },
+      { name: "type", description: "Product type." },
+      {
+        name: "start_date",
+        description:
+          "Optional start date for sale (ISO date string). Defaults to now.",
+      },
+      {
+        name: "end_date",
+        description: "Optional end date for sale (ISO date string).",
+      },
+    ],
+    execute: async (args: unknown, userAccess: string) => {
+      checkPermission("admin_finance", userAccess);
+      const parsed = args as {
+        name?: string;
+        price?: number | string;
+        stocks?: number | string;
+        category?: string;
+        type?: string;
+        start_date?: string;
+        end_date?: string;
+      };
+      if (
+        !parsed.name ||
+        parsed.price === undefined ||
+        parsed.stocks === undefined ||
+        !parsed.category ||
+        !parsed.type
+      )
+        throw new Error("name, price, stocks, category, and type are required");
+      const priceNum =
+        typeof parsed.price === "string"
+          ? parseFloat(parsed.price)
+          : parsed.price;
+      const stocksNum =
+        typeof parsed.stocks === "string"
+          ? parseInt(parsed.stocks, 10)
+          : parsed.stocks;
+      if (isNaN(priceNum) || priceNum < 0)
+        throw new Error("price must be a non-negative number");
+      if (isNaN(stocksNum) || stocksNum < 0)
+        throw new Error("stocks must be a non-negative integer");
+      const newMerch = new Merch({
+        name: parsed.name.trim(),
+        price: priceNum,
+        stocks: stocksNum,
+        category: parsed.category.trim(),
+        type: parsed.type.trim(),
+        is_active: true,
+        start_date: parsed.start_date
+          ? new Date(parsed.start_date)
+          : new Date(),
+        end_date: parsed.end_date ? new Date(parsed.end_date) : undefined,
+      });
+      await newMerch.save();
+      return {
+        message: "Product created",
+        product_id: newMerch._id.toString(),
+        name: newMerch.name,
+      };
+    },
+  },
+  {
+    name: "edit_merch_product",
+    description:
+      "Edits name, price, stock, or category of an existing product by product_id. Requires ADMIN or FINANCE access.",
+    category: "Merch",
+    permission: "admin_finance",
+    args: [
+      {
+        name: "product_id",
+        description: "MongoDB ObjectId of the product to edit.",
+        pattern: "^[a-f0-9]{24}$",
+      },
+      { name: "name", description: "New product name." },
+      {
+        name: "price",
+        description: "New price as a non-negative number.",
+        pattern: "^\\d+(\\.\\d+)?$",
+      },
+      {
+        name: "stocks",
+        description: "New stock count.",
+        pattern: "^\\d+$",
+      },
+      { name: "category", description: "New category." },
+    ],
+    execute: async (args: unknown, userAccess: string) => {
+      checkPermission("admin_finance", userAccess);
+      const parsed = args as {
+        product_id?: string;
+        name?: string;
+        price?: number | string;
+        stocks?: number | string;
+        category?: string;
+      };
+      if (!parsed.product_id) throw new Error("product_id is required");
+      const updates: Record<string, unknown> = {};
+      if (parsed.name) updates.name = parsed.name.trim();
+      if (parsed.price !== undefined) {
+        const priceNum =
+          typeof parsed.price === "string"
+            ? parseFloat(parsed.price)
+            : parsed.price;
+        if (isNaN(priceNum) || priceNum < 0)
+          throw new Error("price must be a non-negative number");
+        updates.price = priceNum;
+      }
+      if (parsed.stocks !== undefined) {
+        const stocksNum =
+          typeof parsed.stocks === "string"
+            ? parseInt(parsed.stocks, 10)
+            : parsed.stocks;
+        if (isNaN(stocksNum) || stocksNum < 0)
+          throw new Error("stocks must be a non-negative integer");
+        updates.stocks = stocksNum;
+      }
+      if (parsed.category) updates.category = parsed.category.trim();
+      if (Object.keys(updates).length === 0)
+        throw new Error("At least one field to update is required");
+      const result = await Merch.findByIdAndUpdate(
+        new Types.ObjectId(parsed.product_id),
+        { $set: updates },
+        { new: true }
+      );
+      if (!result) throw new Error("Product not found");
+      return { message: "Product updated", product: result };
+    },
+  },
+  {
+    name: "delete_merch_product",
+    description:
+      "Permanently removes a merchandise product by product_id. ADMIN only.",
+    category: "Merch",
+    permission: "admin_only",
+    args: [
+      {
+        name: "product_id",
+        description: "MongoDB ObjectId of the product to delete.",
+        pattern: "^[a-f0-9]{24}$",
+      },
+    ],
+    execute: async (args: unknown, userAccess: string) => {
+      checkPermission("admin_only", userAccess);
+      const parsed = args as { product_id?: string };
+      if (!parsed.product_id) throw new Error("product_id is required");
+      const result = await Merch.findByIdAndDelete(
+        new Types.ObjectId(parsed.product_id)
+      );
+      if (!result) throw new Error("Product not found");
+      return { message: "Product deleted", product_id: parsed.product_id };
+    },
+  },
+
+  // ── Events Extra (2) ───────────────────────────────────────────────────────
+  {
+    name: "add_event",
+    description:
+      "Creates a new event with name, description, date, venue, and theme. ADMIN only.",
+    category: "Events",
+    permission: "admin_only",
+    args: [
+      { name: "event_name", description: "Event name." },
+      { name: "event_description", description: "Event description." },
+      {
+        name: "event_date",
+        description: "Event date as ISO date string (e.g. 2026-12-31).",
+      },
+      { name: "event_venue", description: "Event venue location." },
+      { name: "event_theme", description: "Event theme." },
+    ],
+    execute: async (args: unknown, userAccess: string) => {
+      checkPermission("admin_only", userAccess);
+      const parsed = args as {
+        event_name?: string;
+        event_description?: string;
+        event_date?: string;
+        event_venue?: string;
+        event_theme?: string;
+      };
+      if (!parsed.event_name || !parsed.event_description || !parsed.event_date)
+        throw new Error(
+          "event_name, event_description, and event_date are required"
+        );
+      const newEvent = new Event({
+        eventId: new Types.ObjectId(),
+        eventName: parsed.event_name.trim(),
+        eventDescription: parsed.event_description.trim(),
+        eventDate: new Date(parsed.event_date),
+        eventVenue: parsed.event_venue ?? "",
+        eventTheme: parsed.event_theme ?? "",
+        status: "UPCOMING",
+        attendees: [],
+        sales_data: [
+          { campus: "UC_MAIN", unitsSold: 0, totalRevenue: 0 },
+          { campus: "UC_BANILAD", unitsSold: 0, totalRevenue: 0 },
+          { campus: "UC_LM", unitsSold: 0, totalRevenue: 0 },
+          { campus: "UC_PT", unitsSold: 0, totalRevenue: 0 },
+          { campus: "UC_CS", unitsSold: 0, totalRevenue: 0 },
+        ],
+        totalUnitsSold: 0,
+        totalRevenueAll: 0,
+        createdBy: "NoetixAI",
+      });
+      await newEvent.save();
+      return {
+        message: "Event created",
+        event_id: newEvent.eventId.toString(),
+        event_name: newEvent.eventName,
+      };
+    },
+  },
+  {
+    name: "remove_event_attendee",
+    description:
+      "Removes a student from an event by event_id and student id_number. ADMIN only.",
+    category: "Events",
+    permission: "admin_only",
+    args: [
+      {
+        name: "event_id",
+        description: "MongoDB ObjectId of the event.",
+        pattern: "^[a-f0-9]{24}$",
+      },
+      {
+        name: "id_number",
+        description: "Student ID number. id number composed of 8 digits.",
+        pattern: "^\\d{8}$",
+      },
+    ],
+    execute: async (args: unknown, userAccess: string) => {
+      checkPermission("admin_only", userAccess);
+      const parsed = args as { event_id?: string; id_number?: string };
+      if (!parsed.event_id || !parsed.id_number)
+        throw new Error("event_id and id_number are required");
+      return EventV2Service.removeAttendee(parsed.event_id, parsed.id_number);
+    },
+  },
+
+  // ── Recruitment Extra (2) ──────────────────────────────────────────────────
+  {
+    name: "schedule_interview",
+    description:
+      "Schedules an interview for an application with date, location, and notes. Requires full admin access.",
+    category: "Recruitment",
+    permission: "admin_full",
+    args: [
+      {
+        name: "application_id",
+        description: "MongoDB ObjectId of the application.",
+        pattern: "^[a-f0-9]{24}$",
+      },
+      {
+        name: "scheduled_at",
+        description: "Interview date/time as ISO date string.",
+      },
+      { name: "location", description: "Interview location." },
+      { name: "notes", description: "Optional interview notes." },
+    ],
+    execute: async (args: unknown, userAccess: string) => {
+      checkPermission("admin_full", userAccess);
+      const parsed = args as {
+        application_id?: string;
+        scheduled_at?: string;
+        location?: string;
+        notes?: string;
+      };
+      if (!parsed.application_id || !parsed.scheduled_at)
+        throw new Error("application_id and scheduled_at are required");
+      const result = await recruitmentService.createInterview(
+        parsed.application_id,
+        {
+          body: {
+            scheduledAt: parsed.scheduled_at,
+            location: parsed.location,
+            notes: parsed.notes,
+          },
+        } as any
+      );
+      return {
+        message: "Interview scheduled",
+        application_id: parsed.application_id,
+      };
+    },
+  },
+  {
+    name: "add_interview_note",
+    description:
+      "Adds internal notes to an application without changing its status. Requires full admin access.",
+    category: "Recruitment",
+    permission: "admin_full",
+    args: [
+      {
+        name: "application_id",
+        description: "MongoDB ObjectId of the application.",
+        pattern: "^[a-f0-9]{24}$",
+      },
+      { name: "note", description: "Internal note to add." },
+    ],
+    execute: async (args: unknown, userAccess: string) => {
+      checkPermission("admin_full", userAccess);
+      const parsed = args as { application_id?: string; note?: string };
+      if (!parsed.application_id || !parsed.note)
+        throw new Error("application_id and note are required");
+      const app = await Application.findById(
+        new Types.ObjectId(parsed.application_id)
+      );
+      if (!app) throw new Error("Application not found");
+      app.internalNotes = parsed.note;
+      await app.save();
+      return { message: "Note added", application_id: parsed.application_id };
+    },
+  },
+
+  // ── Admin Extra (3) ────────────────────────────────────────────────────────
+  {
+    name: "suspend_student_account",
+    description:
+      "Suspends a student account by setting status to SUSPENDED. Requires ADMIN access.",
+    category: "Admin",
+    permission: "admin_only",
+    args: [
+      {
+        name: "id_number",
+        description: "Student ID number composed of 8 digits.",
+        pattern: "^\\d{8}$",
+      },
+    ],
+    execute: async (args: unknown, userAccess: string) => {
+      checkPermission("admin_only", userAccess);
+      const parsed = args as { id_number?: string };
+      if (!parsed.id_number) throw new Error("id_number is required");
+      return studentService.suspendByIdNumber(parsed.id_number.trim());
+    },
+  },
+  {
+    name: "bulk_suspend_students",
+    description:
+      "Suspends multiple student accounts in one call by comma-separated id_numbers. Requires ADMIN access.",
+    category: "Admin",
+    permission: "admin_only",
+    args: [
+      {
+        name: "id_numbers",
+        description:
+          'Comma-separated list of student ID numbers (e.g. "20230001, 20230002").',
+      },
+    ],
+    execute: async (args: unknown, userAccess: string) => {
+      checkPermission("admin_only", userAccess);
+      const parsed = args as { id_numbers?: string };
+      if (!parsed.id_numbers) throw new Error("id_numbers is required");
+      const idList = parsed.id_numbers
+        .split(",")
+        .map((id) => id.trim())
+        .filter((id) => id.length === 8);
+      if (idList.length === 0) throw new Error("No valid id_numbers provided");
+      const session = await mongoose.startSession();
+      await session.startTransaction();
+      try {
+        const result = await Student.updateMany(
+          { id_number: { $in: idList } },
+          { $set: { status: account_status.SUSPENDED } },
+          { session }
+        );
+        await session.commitTransaction();
+        session.endSession();
+        return {
+          message: `${result.modifiedCount} student(s) suspended`,
+          count: result.modifiedCount,
+        };
+      } catch (err) {
+        if (session.inTransaction()) await session.abortTransaction();
+        if (session.transaction) session.endSession();
+        throw err;
+      }
+    },
+  },
+  {
+    name: "approve_multiple_memberships",
+    description:
+      "Approves memberships for multiple students in one call. Each student gets their membership checked and updated. Requires ADMIN or FINANCE access.",
+    category: "Membership",
+    permission: "admin_finance",
+    args: [
+      {
+        name: "id_numbers",
+        description:
+          'Comma-separated list of student ID numbers (e.g. "20230001, 20230002").',
+      },
+    ],
+    execute: async (args: unknown, userAccess: string) => {
+      checkPermission("admin_finance", userAccess);
+      const parsed = args as { id_numbers?: string };
+      if (!parsed.id_numbers) throw new Error("id_numbers is required");
+      const idList = parsed.id_numbers
+        .split(",")
+        .map((id) => id.trim())
+        .filter((id) => id.length > 0);
+      if (idList.length === 0) throw new Error("No valid id_numbers provided");
+      const results: Array<{ id_number: string; status: string }> = [];
+      for (const idNumber of idList) {
+        const student = await Student.findOne({ id_number: idNumber });
+        if (!student) {
+          results.push({ id_number: idNumber, status: "not_found" });
+          continue;
+        }
+        try {
+          await membershipService.checkApplication(student);
+          results.push({ id_number: idNumber, status: "approved" });
+        } catch {
+          results.push({ id_number: idNumber, status: "error" });
+        }
+      }
+      const approved = results.filter((r) => r.status === "approved").length;
+      return {
+        message: `${approved} membership(s) approved`,
+        results,
+      };
+    },
+  },
+
+  // ── Recruitment Position (1) ───────────────────────────────────────────────
+  {
+    name: "update_position_details",
+    description:
+      "Updates a recruitment position's title, description, and requirements. Requires full admin access.",
+    category: "Recruitment",
+    permission: "admin_full",
+    args: [
+      {
+        name: "position_id",
+        description: "MongoDB ObjectId of the recruitment position.",
+        pattern: "^[a-f0-9]{24}$",
+      },
+      { name: "title", description: "New position title." },
+      { name: "description", description: "New position description." },
+      {
+        name: "requirements",
+        description: "Comma-separated list of requirements.",
+      },
+    ],
+    execute: async (args: unknown, userAccess: string) => {
+      checkPermission("admin_full", userAccess);
+      const parsed = args as {
+        position_id?: string;
+        title?: string;
+        description?: string;
+        requirements?: string;
+      };
+      if (!parsed.position_id) throw new Error("position_id is required");
+      const position = await RecruitmentPosition.findById(
+        new Types.ObjectId(parsed.position_id)
+      );
+      if (!position) throw new Error("Position not found");
+      const updates: Record<string, unknown> = {};
+      if (parsed.title) updates.title = parsed.title.trim();
+      if (parsed.description !== undefined)
+        updates.description = parsed.description;
+      if (parsed.requirements !== undefined) {
+        updates.requirements = parsed.requirements
+          .split(",")
+          .map((r) => r.trim())
+          .filter(Boolean);
+      }
+      if (Object.keys(updates).length === 0)
+        throw new Error("At least one field to update is required");
+      Object.assign(position, updates);
+      await position.save();
+      return { message: "Position updated", position_id: parsed.position_id };
+    },
+  },
+
+  // ── Settings (1) ───────────────────────────────────────────────────────────
+  {
+    name: "update_system_setting",
+    description: "Updates a system-wide setting key-value pair. ADMIN only.",
+    category: "Settings",
+    permission: "admin_only",
+    args: [
+      {
+        name: "key",
+        description: "Setting key (e.g. chatbotEnabled, membership_price).",
+      },
+      { name: "value", description: "Setting value (string or number)." },
+    ],
+    execute: async (args: unknown, userAccess: string) => {
+      checkPermission("admin_only", userAccess);
+      const parsed = args as { key?: string; value?: unknown };
+      if (!parsed.key) throw new Error("key is required");
+      if (parsed.value === undefined) throw new Error("value is required");
+      const setting = await Settings.findOne();
+      if (!setting) {
+        const newSetting = new Settings({ [parsed.key]: parsed.value });
+        await newSetting.save();
+        return {
+          message: "Setting created",
+          key: parsed.key,
+          value: parsed.value,
+        };
+      }
+      (setting as unknown as Record<string, unknown>)[parsed.key] =
+        parsed.value;
+      await setting.save();
+      return {
+        message: "Setting updated",
+        key: parsed.key,
+        value: parsed.value,
+      };
     },
   },
 ];

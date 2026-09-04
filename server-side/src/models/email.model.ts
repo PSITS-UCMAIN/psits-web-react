@@ -25,6 +25,7 @@ const emailSchema = new Schema<IEmailDocument>({
   payload: { type: String },
   htmlBody: { type: String },
   retryCount: { type: Number, default: 0 },
+  emailId: { type: String },
 });
 
 export const EmailQueue = mongoose.model<IEmailDocument>(

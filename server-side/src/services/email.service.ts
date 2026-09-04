@@ -4,7 +4,6 @@ import { Types } from "mongoose";
 import { studentService } from "./student.service";
 import { AppError } from "../util/app.error.util";
 
-
 class EmailService {
   //Create Queue email service
   create = async (type: string, studentId: Types.ObjectId) => {
@@ -25,7 +24,12 @@ class EmailService {
     }).save();
   };
   //Create email queue by email directly
-  createByEmail = async (type: string, email: string, subtype?: string, referenceCode?: string) => {
+  createByEmail = async (
+    type: string,
+    email: string,
+    subtype?: string,
+    referenceCode?: string
+  ) => {
     return await new EmailQueue({
       type,
       studentId: null,
@@ -46,6 +50,18 @@ class EmailService {
       },
       { new: true }
     );
+  };
+  //Update email status in webhook using email address
+  updateStatusByEmailId = async (emailId: string, status: string) => {
+    const result = await EmailQueue.findOneAndUpdate(
+      { emailId },
+      { $set: { status } },
+      { new: true }
+    );
+    if (!result) {
+      return false;
+    }
+    return true;
   };
   //Update status by queue entry id
   updateStatusById = async (id: string, status: string) => {
@@ -76,9 +92,18 @@ class EmailService {
       status: "pending",
     }).sort({ createdAt: 1, retryCount: 1 });
   };
+  updateEmailIdById = async (id: string, emailId: string) => {
+    return await EmailQueue.findByIdAndUpdate(
+      id,
+      { $set: { emailId } },
+      { new: true }
+    );
+  };
 
   countBySubtypeToday = async (email: string, subtype: string) => {
-    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Manila" }).format(new Date());
+    const today = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Manila",
+    }).format(new Date());
     const startOfDay = new Date(`${today}T00:00:00+08:00`);
 
     return await EmailQueue.countDocuments({

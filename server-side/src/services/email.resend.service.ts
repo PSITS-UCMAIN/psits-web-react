@@ -6,6 +6,7 @@ import { Orders } from "../models/orders.model";
 import { MembershipHistory } from "../models/history.model";
 import { orderService } from "./order.service";
 import { format } from "date-fns";
+import { formatReceiptDateTime } from "../mail_template/mail.template";
 import { Resend } from "resend";
 import { EmailQueue } from "../models/email.model";
 import { AutomationJob } from "../models/automationJob.model";
@@ -85,22 +86,29 @@ const sendWithResend = async ({
   to: string;
   subject: string;
   html: string;
-  attachments?: Array<{ filename?: string; content?: Buffer; contentType?: string; contentId?: string }>;
+  attachments?: Array<{
+    filename?: string;
+    content?: Buffer;
+    contentType?: string;
+    contentId?: string;
+  }>;
 }) => {
   const resend = new Resend(process.env.RESEND_API_KEY);
   const from = process.env.EMAIL;
 
   if (!from) throw new Error("EMAIL is not configured");
 
-  const { error } = await resend.emails.send({
+  console.log("Function is called");
+  const result = await resend.emails.send({
     from,
     to,
     subject,
     html,
     attachments,
   });
-
-  if (error) throw new Error(error.message);
+  console.log("Resend result:", result);
+  if (result.error) throw new Error(result.error.message);
+  return result.data?.id;
 };
 
 const RESEND_BATCH_LIMIT = 50;
@@ -108,7 +116,9 @@ const RESEND_BATCH_LIMIT = 50;
 export const resendPendingEmails = async () => {
   const [receiptEntries, automationEntries] = await Promise.all([
     emailService.fetchByReceipt(),
-    EmailQueue.find({ type: "automation-report", status: "pending" }).sort({ timestamp: 1, retryCount: 1 }).lean(),
+    EmailQueue.find({ type: "automation-report", status: "pending" })
+      .sort({ timestamp: 1, retryCount: 1 })
+      .lean(),
   ]);
 
   const allEntries = [...receiptEntries, ...automationEntries];
@@ -152,7 +162,13 @@ const resendAutomationReport = async (entry: PendingEntry) => {
   let reportPayload: {
     jobName: string;
     executionTime: string;
-    results: Array<{ success: boolean; data?: unknown; recordCount: number; durationMs: number; error?: string }>;
+    results: Array<{
+      success: boolean;
+      data?: unknown;
+      recordCount: number;
+      durationMs: number;
+      error?: string;
+    }>;
     includeSummary: boolean;
     includeRawData: boolean;
     subject: string;
@@ -164,7 +180,10 @@ const resendAutomationReport = async (entry: PendingEntry) => {
     throw new Error("Invalid automation report payload");
   }
 
-  const templatePath = path.join(__dirname, "../templates/automation-report.ejs");
+  const templatePath = path.join(
+    __dirname,
+    "../templates/automation-report.ejs"
+  );
   let html: string;
 
   if (entry.htmlBody) {
@@ -172,15 +191,18 @@ const resendAutomationReport = async (entry: PendingEntry) => {
   } else {
     html = await ejs.renderFile(templatePath, {
       jobName: reportPayload.jobName,
-      executionTime: new Date(reportPayload.executionTime).toLocaleString("en-US", {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        timeZone: "Asia/Manila",
-      }),
+      executionTime: new Date(reportPayload.executionTime).toLocaleString(
+        "en-US",
+        {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          timeZone: "Asia/Manila",
+        }
+      ),
       results: reportPayload.results,
       includeSummary: reportPayload.includeSummary,
       includeRawData: reportPayload.includeRawData,
@@ -192,7 +214,7 @@ const resendAutomationReport = async (entry: PendingEntry) => {
   const logoPath = path.join(__dirname, "../assets/psits.jpg");
   const logoBuffer = await fs.readFile(logoPath);
 
-  await sendWithResend({
+  const emailId = await sendWithResend({
     to: entry.email,
     subject: reportPayload.subject,
     html,
@@ -205,6 +227,9 @@ const resendAutomationReport = async (entry: PendingEntry) => {
       },
     ],
   });
+  if (emailId) {
+    await emailService.updateEmailIdById(entry._id, emailId);
+  }
 };
 
 const resendMembership = async (entry: PendingEntry) => {
@@ -233,7 +258,7 @@ const resendMembership = async (entry: PendingEntry) => {
   const logoPath = path.join(__dirname, "../assets/psits.jpg");
   const logoBuffer = await fs.readFile(logoPath);
 
-  await sendWithResend({
+  const emailId = await sendWithResend({
     to: entry.email,
     subject: "Your Receipt from PSITS - UC Main",
     html,
@@ -246,6 +271,9 @@ const resendMembership = async (entry: PendingEntry) => {
       },
     ],
   });
+  if (emailId) {
+    await emailService.updateEmailIdById(entry._id, emailId);
+  }
 };
 
 const resendOrder = async (entry: PendingEntry) => {
@@ -260,9 +288,7 @@ const resendOrder = async (entry: PendingEntry) => {
   const cash = order.total;
   const receiptData = {
     reference_code: order.reference_code,
-    transaction_date: order.transaction_date
-      ? format(new Date(order.transaction_date), "MMMM d, yyyy")
-      : "N/A",
+    transaction_date: formatReceiptDateTime(order.transaction_date),
     student_name: order.student_name,
     id_number: order.id_number,
     course: order.course,
@@ -284,7 +310,7 @@ const resendOrder = async (entry: PendingEntry) => {
   const logoPath = path.join(__dirname, "../assets/psits.jpg");
   const logoBuffer = await fs.readFile(logoPath);
 
-  await sendWithResend({
+  const emailId = await sendWithResend({
     to: entry.email,
     subject: "Your Order Receipt from PSITS - UC Main",
     html,
@@ -297,4 +323,7 @@ const resendOrder = async (entry: PendingEntry) => {
       },
     ],
   });
+  if (emailId) {
+    await emailService.updateEmailIdById(entry._id, emailId);
+  }
 };

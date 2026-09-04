@@ -253,184 +253,168 @@ export const deansMessageData = {
   },
 };
 
-// --- Upcoming Events Data ---
-
-export interface UpcomingEvent {
+// --- Events Data ---
+export interface EventItem {
   id: number;
   title: string;
-  date: string;
   location: string;
   image: string;
+  startDateTime: string; // ISO string with explicit +08:00 (Asia/Manila) offset
+  endDateTime: string; // ISO string with explicit +08:00 (Asia/Manila) offset
+  description: string;
 }
 
-export const upcomingEventsData: {
-  header: {
-    title: string;
-    year: string;
-  };
-  events: UpcomingEvent[];
-} = {
-  header: {
-    title: "Upcoming Events",
-    year: "2026",
-  },
+export const eventsData: { events: EventItem[] } = {
   events: [
     {
       id: 1,
       title: "CCS Freshmen Orientation 2026",
-      date: "August 24 - 8:00 AM - 5:00 PM",
       location: "University of Cebu Jones 15th Floor",
-    image: FreshmanOrientation26,
-  }
-  ],
-};
-
-// --- Past Events Data ---
-export const pastEventsData = {
-  header: {
-    title: "Past Events",
-    year: "2026",
-  },
-  events: [
+      image: FreshmanOrientation26,
+      startDateTime: "2026-08-24T08:00:00+08:00",
+      endDateTime: "2026-08-24T17:00:00+08:00",
+      description:
+        "The CCS Freshmen Orientation 2026 welcomed new College of Computer Studies students at the University of Cebu Jones 15th Floor, introducing them to the college's programs, faculty, and student organizations to help them start their academic journey with confidence.",
+    },
     {
       id: 14,
       title: "12th Cebu ICT Congress 2026",
       location: "New Cebu Coliseum Cebu City",
-      year: 2026,
-      date: { month: "April", day: "22" },
+      image: ICTCongress26,
+      startDateTime: "2026-04-22T00:00:00+08:00",
+      endDateTime: "2026-04-22T23:59:59+08:00",
       description:
         "The 12th ICT Congress gathered students from the University of Cebu campuses on April 22, 2026, at the Cebu Coliseum for a day of innovation, collaboration, and learning. Participants explored emerging technologies, shared ideas through exhibits and presentations, and demonstrated the CCS core values of initiative, innovation, and service while connecting with fellow future IT professionals.",
-      image: ICTCongress26,
     },
     {
       id: 13,
       title: "CCS Git Together 2026",
       location: "Mandani Bay",
-      year: 2026,
-      date: { month: "March", day: "28" },
+      image: CSSGitTogether,
+      startDateTime: "2026-03-28T00:00:00+08:00",
+      endDateTime: "2026-03-28T23:59:59+08:00",
       description:
         "CCS Git Together 2026 brought the College of Computer Studies community together for an evening of celebration, connection, and unforgettable memories on March 28, 2026, at Mandani Bay. With the theme Black and White, students, faculty, and staff enjoyed a night of music, entertainment, and camaraderie, strengthening friendships and fostering a greater sense of unity within the department.",
-      image: CSSGitTogether,
     },
     {
       id: 12,
       title: "UC Intramurals 2025-2026",
       location: "University of Cebu Main Campus",
-      year: 2026,
-      date: { month: "March", day: "4" },
+      image: Intrams25,
+      startDateTime: "2026-03-04T00:00:00+08:00",
+      endDateTime: "2026-03-04T23:59:59+08:00",
       description:
         "The UC Intramurals 2025–2026 brought together students from different departments for three days of sports, performances, and school spirit at the University of Cebu Main Campus from March 4–6, 2026. CCS students proudly represented their department, demonstrating teamwork, determination, and camaraderie in various competitions while fostering lasting memories throughout the event.",
-      image: Intrams25,
     },
     {
       id: 11,
       title: "CCS Days Competition 2026",
       location: "University of Cebu Main Campus",
-      year: 2026,
-      date: { month: "March", day: "2" },
+      image: CCSDays26,
+      startDateTime: "2026-03-02T00:00:00+08:00",
+      endDateTime: "2026-03-02T23:59:59+08:00",
       description:
         "CCS Days Competition 2026 gathered aspiring tech students for two days of exciting competitions held on March 2–3, 2026. Participants showcased their skills in programming, UI/UX design, networking, hackathon challenges, and the General IT Quiz, demonstrating creativity, problem-solving, teamwork, and technical excellence while competing for the opportunity to represent the college in future events.",
-      image: CCSDays26,
     },
-        {
+    {
       id: 10,
       title: "AI-Driven Embedded Systems Project Exhibit 2025",
       location: "University of Cebu Main Campus",
-      year: 2025,
-      date: { month: "December", day: "18" },
+      image: ProjectExhibit25,
+      startDateTime: "2025-12-18T00:00:00+08:00",
+      endDateTime: "2025-12-18T23:59:59+08:00",
       description:
         "The College of Computer Studies (CCS) at the University of Cebu Main Campus showcased innovative student projects during the AI-Driven Embedded Systems Project Exhibit 2025 held on December 18, 2025. The exhibit highlighted AI-powered embedded systems developed by students, demonstrating their technical skills, creativity, and innovative solutions to real-world problems.",
-      image: ProjectExhibit25,
     },
     {
       id: 9,
       title: "CCS Freshman Orientation 2025",
       location: "University of Cebu Main Campus",
-      year: 2025,
-      date: { month: "August", day: "13" },
+      image: Orientation,
+      startDateTime: "2025-08-13T00:00:00+08:00",
+      endDateTime: "2025-08-13T23:59:59+08:00",
       description:
         "The College of Computer Studies (CCS) at the University of Cebu Main Campus warmly welcomed its new batch of students during the CCS Orientation 2025 held on August 13, 2025. The event was designed to introduce freshmen to the college's programs, faculty, and student organizations.",
-      image: Orientation,
     },
     {
       id: 8,
       title: "11th ICT Congress 2025",
       location: "SM Seaside City Cebu",
-      year: 2025,
-      date: { month: "April", day: "12" },
+      image: ICT,
+      startDateTime: "2025-04-12T00:00:00+08:00",
+      endDateTime: "2025-04-12T23:59:59+08:00",
       description:
         "The 11th ICT Congress 2025 at SM Seaside City Cebu was a landmark event that brought together IT enthusiasts, professionals, and students from across the region. The congress featured a series of keynote speeches, panel discussions, and workshops focused on the latest trends and innovations in information and communication technology.",
-      image: ICT,
     },
     {
       id: 7,
       title: "CCS Days",
       location: "University of Cebu Main Campus",
-      year: 2025,
-      date: { month: "February", day: "12" },
+      image: CCSDays,
+      startDateTime: "2025-02-12T00:00:00+08:00",
+      endDateTime: "2025-02-12T23:59:59+08:00",
       description:
         "CCS Days at the University of Cebu Main Campus was a vibrant celebration of technology, creativity, and community spirit. The event spanned several days and featured a variety of activities including coding competitions, hackathons, tech talks, and exhibitions showcasing student projects.",
-      image: CCSDays,
     },
     {
       id: 6,
       title: "Cebu Blockchain Conference 2025",
       location: "IEC Convention Center Cebu",
-      year: 2025,
-      date: { month: "January", day: "17" },
+      image: Blockchain,
+      startDateTime: "2025-01-17T00:00:00+08:00",
+      endDateTime: "2025-01-17T23:59:59+08:00",
       description:
         "The Cebu Blockchain Conference 2025 held at the IEC Convention Center Cebu was a groundbreaking event that delved into the transformative potential of blockchain technology. The conference attracted industry leaders, developers, entrepreneurs, and enthusiasts eager to explore the applications and implications of blockchain across various sectors.",
-      image: Blockchain,
     },
     {
       id: 5,
       title: "Nihonggo Culminating Activity 2024",
       location: "University of Cebu Main Campus",
-      year: 2024,
-      date: { month: "December", day: "17" },
+      image: Nihonggo,
+      startDateTime: "2024-12-17T00:00:00+08:00",
+      endDateTime: "2024-12-17T23:59:59+08:00",
       description:
         "The Nihonggo Culminating Activity 2024 at the University of Cebu Main Campus was a festive event that marked the conclusion of the Nihonggo language program for the year. The activity showcased the progress and achievements of students who had been studying the Japanese language and culture throughout the semester.",
-      image: Nihonggo,
     },
     {
       id: 4,
       title: "Embedded Systems and IOT Project Exhibit 2024",
       location: "University of Cebu Main Campus",
-      year: 2024,
-      date: { month: "November", day: "17" },
+      image: EmbeddedSystems,
+      startDateTime: "2024-11-17T00:00:00+08:00",
+      endDateTime: "2024-11-17T23:59:59+08:00",
       description:
         "The Embedded Systems and IoT Project Exhibit 2024 at the University of Cebu Main Campus was an exciting event that highlighted the innovative projects developed by students in the fields of embedded systems and the Internet of Things (IoT). The exhibit provided a platform for students to showcase their creativity, technical skills, and problem-solving abilities.",
-      image: EmbeddedSystems,
     },
     {
       id: 3,
       title: "UC CCS Cares and Internship 2024",
       location: "University of Cebu Main Campus",
-      year: 2024,
-      date: { month: "November", day: "17" },
+      image: UCCCSCares,
+      startDateTime: "2024-11-17T00:00:00+08:00",
+      endDateTime: "2024-11-17T23:59:59+08:00",
       description:
         "The UC CCS Cares and Internship 2024 program at the University of Cebu Main Campus was a commendable initiative that combined community service with practical work experience for students. The program aimed to foster a sense of social responsibility among students while providing them with valuable insights into their future careers.",
-      image: UCCCSCares,
     },
     {
       id: 2,
       title: "UC Intramurals",
       location: "University of Cebu Main Campus",
-      year: 2024,
-      date: { month: "November", day: "20" },
+      image: UCIntramurals,
+      startDateTime: "2024-11-20T00:00:00+08:00",
+      endDateTime: "2024-11-20T23:59:59+08:00",
       description:
         "The UC Intramurals at the University of Cebu Main Campus was a lively event that brought together students from various departments to compete in a range of sports and recreational activities. The intramurals fostered camaraderie, sportsmanship, and school spirit among participants and spectators alike.",
-      image: UCIntramurals,
     },
     {
       id: 1,
       title: "CCS Acquaintance Party 2024",
       location: "SM Seaside City Cebu",
-      year: 2024,
-      date: { month: "November", day: "16" },
+      image: CCSAcquaintance,
+      startDateTime: "2024-11-16T00:00:00+08:00",
+      endDateTime: "2024-11-16T23:59:59+08:00",
       description:
         "On November 16, 2024, the CCS Acquaintance Party brought together students, faculty, and alumni at SM Seaside City Cebu for a night inspired by the timeless allure of the Old Money theme. The event was a celebration of camaraderie, elegance, and the rich heritage of the College of Computer Studies (CCS) community.",
-      image: CCSAcquaintance,
     },
   ],
 };

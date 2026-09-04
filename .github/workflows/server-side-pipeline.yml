@@ -31,3 +31,7 @@ jobs:
       - name: Install Dependencies
         working-directory: server-side
         run: npm install
+
+      - name: Build Project
+        working-directory: server-side
+        run: npm run build

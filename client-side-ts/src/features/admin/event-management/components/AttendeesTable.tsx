@@ -837,6 +837,7 @@ export const AttendeesTable: React.FC<AttendeesTableProps> = ({
               <TableRow className="bg-muted/50">
                 <TableHead className="w-10">
                   <Checkbox
+                    className="border border-gray-400"
                     checked={
                       selectedIds.length === paginatedAttendees.length &&
                       paginatedAttendees.length > 0
@@ -926,6 +927,7 @@ export const AttendeesTable: React.FC<AttendeesTableProps> = ({
                                 : prev.filter((id) => id !== attendee.id)
                             )
                           }
+                          className="border border-gray-400"
                         />
                       </TableCell>
                       <TableCell>
@@ -999,7 +1001,7 @@ export const AttendeesTable: React.FC<AttendeesTableProps> = ({
                                   ? "This event has ended and can no longer be modified"
                                   : undefined
                               }
-                              className="text-destructive hover:text-destructive disabled:hover:bg-transparent h-7 w-[130px] justify-center rounded-2xl border-red-200 px-2 text-sm font-semibold hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                              className="text-destructive hover:text-destructive h-7 w-[130px] justify-center rounded-2xl border-red-200 px-2 text-sm font-semibold hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
                             >
                               <Trash2 className="mr-1 h-3.5 w-3.5 flex-shrink-0" />
                               Remove
@@ -1121,7 +1123,7 @@ export const AttendeesTable: React.FC<AttendeesTableProps> = ({
                         ? "This event has ended and can no longer be modified"
                         : undefined
                     }
-                    className="text-destructive hover:text-destructive disabled:hover:bg-transparent w-full border-red-200 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="text-destructive hover:text-destructive w-full border-red-200 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
                     onClick={() => handleRemoveAttendee(attendee)}
                   >
                     <Trash2 className="mr-1 h-3.5 w-3.5" />
@@ -1177,6 +1179,11 @@ export const AttendeesTable: React.FC<AttendeesTableProps> = ({
                       setCurrentPage(pageNum);
                     }}
                     isActive={currentPage === pageNum}
+                    className={
+                      currentPage === pageNum
+                        ? "bg-sky-400 text-white hover:bg-sky-500"
+                        : ""
+                    }
                   >
                     {pageNum}
                   </PaginationLink>

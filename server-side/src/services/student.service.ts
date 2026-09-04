@@ -70,6 +70,17 @@ class StudentService {
     return { status: true, message: "Student updated successfully" };
   };
 
+  suspendByIdNumber = async (id_number: string) => {
+    const result = await Student.updateOne(
+      { id_number },
+      { $set: { status: account_status.SUSPENDED } }
+    );
+    if (result.matchedCount === 0) {
+      throw new AppError("Student not found", 404);
+    }
+    return { message: "Student suspended", id_number };
+  };
+
   //Register | Create student
   create = async (req: Request) => {
     const {

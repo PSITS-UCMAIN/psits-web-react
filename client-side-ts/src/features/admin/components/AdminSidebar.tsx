@@ -14,13 +14,12 @@ import {
   Settings,
   ShoppingBag,
   Users,
+  UserRoundPlus,
   Code,
   Award,
   BookOpenCheck,
-  Bot,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -43,6 +42,7 @@ interface AdminSidebarProps {
   userInitials?: string;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
+  onCloseMobile?: () => void;
 }
 
 export const AdminSidebar: React.FC<AdminSidebarProps> = ({
@@ -51,6 +51,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   userInitials = "JL",
   collapsed = false,
   onToggleCollapse,
+  onCloseMobile,
 }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -61,6 +62,18 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     location.pathname.startsWith("/admin/merchandise")
   );
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const handleNavClick = (
+    e: React.MouseEvent<HTMLAnchorElement>,
+    isRestricted = false
+  ) => {
+    if (isRestricted && !isUcMainAdmin) {
+      e.preventDefault();
+      showToast("error", "Unauthorized.");
+      return;
+    }
+    onCloseMobile?.();
+  };
 
   const isActivePath = (path: string) =>
     location.pathname === path || location.pathname.startsWith(`${path}/`);
@@ -205,12 +218,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                     >
                       <Link
                         to={isUcMainAdmin ? "/admin/dashboard" : "#"}
-                        onClick={(e) => {
-                          if (!isUcMainAdmin) {
-                            e.preventDefault();
-                            showToast("error", "Unauthorized.");
-                          }
-                        }}
+                        onClick={(e) => handleNavClick(e, true)}
                       >
                         <Grid className="h-5 w-5 shrink-0" />
                         {!collapsed && <span>Dashboard</span>}
@@ -237,12 +245,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                     >
                       <Link
                         to={isUcMainAdmin ? "/admin/organization" : "#"}
-                        onClick={(e) => {
-                          if (!isUcMainAdmin) {
-                            e.preventDefault();
-                            showToast("error", "Unauthorized.");
-                          }
-                        }}
+                        onClick={(e) => handleNavClick(e, true)}
                       >
                         <Users className="h-5 w-5 shrink-0" />
                         {!collapsed && <span>Organization</span>}
@@ -271,14 +274,9 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                         to={
                           isUcMainAdmin ? "/admin/recuitment-management" : "#"
                         }
-                        onClick={(e) => {
-                          if (!isUcMainAdmin) {
-                            e.preventDefault();
-                            showToast("error", "Unauthorized.");
-                          }
-                        }}
+                        onClick={(e) => handleNavClick(e, true)}
                       >
-                        <Users className="h-5 w-5 shrink-0" />
+                        <UserRoundPlus className="h-5 w-5 shrink-0" />
                         {!collapsed && <span>Recruitment</span>}
                       </Link>
                     </Button>
@@ -286,7 +284,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                   {collapsed && (
                     <TooltipContent side="right">
                       <p>Recruitment</p>
-                    </TooltipContent>
+                    </TooltipContent> 
                   )}
                 </Tooltip>
               </li>
@@ -303,12 +301,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                     >
                       <Link
                         to={isUcMainAdmin ? "/admin/contributions" : "#"}
-                        onClick={(e) => {
-                          if (!isUcMainAdmin) {
-                            e.preventDefault();
-                            showToast("error", "Unauthorized.");
-                          }
-                        }}
+                        onClick={(e) => handleNavClick(e, true)}
                       >
                         <BookOpenCheck className="h-5 w-5 shrink-0" />
                         {!collapsed && <span>Contributions</span>}
@@ -335,12 +328,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                     >
                       <Link
                         to={isUcMainAdmin ? "/admin/students" : "#"}
-                        onClick={(e) => {
-                          if (!isUcMainAdmin) {
-                            e.preventDefault();
-                            showToast("error", "Unauthorized.");
-                          }
-                        }}
+                        onClick={(e) => handleNavClick(e, true)}
                       >
                         <GraduationCap className="h-5 w-5 shrink-0" />
                         {!collapsed && <span>Students</span>}
@@ -362,7 +350,10 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                       className={getNavButtonClass("/admin/events")}
                       asChild
                     >
-                      <Link to="/admin/events">
+                      <Link
+                        to="/admin/events"
+                        onClick={(e) => handleNavClick(e, false)}
+                      >
                         <Calendar className="h-5 w-5 shrink-0" />
                         {!collapsed && (
                           <span className="font-medium">Events</span>
@@ -385,7 +376,10 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                       className={getNavButtonClass("/admin/certificates")}
                       asChild
                     >
-                      <Link to="/admin/certificates">
+                      <Link
+                        to="/admin/certificates"
+                        onClick={(e) => handleNavClick(e, false)}
+                      >
                         <Award className="h-5 w-5 shrink-0" />
                         {!collapsed && (
                           <span className="font-medium">Certificates</span>
@@ -458,7 +452,12 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                       )}
                       asChild
                     >
-                      <Link to="/admin/merchandise/products">Products</Link>
+                      <Link
+                        to="/admin/merchandise/products"
+                        onClick={(e) => handleNavClick(e, false)}
+                      >
+                        Products
+                      </Link>
                     </Button>
                     <Button
                       variant="ghost"
@@ -469,7 +468,12 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                       )}
                       asChild
                     >
-                      <Link to="/admin/merchandise/promo">Promo</Link>
+                      <Link
+                        to="/admin/merchandise/promo"
+                        onClick={(e) => handleNavClick(e, false)}
+                      >
+                        Promo
+                      </Link>
                     </Button>
                   </div>
                 )}
@@ -482,7 +486,10 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                       className={getNavButtonClass("/admin/orders")}
                       asChild
                     >
-                      <Link to="/admin/orders">
+                      <Link
+                        to="/admin/orders"
+                        onClick={(e) => handleNavClick(e, false)}
+                      >
                         <ClipboardList className="h-5 w-5 shrink-0" />
                         {!collapsed && <span>Orders</span>}
                       </Link>
@@ -505,7 +512,10 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                         className={getNavButtonClass("/admin/devtools")}
                         asChild
                       >
-                        <Link to="/admin/devtools">
+                        <Link
+                          to="/admin/devtools"
+                          onClick={(e) => handleNavClick(e, false)}
+                        >
                           <Code className="h-5 w-5 shrink-0" />
                           {!collapsed && <span>Developer Tools</span>}
                         </Link>
@@ -519,27 +529,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                   </Tooltip>
                 </li>
               ) : null}
-              <li>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      className={getNavButtonClass("/admin/agent-chat")}
-                      asChild
-                    >
-                      <Link to="/admin/agent-chat">
-                        <Bot className="h-5 w-5 shrink-0" />
-                        {!collapsed && <span>AI Assistant</span>}
-                      </Link>
-                    </Button>
-                  </TooltipTrigger>
-                  {collapsed && (
-                    <TooltipContent side="right">
-                      <p>AI Assistant</p>
-                    </TooltipContent>
-                  )}
-                </Tooltip>
-              </li>
+
               <li>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -553,12 +543,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                     >
                       <Link
                         to={isUcMainAdmin ? "/admin/reports" : "#"}
-                        onClick={(e) => {
-                          if (!isUcMainAdmin) {
-                            e.preventDefault();
-                            showToast("error", "Unauthorized.");
-                          }
-                        }}
+                        onClick={(e) => handleNavClick(e, true)}
                       >
                         <BarChart3 className="h-5 w-5 shrink-0" />
                         {!collapsed && <span>Reports</span>}
@@ -590,7 +575,10 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                       className={getNavButtonClass("/admin/settings")}
                       asChild
                     >
-                      <Link to="/admin/settings">
+                      <Link
+                        to="/admin/settings"
+                        onClick={(e) => handleNavClick(e, false)}
+                      >
                         <Settings className="h-5 w-5 shrink-0" />
                         {!collapsed && <span>Settings</span>}
                       </Link>
@@ -613,12 +601,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                     >
                       <Link
                         to={isUcMainAdmin ? "/admin/documentation" : "#"}
-                        onClick={(e) => {
-                          if (!isUcMainAdmin) {
-                            e.preventDefault();
-                            showToast("error", "Unauthorized.");
-                          }
-                        }}
+                        onClick={(e) => handleNavClick(e, true)}
                       >
                         <BookOpen className="h-5 w-5 shrink-0" />
                         {!collapsed && <span>Documentation</span>}
@@ -642,12 +625,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                     >
                       <Link
                         to={isUcMainAdmin ? "/admin/logs" : "#"}
-                        onClick={(e) => {
-                          if (!isUcMainAdmin) {
-                            e.preventDefault();
-                            showToast("error", "Unauthorized.");
-                          }
-                        }}
+                        onClick={(e) => handleNavClick(e, true)}
                       >
                         <FileText className="h-5 w-5 shrink-0" />
                         {!collapsed && <span>Logs</span>}
@@ -665,10 +643,8 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           </div>
         </nav>
 
-        <Separator />
-
         {/* User Profile */}
-        <div className="p-3">
+        <div className="rounded-3xl p-3">
           {collapsed ? (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -694,7 +670,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
               </TooltipContent>
             </Tooltip>
           ) : (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 rounded-full border border-gray-200 px-3 py-2">
               <Avatar className="h-10 w-10">
                 <AvatarFallback className="bg-orange-400 font-semibold text-white">
                   {user?.name

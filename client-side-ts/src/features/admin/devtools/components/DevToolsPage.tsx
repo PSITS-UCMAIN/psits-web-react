@@ -23,6 +23,7 @@ import {
   List,
   Receipt,
   Workflow,
+  Bot,
 } from "lucide-react";
 import { EmailQueuePanel } from "../components/EmailQueuePanel";
 import { HealthStatsPanel } from "../components/HealthStatsPanel";
@@ -50,6 +51,7 @@ import { EndpointInventoryPanel } from "../components/EndpointInventoryPanel";
 import { RefundQueuePanel } from "../components/RefundQueuePanel";
 import { AutomationPanel } from "../components/AutomationPanel";
 import { JobFormDialog } from "../components/JobFormDialog";
+import { NoetixAIPanel } from "../components/NoetixAIPanel";
 import type { AutomationJob } from "../types/automation.types";
 
 const sections = [
@@ -67,6 +69,7 @@ const sectionPanels: Record<string, PanelTab[]> = {
     { key: "ratelimit", label: "Rate Limiter", icon: Shield },
     { key: "dbperf", label: "DB Performance", icon: Database },
     { key: "activity", label: "Activity Log", icon: ScrollText },
+    { key: "noetix-ai", label: "Noetix AI", icon: Bot },
     { key: "certificates", label: "Certificate Templates", icon: FileText },
     { key: "revenue", label: "Revenue Dashboard", icon: TrendingUp },
     { key: "stock-alerts", label: "Stock Alerts", icon: AlertTriangle },
@@ -309,6 +312,8 @@ const PanelRenderer = ({ activeTab, onCreateJob }: PanelRendererProps) => {
       return <BruteForcePanel />;
     case "automation":
       return <AutomationPanel onCreateJob={onCreateJob} />;
+    case "noetix-ai":
+      return <NoetixAIPanel />;
     default:
       return null;
   }

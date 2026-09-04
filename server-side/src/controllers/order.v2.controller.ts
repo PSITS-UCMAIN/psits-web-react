@@ -14,7 +14,10 @@ import { PromoUsage } from "../models/promo.usage.model";
 import mongoose, { Types } from "mongoose";
 import dotenv from "dotenv";
 import { format } from "date-fns";
-import { orderReceipt } from "../mail_template/mail.template";
+import {
+  formatReceiptDateTime,
+  orderReceipt,
+} from "../mail_template/mail.template";
 import { Request, Response } from "express";
 import { Refund } from "../models/refund.model";
 import { refundCodeGenerator } from "../custom_function/code_generator";
@@ -349,25 +352,22 @@ class OrderController {
       await session.commitTransaction();
       session.endSession();
 
-      if (!userEmail?.email) {
-        return res.status(200).json({
-          message:
-            "Successfully approved order (email not sent - no email on file)",
-        });
+      // The order is already approved at this point. Send the receipt email
+      // and write the audit log in the background instead of making the
+      // client wait on them - orderReceipt already handles its own errors.
+      if (userEmail?.email) {
+        void orderReceipt(
+          {
+            ...receipt,
+            transaction_date: formatReceiptDateTime(receipt.transaction_date),
+          },
+          userEmail.email,
+          userEmail._id.toString(),
+          receipt.reference_code
+        );
       }
-
-      //Send email outside of transaction
-      await orderReceipt(
-        receipt,
-        userEmail.email,
-        userEmail._id.toString(),
-        receipt.reference_code
-      );
-      //Log outside of transaction - wrap in try-catch so a log failure
-      //does not trigger the catch block below (which would try to abort
-      //an already-committed session).
-      try {
-        await logService.create({
+      logService
+        .create({
           admin: admin.name,
           admin_id: admin._id,
           action: logs_action.APPROVE_ORDER,
@@ -376,12 +376,15 @@ class OrderController {
             ? new Types.ObjectId(String(order_id))
             : undefined,
           target_model: "Order",
+        })
+        .catch((logErr) => {
+          console.error("Failed to create approve order log:", logErr);
         });
-      } catch (logErr) {
-        console.error("Failed to create approve order log:", logErr);
-      }
+
       return res.status(200).json({
-        message: "Successfully approved order",
+        message: userEmail?.email
+          ? "Successfully approved order"
+          : "Successfully approved order (email not sent - no email on file)",
       });
     } catch (err) {
       // Only abort/end the session if the transaction is still active.

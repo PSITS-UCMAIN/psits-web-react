@@ -17,6 +17,22 @@ import { IResponseMessage } from "../models/global.response.interface";
 import { ILog } from "../models/log.interface";
 import { ICreateAdmin } from "../models/admin.interface";
 
+const ADMIN_ID_SUFFIX = "-admin";
+
+//Admin ids are stored as "<id>-admin" since login uses that suffix to pick the
+//Admin collection over Student. Idempotent: callers that already append it
+//(recruitment, chat tools) must not end up with "-admin-admin".
+const normalizeAdminIdNumber = (id_number: unknown): string => {
+  const trimmed = String(id_number ?? "").trim();
+  if (!trimmed) return "";
+
+  const base = trimmed.endsWith(ADMIN_ID_SUFFIX)
+    ? trimmed.slice(0, -ADMIN_ID_SUFFIX.length).trim()
+    : trimmed;
+
+  return `${base}${ADMIN_ID_SUFFIX}`;
+};
+
 class AdminService {
   //Update One Dynamic Admin
   updateOneDynamic = async (id_number: String, parameters: any) => {
@@ -231,6 +247,19 @@ class AdminService {
       };
     }
   };
+
+  suspendByIdNumber = async (id_number: string) => {
+    const updatedAdmin: IResponseMessage = await this.updateOneDynamic(
+      id_number,
+      {
+        status: account_status.SUSPENDED,
+      }
+    );
+    if (!updatedAdmin.status) {
+      throw new AppError("Admin not found or already suspended", 404);
+    }
+    return { message: "Admin account suspended", id_number };
+  };
   //Remove role of members
   removeRole = async (req: Request) => {
     const { id_number } = req.body;
@@ -429,15 +458,25 @@ class AdminService {
   };
   //Create Admin Account
   create = async (body: ICreateAdmin, req: Request) => {
-    //Check if id number existed
-    const admin = await Admin.findOne({ id_number: body.id_number });
+    const id_number = normalizeAdminIdNumber(body.id_number);
+    if (!id_number) {
+      throw new AppError("ID number is required", 400);
+    }
+
+    //Check if id number existed, legacy accounts are stored without the suffix
+    //so both forms have to block a second account for the same person
+    const admin = await Admin.findOne({
+      id_number: {
+        $in: [id_number, id_number.slice(0, -ADMIN_ID_SUFFIX.length)],
+      },
+    });
     if (admin) {
       throw new AppError("Already have an account!", 404);
     }
 
     const hashedPassword = await bcrypt.hash(body.password, 10);
     const newAdmin: IAdminDocument = new Admin({
-      id_number: body.id_number,
+      id_number,
       name: body.name,
       password: hashedPassword,
       email: body.email,
@@ -454,7 +493,7 @@ class AdminService {
       admin: req.admin.name,
       admin_id: req.admin._id,
       action: logs_action.CREATE_ADMIN,
-      target: body.id_number,
+      target: id_number,
       target_model: "Admin",
     };
     //Runs Log
