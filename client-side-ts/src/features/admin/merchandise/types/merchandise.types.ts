@@ -5,7 +5,11 @@ import type {
 
 export type MerchandiseSection = "products";
 
-export type ProductStatus = "Published" | "Inactive" | "Out of Stock";
+export type ProductStatus =
+  | "Published"
+  | "Inactive"
+  | "Out of Stock"
+  | "Expired";
 
 export type ProductSortField =
   | "name"

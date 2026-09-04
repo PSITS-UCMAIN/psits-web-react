@@ -7,6 +7,7 @@ import {
 } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
+  CalendarClock,
   Check,
   ChevronDown,
   ChevronLeft,
@@ -125,11 +126,18 @@ const statusTone = (status: ProductStatus | string) => {
   if (status === "Published" || status === "Active") {
     return "bg-green-100 text-green-600";
   }
-  if (status === "Out of Stock" || status === "Expired") {
-    return "bg-orange-100 text-orange-600";
-  }
+  if (status === "Expired") return "bg-red-100 text-red-600";
+  if (status === "Out of Stock") return "bg-orange-100 text-orange-600";
   if (status === "Upcoming") return "bg-sky-100 text-sky-600";
   return "bg-[#f2f2f2] text-[#737373]";
+};
+
+const toDateInputValue = (date: Date) => date.toISOString().slice(0, 10);
+
+const defaultExtendedEndDate = () => {
+  const date = new Date();
+  date.setDate(date.getDate() + 7);
+  return toDateInputValue(date);
 };
 
 const fieldClass =
@@ -329,7 +337,7 @@ const ProductFilter = ({ filters, batches, onApply }: ProductFilterProps) => {
           <div className="space-y-5">
             <FilterChipGroup
               label="Status"
-              options={["Published", "Inactive", "Out of Stock"]}
+              options={["Published", "Inactive", "Out of Stock", "Expired"]}
               selected={draft.statuses}
               onToggle={(value) => toggleListValue("statuses", value)}
             />
@@ -449,6 +457,7 @@ interface ProductTableProps {
   onToggleSelectRow: (id: string) => void;
   onDelete: (product: MerchandiseItem) => void;
   onEdit: (product: MerchandiseItem) => void;
+  onExtendSale: (product: MerchandiseItem) => void;
   onPageChange: (page: number) => void;
   onPublish: (product: MerchandiseItem) => void;
   onSort: (field: ProductSortField) => void;
@@ -467,6 +476,7 @@ const ProductTable = ({
   onToggleSelectRow,
   onDelete,
   onEdit,
+  onExtendSale,
   onPageChange,
   onPublish,
   onSort,
@@ -623,6 +633,15 @@ const ProductTable = ({
                               <Edit3 className="h-4 w-4" />
                               Edit Product
                             </DropdownMenuItem>
+                            {status === "Expired" && (
+                              <DropdownMenuItem
+                                className="cursor-pointer gap-2 rounded-lg"
+                                onClick={() => onExtendSale(product)}
+                              >
+                                <CalendarClock className="h-4 w-4" />
+                                Extend Sale
+                              </DropdownMenuItem>
+                            )}
                             {product.is_active === false ? (
                               <DropdownMenuItem
                                 className="cursor-pointer gap-2 rounded-lg"
@@ -872,12 +891,76 @@ const ConfirmationDialog = ({
   );
 };
 
+interface ExtendSaleDialogProps {
+  product: MerchandiseItem | null;
+  loading: boolean;
+  onClose: () => void;
+  onConfirm: (endDate: string) => void;
+}
+
+const ExtendSaleDialog = ({
+  product,
+  loading,
+  onClose,
+  onConfirm,
+}: ExtendSaleDialogProps) => {
+  //Remounted per product by its key, so the picker resets on every open
+  const [endDate, setEndDate] = useState(defaultExtendedEndDate);
+  const today = toDateInputValue(new Date());
+
+  return (
+    <Dialog
+      open={Boolean(product)}
+      onOpenChange={(open) => !open && onClose()}
+    >
+      <DialogContent className="max-w-[430px] rounded-3xl border-none p-7">
+        <DialogTitle className="text-xl font-semibold">Extend sale?</DialogTitle>
+        <DialogDescription className="text-sm leading-relaxed text-[#8c8c8c]">
+          {product?.name || "This product"} stopped selling on{" "}
+          {formatDate(product?.end_date)}. Pick a new end date to put it back on
+          sale.
+        </DialogDescription>
+        <div className="mt-5 space-y-2">
+          <Label htmlFor="extend-sale-end-date" className="text-xs font-medium">
+            New end date
+          </Label>
+          <Input
+            id="extend-sale-end-date"
+            type="date"
+            min={today}
+            value={endDate}
+            onChange={(event) => setEndDate(event.target.value)}
+            className={fieldClass}
+          />
+        </div>
+        <div className="mt-6 flex gap-3">
+          <Button
+            variant="outline"
+            className="h-10 flex-1 cursor-pointer rounded-full"
+            onClick={onClose}
+          >
+            Cancel
+          </Button>
+          <Button
+            className="h-10 flex-1 cursor-pointer rounded-full bg-[#1C9DDE] hover:bg-[#178ac2]"
+            disabled={loading || !endDate || endDate < today}
+            onClick={() => onConfirm(endDate)}
+          >
+            Extend Sale
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 const ProductsPage = () => {
   const navigate = useNavigate();
   const {
     canManageMerchandise,
     deleteProduct,
     error,
+    extendProductSale,
     isLoading,
     isMutating,
     productBatches,
@@ -901,6 +984,9 @@ const ProductsPage = () => {
     "delete-product" | "publish-product" | null
   >(null);
   const [confirmProduct, setConfirmProduct] = useState<MerchandiseItem | null>(
+    null
+  );
+  const [extendProduct, setExtendProduct] = useState<MerchandiseItem | null>(
     null
   );
 
@@ -936,6 +1022,12 @@ const ProductsPage = () => {
       setConfirmAction(null);
       setConfirmProduct(null);
     }
+  };
+
+  const handleExtendSale = async (endDate: string) => {
+    if (!extendProduct) return;
+    const succeeded = await extendProductSale(extendProduct, endDate);
+    if (succeeded) setExtendProduct(null);
   };
 
   return (
@@ -991,6 +1083,7 @@ const ProductsPage = () => {
           onEdit={(product) =>
             navigate(`/admin/merchandise/products/${product._id}/edit`)
           }
+          onExtendSale={setExtendProduct}
           onPageChange={setProductPage}
           onPublish={(product) => openConfirm("publish-product", product)}
           onSort={toggleProductSort}
@@ -1004,6 +1097,13 @@ const ProductsPage = () => {
         product={selectedProduct}
         open={detailsOpen}
         onOpenChange={setDetailsOpen}
+      />
+      <ExtendSaleDialog
+        key={extendProduct?._id || "extend-sale"}
+        product={extendProduct}
+        loading={isMutating}
+        onClose={() => setExtendProduct(null)}
+        onConfirm={handleExtendSale}
       />
       <ConfirmationDialog
         action={confirmAction}

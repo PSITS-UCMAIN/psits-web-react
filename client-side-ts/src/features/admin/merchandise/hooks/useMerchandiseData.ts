@@ -12,6 +12,7 @@ import { PSITS_ROLES } from "@/features/admin/constants/adminAccess";
 import { useAuth } from "@/features/auth";
 import { normalizeCampus } from "@/features/auth/utils/campus";
 import { showToast } from "@/utils/alertHelper";
+import { isProductExpired } from "@/utils/date-manila";
 export {
   type ProductVariation,
   PRODUCT_VARIATION_OPTIONS,
@@ -148,8 +149,10 @@ const formatDateKey = (value?: string) => {
 };
 
 export const getProductStatus = (product: MerchandiseItem): ProductStatus => {
+  if (product.is_active === false) return "Inactive";
+  if (isProductExpired(product.end_date)) return "Expired";
   if (Number(product.stocks || 0) <= 0) return "Out of Stock";
-  return product.is_active === false ? "Inactive" : "Published";
+  return "Published";
 };
 
 export const formatPurchaseControl = (value?: string) => {
@@ -175,11 +178,24 @@ const productSearchText = (product: MerchandiseItem) =>
     .join(" ")
     .toLowerCase();
 
+// Sorting by status follows how sellable a product is rather than the
+// alphabet, so ascending runs Published first and Expired last
+const PRODUCT_STATUS_ORDER: ProductStatus[] = [
+  "Published",
+  "Out of Stock",
+  "Inactive",
+  "Expired",
+];
+
 const productSortValue = (
   product: MerchandiseItem,
   field: ProductSortField
 ) => {
-  if (field === "status") return getProductStatus(product);
+  if (field === "status") {
+    const rank = PRODUCT_STATUS_ORDER.indexOf(getProductStatus(product));
+    //Products keep their alphabetical order inside each status group
+    return `${rank}-${product.name || ""}`;
+  }
   return String(product[field] || "");
 };
 
@@ -286,7 +302,8 @@ export const useMerchandiseData = () => {
   const [productSort, setProductSort] = useState<
     MerchandiseSort<ProductSortField>
   >({
-    field: "name",
+    //Sellable products lead the table, expired ones sink to the bottom
+    field: "status",
     direction: "asc",
   });
   const [productPage, setProductPage] = useState(1);
@@ -431,6 +448,41 @@ export const useMerchandiseData = () => {
     }
   };
 
+  //Push the end date of a lapsed sale forward, reusing the normal update
+  //pipeline so every other field keeps its current value
+  const extendProductSale = async (
+    product: MerchandiseItem,
+    endDate: string
+  ) => {
+    if (!canManageMerchandise) {
+      showToast("error", "Unauthorized.");
+      return false;
+    }
+
+    const values: ProductFormValues = {
+      ...productFormFromRecord(product),
+      end_date: endDate,
+    };
+
+    setIsMutating(true);
+    const formData = appendProductFormData(
+      values,
+      EMPTY_PRODUCT_IMAGES,
+      product.created_by || user?.name || ""
+    );
+
+    try {
+      const succeeded = await updateMerchandise(product._id, formData);
+      if (succeeded) {
+        showToast("success", "Sale period extended successfully");
+        await refreshProducts();
+      }
+      return Boolean(succeeded);
+    } finally {
+      setIsMutating(false);
+    }
+  };
+
   const publishProduct = async (id: string) => {
     setIsMutating(true);
     try {
@@ -472,6 +524,7 @@ export const useMerchandiseData = () => {
     canManageMerchandise,
     deleteProduct,
     error,
+    extendProductSale,
     filteredProducts,
     getProductFormValues: productFormFromRecord,
     isLoading,

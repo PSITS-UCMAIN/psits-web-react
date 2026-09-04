@@ -18,6 +18,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { OptimizedImage } from "@/components/common/OptimizedImage";
 import { getPublishedMerchandise, type MerchandiseItem } from "../api/orders";
+import { isProductExpired } from "@/utils/date-manila";
 
 // Fallback image for products without images
 import fallbackImage from "../../../assets/awarding/1.jpg";
@@ -28,11 +29,14 @@ interface Product {
   price: number;
   image: string;
   isSoldOut: boolean;
+  isExpired: boolean;
   category: string;
   description?: string;
   sizes?: string[];
   colors?: string[];
   stock?: number;
+  start_date?: string | Date;
+  end_date?: string | Date;
   selectedSizes?: Record<string, { custom: boolean; price: string }>;
 }
 
@@ -65,11 +69,14 @@ const transformMerchandise = (item: MerchandiseItem): Product => {
     price: item.price,
     image: productImage,
     isSoldOut: (item.stocks ?? item.stock ?? 0) <= 0,
+    isExpired: isProductExpired(item.end_date),
     category: item.category || "Merchandise",
     description: item.description,
     sizes: sizesFromSelectedSizes,
     colors,
     stock: item.stocks ?? item.stock,
+    start_date: item.start_date,
+    end_date: item.end_date,
     selectedSizes: item.selectedSizes,
   };
 };
@@ -115,11 +122,14 @@ export const OurShop: React.FC = () => {
     return () => clearTimeout(t);
   }, [search]);
 
-  const filtered = products.filter(
-    (p) =>
-      p.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-      p.category.toLowerCase().includes(debouncedSearch.toLowerCase())
-  );
+  const filtered = products
+    .filter(
+      (p) =>
+        p.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        p.category.toLowerCase().includes(debouncedSearch.toLowerCase())
+    )
+    // Keep products that are still on sale above the ones that already ended
+    .sort((a, b) => Number(a.isExpired) - Number(b.isExpired));
 
   const pageCount = Math.ceil(filtered.length / PRODUCTS_PER_PAGE);
   const paginatedItems = filtered.slice(
@@ -242,24 +252,28 @@ export const OurShop: React.FC = () => {
 };
 
 const ProductCardInner: React.FC<{ product: Product }> = ({ product }) => {
+  // An expired sale and an empty stock both make the card unbuyable, but they
+  // are labelled differently so the shopper knows which one it is
+  const isUnavailable = product.isSoldOut || product.isExpired;
+
   return (
     <Link
       to={`/shop/${product.id}`}
       state={{ product }}
-      className={`${product.isSoldOut ? "pointer-events-none" : ""}`}
-      aria-disabled={product.isSoldOut}
+      className={`${isUnavailable ? "pointer-events-none" : ""}`}
+      aria-disabled={isUnavailable}
     >
       <div
-        className={`group rounded-3xl border border-gray-100 bg-white pb-4 shadow-sm transition-all duration-300 ${product.isSoldOut ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:-translate-y-2 hover:shadow-xl"} `}
+        className={`group rounded-3xl border border-gray-100 bg-white pb-4 shadow-sm transition-all duration-300 ${isUnavailable ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:-translate-y-2 hover:shadow-xl"} `}
       >
         <div className="relative mb-6 aspect-square overflow-hidden rounded-t-2xl">
-          {product.isSoldOut && (
+          {isUnavailable && (
             <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/40 backdrop-blur-[2px]">
               <Badge
                 variant="destructive"
-                className="tracking-tighter uppercase"
+                className={`tracking-tighter uppercase ${product.isExpired ? "bg-gray-600" : ""}`}
               >
-                Sold Out
+                {product.isExpired ? "Expired" : "Sold Out"}
               </Badge>
             </div>
           )}
@@ -267,7 +281,7 @@ const ProductCardInner: React.FC<{ product: Product }> = ({ product }) => {
             src={product.image}
             alt={product.name}
             containerClassName="absolute inset-0 h-full w-full"
-            className={`object-cover transition-transform duration-500 ${!product.isSoldOut && "group-hover:scale-110"}`}
+            className={`object-cover transition-transform duration-500 ${!isUnavailable && "group-hover:scale-110"}`}
           />
         </div>
 
@@ -281,7 +295,11 @@ const ProductCardInner: React.FC<{ product: Product }> = ({ product }) => {
             {product.name}
           </p>
           <p className="text-xs text-gray-500">
-            {product.isSoldOut ? "Currently unavailable" : "In stock"}
+            {product.isExpired
+              ? "Sale ended"
+              : product.isSoldOut
+                ? "Currently unavailable"
+                : "In stock"}
           </p>
         </div>
         <div className="flex items-end justify-end px-5">

@@ -21,6 +21,10 @@ const r2Client = new S3Client({
   },
 });
 
+//How long an expired product keeps showing in the shop, greyed out, before it
+//is dropped from the listing entirely
+const EXPIRED_GRACE_DAYS = 30;
+
 const r2BucketName = process.env.R2_BUCKET_NAME;
 if (!r2BucketName) throw new Error("R2_BUCKET_NAME is not configured");
 const r2Endpoint = `https://${r2BucketName}.${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
@@ -83,7 +87,10 @@ class MerchandiseController {
         return res.status(400).json({ error: "Invalid selectedSizes format" });
       }
     } else if (selectedSizes && typeof selectedSizes === "object") {
-      parsedSelectedSizes = selectedSizes as Record<string, SelectedSizePricing>;
+      parsedSelectedSizes = selectedSizes as Record<
+        string,
+        SelectedSizePricing
+      >;
     }
 
     let parsedSessionConfig;
@@ -260,8 +267,13 @@ class MerchandiseController {
         try {
           parsedSelectedSizes = JSON.parse(selectedSizes);
         } catch (error) {
-          console.error("Invalid JSON format for selectedSizes:", selectedSizes);
-          return res.status(400).json({ error: "Invalid selectedSizes format" });
+          console.error(
+            "Invalid JSON format for selectedSizes:",
+            selectedSizes
+          );
+          return res
+            .status(400)
+            .json({ error: "Invalid selectedSizes format" });
         }
       } else if (selectedSizes && typeof selectedSizes === "object") {
         parsedSelectedSizes = selectedSizes as Record<
@@ -277,19 +289,21 @@ class MerchandiseController {
           : [];
 
       const imageKeys = imagesToRemove.length
-        ? imagesToRemove.map((url) => {
-            try {
-              const p = new URL(url).pathname.replace(/^\//, "");
-              if (!p.startsWith("merchandise/")) {
-                console.error("Unexpected image key prefix:", p);
+        ? imagesToRemove
+            .map((url) => {
+              try {
+                const p = new URL(url).pathname.replace(/^\//, "");
+                if (!p.startsWith("merchandise/")) {
+                  console.error("Unexpected image key prefix:", p);
+                  return null;
+                }
+                return p;
+              } catch (e) {
+                console.error("Invalid image URL:", url);
                 return null;
               }
-              return p;
-            } catch (e) {
-              console.error("Invalid image URL:", url);
-              return null;
-            }
-          }).filter((k): k is string => k !== null)
+            })
+            .filter((k): k is string => k !== null)
         : [];
 
       await Promise.all(
@@ -371,7 +385,8 @@ class MerchandiseController {
               item.category = category;
               item.batch = batch;
               item.limited = control === "limited-purchase" ? true : false;
-              item.quantity = control === "limited-purchase" ? 1 : item.quantity;
+              item.quantity =
+                control === "limited-purchase" ? 1 : item.quantity;
             }
           }
 
@@ -400,7 +415,8 @@ class MerchandiseController {
               item.price = itemPrice;
               item.batch = batch;
               item.limited = control === "limited-purchase" ? true : false;
-              item.quantity = control === "limited-purchase" ? 1 : item.quantity;
+              item.quantity =
+                control === "limited-purchase" ? 1 : item.quantity;
               item.sub_total = itemPrice * item.quantity;
             }
 
@@ -485,25 +501,35 @@ class MerchandiseController {
         return res.status(404).json({ message: "Merch not found" });
       }
       if (merch.is_active) {
-        return res.status(400).json({ message: "Merch must be soft-deleted first before hard delete" });
+        return res
+          .status(400)
+          .json({
+            message: "Merch must be soft-deleted first before hard delete",
+          });
       }
 
       // Delete images from R2
       if (merch.imageUrl && merch.imageUrl.length > 0) {
-        const imageKeys = merch.imageUrl.map((url) => {
-          try {
-            return new URL(String(url)).pathname.replace(/^\//, "");
-          } catch {
-            return null;
-          }
-        }).filter((key): key is string => key !== null);
+        const imageKeys = merch.imageUrl
+          .map((url) => {
+            try {
+              return new URL(String(url)).pathname.replace(/^\//, "");
+            } catch {
+              return null;
+            }
+          })
+          .filter((key): key is string => key !== null);
 
-        await Promise.all(imageKeys.map((key) =>
-          r2Client.send(new DeleteObjectCommand({
-            Bucket: process.env.R2_BUCKET_NAME,
-            Key: key,
-          }))
-        ));
+        await Promise.all(
+          imageKeys.map((key) =>
+            r2Client.send(
+              new DeleteObjectCommand({
+                Bucket: process.env.R2_BUCKET_NAME,
+                Key: key,
+              })
+            )
+          )
+        );
       }
 
       await Merch.findByIdAndDelete(product_id);
@@ -538,6 +564,15 @@ class MerchandiseController {
         return res.status(404).json({ message: "Merch not found" });
       }
 
+      //Publishing an already expired product would leave it invisible in the
+      //shop, so ask the admin to extend the sale period first
+      if (merch.end_date && new Date() > new Date(merch.end_date)) {
+        return res.status(400).json({
+          message:
+            "This product's sale period has ended. Extend the sale before publishing it.",
+        });
+      }
+
       const result = await Merch.updateOne(
         { _id: product_id },
         { $set: { is_active: true } }
@@ -570,11 +605,16 @@ class MerchandiseController {
   async retrievePublished(req: Request, res: Response) {
     try {
       const now = new Date();
+      //Recently expired merchandise is still returned so the shop can render it
+      //as expired instead of silently dropping it from the grid
+      const graceCutoff = new Date(
+        now.getTime() - EXPIRED_GRACE_DAYS * 24 * 60 * 60 * 1000
+      );
 
       const merches = await Merch.find({
         is_active: true,
         start_date: { $lte: now },
-        $or: [{ end_date: { $gt: now } }, { end_date: null }],
+        $or: [{ end_date: { $gt: graceCutoff } }, { end_date: null }],
       })
         .select(
           "name price stocks batch description selectedVariations selectedSizes selectedAudience control created_by start_date end_date category type imageUrl"
@@ -613,7 +653,9 @@ class MerchandiseController {
 
 export const merchandiseController = new MerchandiseController();
 
-export const hardDeleteSoftDeletedMerch = async (): Promise<{ deletedCount: number }> => {
+export const hardDeleteSoftDeletedMerch = async (): Promise<{
+  deletedCount: number;
+}> => {
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
@@ -627,20 +669,26 @@ export const hardDeleteSoftDeletedMerch = async (): Promise<{ deletedCount: numb
     try {
       // Delete images from R2
       if (merch.imageUrl && merch.imageUrl.length > 0) {
-        const imageKeys = merch.imageUrl.map((url) => {
-          try {
-            return new URL(String(url)).pathname.replace(/^\//, "");
-          } catch {
-            return null;
-          }
-        }).filter((key): key is string => key !== null);
+        const imageKeys = merch.imageUrl
+          .map((url) => {
+            try {
+              return new URL(String(url)).pathname.replace(/^\//, "");
+            } catch {
+              return null;
+            }
+          })
+          .filter((key): key is string => key !== null);
 
-        await Promise.all(imageKeys.map((key) =>
-          r2Client.send(new DeleteObjectCommand({
-            Bucket: process.env.R2_BUCKET_NAME,
-            Key: key,
-          }))
-        ));
+        await Promise.all(
+          imageKeys.map((key) =>
+            r2Client.send(
+              new DeleteObjectCommand({
+                Bucket: process.env.R2_BUCKET_NAME,
+                Key: key,
+              })
+            )
+          )
+        );
       }
 
       await Merch.findByIdAndDelete(merch._id);

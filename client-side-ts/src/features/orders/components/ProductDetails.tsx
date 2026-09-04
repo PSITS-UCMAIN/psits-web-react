@@ -12,6 +12,7 @@ import {
   isBundledVariationCategory,
 } from "@/features/merchandise/constants/variations";
 import { getMerchandiseById, type MerchandiseItem } from "../api/orders";
+import { isProductExpired, isProductNotStarted } from "@/utils/date-manila";
 
 interface Product {
   id: string;
@@ -98,7 +99,28 @@ interface AddToCartButtonProps {
   selectedCourse: string;
   quantity: number;
   disabled?: boolean;
+  disabledReason?: UnavailableReason;
 }
+
+type UnavailableReason = "sold-out" | "expired" | "not-started";
+
+const formatProductDate = (value?: string | Date) => {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+};
+
+// Why the purchase buttons are locked, so the shopper is not left guessing
+const unavailableLabel = (reason?: UnavailableReason) => {
+  if (reason === "expired") return "Sale Ended";
+  if (reason === "not-started") return "Not Yet Available";
+  return "Sold Out";
+};
 
 const BuyNowButton: React.FC<AddToCartButtonProps> = ({
   product,
@@ -107,6 +129,7 @@ const BuyNowButton: React.FC<AddToCartButtonProps> = ({
   selectedCourse,
   quantity,
   disabled = false,
+  disabledReason,
 }) => {
   const { addItem } = useCart();
   const navigate = useNavigate();
@@ -159,7 +182,7 @@ const BuyNowButton: React.FC<AddToCartButtonProps> = ({
           : "bg-[#1c9dde] text-white shadow-blue-100 hover:-translate-y-1 hover:bg-[#1a8acb]/90 active:scale-[0.98]"
       )}
     >
-      Buy Now
+      {disabled ? unavailableLabel(disabledReason) : "Buy Now"}
     </Button>
   );
 };
@@ -171,6 +194,7 @@ const AddToCartButton: React.FC<AddToCartButtonProps> = ({
   selectedCourse,
   quantity,
   disabled = false,
+  disabledReason,
 }) => {
   const { addItem } = useCart();
   const { user } = useAuth();
@@ -248,7 +272,7 @@ const AddToCartButton: React.FC<AddToCartButtonProps> = ({
       >
         <path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
       </svg>
-      {disabled ? "Currently Unavailable" : "Add to Cart"}
+      {disabled ? unavailableLabel(disabledReason) : "Add to Cart"}
     </Button>
   );
 };
@@ -401,17 +425,18 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
   const displayPrice = getDisplayPrice();
   const selectedPriceProduct = { ...currentProduct, price: displayPrice };
 
-  const now = new Date();
-  const startDate = currentProduct.start_date
-    ? new Date(currentProduct.start_date)
-    : null;
-  const endDate = currentProduct.end_date
-    ? new Date(currentProduct.end_date)
-    : null;
-  const isNotStarted = startDate ? now < startDate : false;
-  const isExpired = endDate ? now > endDate : false;
+  const isNotStarted = isProductNotStarted(currentProduct.start_date);
+  const isExpired = isProductExpired(currentProduct.end_date);
   const isOutOfActiveWindow = isNotStarted || isExpired;
   const purchaseDisabled = currentProduct.isSoldOut || isOutOfActiveWindow;
+  // Expiry outranks the stock count: a lapsed sale cannot be restocked into life
+  const unavailableReason: UnavailableReason | undefined = isExpired
+    ? "expired"
+    : isNotStarted
+      ? "not-started"
+      : currentProduct.isSoldOut
+        ? "sold-out"
+        : undefined;
 
   return (
     <div className="animate-in fade-in slide-in-from-right-4 mx-auto mt-16 min-h-screen max-w-6xl bg-transparent p-4 font-sans duration-500 sm:mt-20 sm:p-6 lg:p-12">
@@ -462,12 +487,14 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
             </p>
             {isNotStarted && (
               <p className="mt-2 text-sm font-medium text-orange-600">
-                Available starting: {startDate?.toLocaleDateString()}
+                Available starting:{" "}
+                {formatProductDate(currentProduct.start_date)}
               </p>
             )}
             {isExpired && (
               <p className="mt-2 text-sm font-medium text-red-600">
-                This item is no longer available
+                The sale for this item ended on{" "}
+                {formatProductDate(currentProduct.end_date)}
               </p>
             )}
           </div>
@@ -623,12 +650,16 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
                 <span
                   className={cn(
                     "text-xs font-medium sm:text-sm",
-                    stockCount > 0 ? "text-gray-400" : "text-red-500"
+                    stockCount > 0 && !isExpired
+                      ? "text-gray-400"
+                      : "text-red-500"
                   )}
                 >
-                  {stockCount > 0
-                    ? `${stockCount} Stocks Available`
-                    : "Out of Stock"}
+                  {isExpired
+                    ? "Sale Ended"
+                    : stockCount > 0
+                      ? `${stockCount} Stocks Available`
+                      : "Out of Stock"}
                 </span>
               </div>
             </div>
@@ -642,6 +673,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
                 selectedCourse={selectedCourse}
                 quantity={quantity}
                 disabled={purchaseDisabled}
+                disabledReason={unavailableReason}
               />
               <AddToCartButton
                 product={selectedPriceProduct}
@@ -650,6 +682,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({
                 selectedCourse={selectedCourse}
                 quantity={quantity}
                 disabled={purchaseDisabled}
+                disabledReason={unavailableReason}
               />
             </div>
           </div>

@@ -33,7 +33,7 @@ export default function OrganizationSection() {
           {/* Tabs Section */}
           <div className="w-full">
             <Tabs defaultValue="officers" className="w-full">
-              <TabsList className="bg-muted/30 border-border/50 no-scrollbar mb-12 inline-flex h-auto w-full flex-nowrap justify-start overflow-x-auto rounded-xl border p-1 backdrop-blur-sm sm:w-auto">
+              <TabsList className="bg-muted/30 border-border/50 no-scrollbar mb-12 inline-flex h-auto w-full flex-nowrap justify-end overflow-x-auto rounded-xl border p-1 backdrop-blur-sm sm:w-auto">
                 {[
                   { id: "advisors", label: "Advisors" },
                   { id: "officers", label: "Officers" },
@@ -59,8 +59,7 @@ export default function OrganizationSection() {
                 const allMembers = organizationSectionData.tabs.reduce(
                   (acc, tab) => {
                     const members = (tab as any)[role.id] as
-                      | Member[]
-                      | undefined;
+                      Member[] | undefined;
                     return members ? [...acc, ...members] : acc;
                   },
                   [] as Member[]
