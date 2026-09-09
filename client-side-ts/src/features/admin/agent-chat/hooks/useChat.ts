@@ -48,7 +48,14 @@ export const useChat = () => {
         }
 
         const {
-          data: { result, sessionId: newSessionId, history },
+          data: {
+            result,
+            sessionId: newSessionId,
+            history,
+            stuck,
+            confidence,
+            sources,
+          },
         } = response;
 
         setSessionId(newSessionId);
@@ -58,9 +65,25 @@ export const useChat = () => {
           role: "assistant",
           content: result || "Response received.",
           timestamp: new Date(),
+          ...(confidence ? { confidence } : {}),
+          ...(sources && sources.length > 0 ? { sources } : {}),
         };
 
         setMessages((prev) => [...prev, assistantMessage]);
+
+        // Noetix v3.1 loop guard fired — the answer is a clarification,
+        // surface it distinctly so the user can rephrase or refresh.
+        if (stuck) {
+          const stuckMsg: ChatMessage = {
+            id: crypto.randomUUID(),
+            role: "system",
+            content:
+              "The assistant hit a loop guard and stopped early. Rephrase with more specific details or refresh data.",
+            timestamp: new Date(),
+            variant: "warning",
+          };
+          setMessages((prev) => [...prev, stuckMsg]);
+        }
 
         // Display tool call summary as a system message if present.
         if (history) {

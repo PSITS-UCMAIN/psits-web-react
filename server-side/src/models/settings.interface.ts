@@ -4,5 +4,6 @@ export interface ISettings {
   studentYearLastUpdated?: Date;
   chatbotEnabled?: boolean;
   noetixDisabledAdmins?: string[];
+  noetixDisabledTools?: string[];
   noetixMaxIterations?: number;
 }

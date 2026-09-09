@@ -1,5 +1,4 @@
 node_modules/
-.env
 dist/
 build/
 .DS_Store
@@ -12,3 +11,4 @@ opencode.json
 .clinerules/archiona.md 
 .github/copilot-instructions.md 
 .aider.archiona.conf.yml
+config.bat

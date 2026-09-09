@@ -717,6 +717,12 @@ export const NoetixAIPanel = () => {
           Toggle tools on or off. Disabled tools will not be available to the AI
           agent. Permission labels indicate who can execute each tool.
         </p>
+        {tools.length > 0 && (
+          <p className="mb-3 text-xs font-medium text-[#2b2b2b]">
+            {tools.filter((t) => t.enabled).length} of {tools.length} tools
+            enabled
+          </p>
+        )}
 
         {toolsLoading ? (
           <div className="space-y-2">
@@ -1029,15 +1035,29 @@ const ToolRegistryList = ({
                       <span className="font-mono text-sm text-[#2b2b2b]">
                         {tool.name}
                       </span>
-                      <span
-                        className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${perm.cls}`}
-                        title={tool.description}
-                      >
-                        <span className="inline-flex items-center gap-1">
-                          <PermIcon className="h-3 w-3" />
-                          {perm.label}
+                        <span
+                          className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${perm.cls}`}
+                          title={tool.description}
+                        >
+                          <span className="inline-flex items-center gap-1">
+                            <PermIcon className="h-3 w-3" />
+                            {perm.label}
+                          </span>
                         </span>
-                      </span>
+                        <span
+                          className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+                            tool.risk === "write"
+                              ? "border-red-200 bg-red-50 text-red-700"
+                              : "border-green-200 bg-green-50 text-green-700"
+                          }`}
+                          title={
+                            tool.risk === "write"
+                              ? "This tool mutates data"
+                              : "This tool only reads data"
+                          }
+                        >
+                          {tool.risk === "write" ? "Write" : "Read"}
+                        </span>
                     </div>
                     <p className="mt-0.5 truncate text-xs text-[#858585]">
                       {tool.description}

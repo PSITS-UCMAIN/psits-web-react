@@ -334,10 +334,9 @@ const queueReportEmail = async (
     const noetixData = compressResultsForNoetix(results);
     try {
       const noetixMarkdown = await (async () => {
-        const tools = (await import("../types/chat-tool.types")).getToolRegistry().map((t) => ({
-          name: t.name,
-          description: t.description,
-        }));
+        const tools = (
+          await import("../types/chat-tool.types")
+        ).buildNoetixTools(new Set(), psits_roles.ADMIN);
         const res = await queryNoetixAiAgent(
           "EMAIL_SENDER",
           `Generate a professional daily operational report for "${job.name}". Include key metrics, highlights, and any concerns from the data below.`,

@@ -22,6 +22,10 @@ const settingsSchema = new Schema<ISettingsDocument>({
     type: [String],
     default: [],
   },
+  noetixDisabledTools: {
+    type: [String],
+    default: [],
+  },
   noetixMaxIterations: {
     type: Number,
     default: 10,

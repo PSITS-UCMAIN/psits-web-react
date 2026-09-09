@@ -18,10 +18,18 @@ const MessageBubble = ({ message }: { message: ChatMessage }) => {
   const isUser = message.role === "user";
   const isSystem = message.role === "system";
   if (isSystem) {
+    const isWarning = message.variant === "warning";
     return (
       <div className="my-3 flex items-center gap-2">
         <div className="bg-border h-px flex-1" />
-        <div className="border-border bg-muted/50 text-muted-foreground flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs">
+        <div
+          className={cn(
+            "flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs",
+            isWarning
+              ? "border-amber-300 bg-amber-50 text-amber-800"
+              : "border-border bg-muted/50 text-muted-foreground"
+          )}
+        >
           <RefreshCw className="h-3 w-3" />
           <span>{message.content}</span>
         </div>
@@ -53,6 +61,22 @@ const MessageBubble = ({ message }: { message: ChatMessage }) => {
         )}
       >
         <p className="break-words whitespace-pre-wrap">{message.content}</p>
+        {!isUser &&
+          (message.confidence ||
+            (message.sources && message.sources.length > 0)) && (
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              {message.confidence && (
+                <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                  {message.confidence} confidence
+                </span>
+              )}
+              {message.sources && message.sources.length > 0 && (
+                <span className="text-[10px] text-muted-foreground">
+                  Backed by: {message.sources.join(", ")}
+                </span>
+              )}
+            </div>
+          )}
         <p
           className={cn(
             "mt-1 text-xs",

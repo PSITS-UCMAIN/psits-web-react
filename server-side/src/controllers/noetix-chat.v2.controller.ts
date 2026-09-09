@@ -1,7 +1,10 @@
 import { Request, Response } from "express";
 
 import { catchAsync } from "../util/catch.async.util";
-import { queryNoetixAiAgent } from "../services/noetix-chat.service";
+import {
+  queryNoetixAiAgent,
+  type NoetixLastTool,
+} from "../services/noetix-chat.service";
 import {
   isChatbotEnabled,
   isNoetixAdminDisabled,
@@ -13,9 +16,8 @@ import { logs_action } from "../enums/logs.enums";
 import {
   findToolByName,
   ToolPermissionError,
-  getToolRegistry,
   summarizeToolResult,
-  type ChatTool,
+  buildNoetixTools,
 } from "../types/chat-tool.types";
 import { createNoetixUsageLog } from "../services/noetix-usage.service";
 
@@ -44,106 +46,6 @@ const buildCleanToolHistory = (toolLog: ToolCallEntry[]): string => {
     )
     .join(" ");
 };
-
-// Extracts tool arguments from the goal message based on args definitions.
-// Noetix returns only the tool name — we parse the natural language goal to fill args.
-function extractToolArgs(
-  _toolName: string,
-  goal: string,
-  history: string,
-  args?: Array<{ name: string; description: string; pattern?: string }>
-): Record<string, string> {
-  const result: Record<string, string> = {};
-  if (!args) return result;
-
-  const source = goal + " " + history;
-
-  for (const arg of args) {
-    if (result[arg.name]) continue;
-    const keyLower = arg.name.toLowerCase();
-
-    // Check history first (Noetix may have echoed back args there).
-    // Capture the rest of the line so multi-word values like
-    // "name: John Smith" are not truncated to just "John".
-    const historyMatch = source.match(
-      new RegExp(`${keyLower}\\s*[:=]\\s*([^\\n]+)`, "i")
-    );
-    if (historyMatch) {
-      const val = historyMatch[1].trim().replace(/[.,;]+$/, "");
-      if (arg.pattern && !new RegExp(arg.pattern).test(val)) continue;
-      result[arg.name] = val;
-      continue;
-    }
-
-    // Try direct ID patterns in the goal
-    if (
-      keyLower.includes("id_number") ||
-      keyLower.includes("student_id") ||
-      keyLower.includes("id")
-    ) {
-      // Patterns: "ID 12345", "id number 12345", "ID number: 12345", "12345" (standalone alphanumeric)
-      const patterns = [
-        /(?:id\s*number?\s*[:\-]?\s*)(\w[\w\-]{5,})/i,
-        /(\w[\w\-]{5,})\s*(?:is|for|of|with)/i,
-      ];
-      for (const pat of patterns) {
-        const m = source.match(pat);
-        if (m) {
-          const val = m[1];
-          if (arg.pattern && !new RegExp(arg.pattern).test(val)) continue;
-          result[arg.name] = val;
-          break;
-        }
-      }
-    }
-
-    // Try order_id pattern (matches "order id", "order_id", "order:123...")
-    if (keyLower.includes("order_id") && !result[arg.name]) {
-      const m = source.match(/(?:order[_\s]*id\s*[:=]?\s*)([a-f0-9]{24})/i);
-      if (m) result[arg.name] = m[1];
-    }
-
-    // Try event_id pattern (matches "event id", "event_id", "eventId")
-    if (keyLower.includes("event_id") && !result[arg.name]) {
-      const m = source.match(
-        /(?:event[_\s]*id|eventId)\s*[:=]?\s*([a-f0-9]{24})/i
-      );
-      if (m) result[arg.name] = m[1];
-    }
-
-    // Generic fallback: look for values mentioned near the arg name
-    if (!result[arg.name]) {
-      const m = source.match(
-        new RegExp(`${keyLower}\\s*[:=]\\s*([^\\n]+)`, "i")
-      );
-      if (m) {
-        const val = m[1].trim().replace(/[.,;]+$/, "");
-        if (arg.pattern && !new RegExp(arg.pattern).test(val)) continue;
-        result[arg.name] = val;
-      }
-    }
-
-    // Prose extraction for free-text args (no pattern): quoted values or
-    // "called/named/titled X" phrases in the goal. Goal only — history may
-    // contain quoted JSON from prior tool results.
-    if (!result[arg.name] && !arg.pattern) {
-      const quoted = goal.match(/"([^"]{2,120})"|'([^']{2,120})'/);
-      const quotedVal = quoted?.[1] ?? quoted?.[2];
-      if (quotedVal) {
-        result[arg.name] = quotedVal.trim();
-        continue;
-      }
-      const phrase = goal.match(
-        /\b(?:called|named|titled)\s+(?:the\s+|this\s+|an?\s+)?([A-Za-z0-9][^,.!?;]{1,118})/i
-      );
-      if (phrase) {
-        result[arg.name] = phrase[1].trim();
-      }
-    }
-  }
-
-  return result;
-}
 
 export const destroySessionController = catchAsync(
   async (req: Request, res: Response) => {
@@ -215,13 +117,12 @@ export const aiAgentController = catchAsync(
     const trimmedMessage = message.trim();
     const newSessionId = crypto.randomUUID();
     let effectiveSessionId = sessionId || newSessionId;
-    let history = "";
+    let lastTool: NoetixLastTool | undefined;
     let iteration = 0;
     let sessionSuccess = false;
+    let sessionError: string | undefined;
     let finalToolName: string | undefined;
     const allToolNames: string[] = [];
-    let consecutiveFailures = 0;
-    let lastFailedTool: string | undefined;
 
     const logUsage = async () => {
       try {
@@ -232,7 +133,7 @@ export const aiAgentController = catchAsync(
           goal: trimmedMessage,
           tool_names: allToolNames,
           success: sessionSuccess,
-          error: history.includes("error:") ? history.slice(-500) : undefined,
+          error: sessionError,
           iterations: iteration,
           mode: "agent",
         });
@@ -243,15 +144,40 @@ export const aiAgentController = catchAsync(
 
     const maxIterations = await getNoetixMaxIterations();
     const disabledToolNames = new Set(await getNoetixDisabledTools());
-    const tools = getToolRegistry()
-      .filter((t) => !disabledToolNames.has(t.name))
-      .map((t) => ({
-        name: t.name,
-        description: t.description,
-        ...(t.args ? { args: t.args } : {}),
-      }));
+    // Tools are filtered by the admin's role: read-only roles (STANDARD /
+    // NO_ACCESS) get read-permission tools only; others get the tools their
+    // access level satisfies. Disabled tools are excluded.
+    const tools = buildNoetixTools(disabledToolNames, resolvedUserAccess);
+
+    if (tools.length === 0) {
+      return res.status(200).json({
+        success: true,
+        data: {
+          sessionId: effectiveSessionId,
+          persona,
+          result:
+            "No tools are available for your access level. Contact an administrator to enable tools.",
+          history: "",
+          iterations: 0,
+        },
+      });
+    }
 
     const toolLog: ToolCallEntry[] = [];
+
+    const finish = (result: string) => {
+      const cleanHistory = buildCleanToolHistory(toolLog);
+      return res.status(200).json({
+        success: true,
+        data: {
+          sessionId: effectiveSessionId,
+          persona,
+          result,
+          history: cleanHistory,
+          iterations: iteration,
+        },
+      });
+    };
 
     while (iteration < maxIterations) {
       iteration++;
@@ -263,8 +189,10 @@ export const aiAgentController = catchAsync(
           trimmedMessage,
           tools,
           effectiveSessionId,
-          history || undefined,
-          false
+          undefined,
+          false,
+          lastTool,
+          resolvedUserAccess
         );
       } catch (err) {
         if (
@@ -277,8 +205,10 @@ export const aiAgentController = catchAsync(
             trimmedMessage,
             tools,
             undefined,
-            history || undefined,
-            false
+            undefined,
+            false,
+            lastTool,
+            resolvedUserAccess
           );
         } else {
           throw err;
@@ -289,16 +219,34 @@ export const aiAgentController = catchAsync(
       finalToolName = agentResult.data.tools_used;
       if (finalToolName) allToolNames.push(finalToolName);
 
-      if (agentResult.data.isFinished) {
-        sessionSuccess = true;
-        await logUsage();
+      // Noetix v3.1 loop guard: a stuck loop is returned as 200 with a
+      // stuckReason — surface it as a failed session, not a success.
+      const stuckReason = agentResult.data.stuckReason;
+
+      if (agentResult.data.isFinished || stuckReason) {
         const cleanHistory = buildCleanToolHistory(toolLog);
+        if (stuckReason) {
+          sessionSuccess = false;
+          sessionError = `stuck: ${stuckReason}`;
+        } else {
+          sessionSuccess = true;
+        }
+        await logUsage();
+        const result =
+          agentResult.data.final_result ||
+          (stuckReason
+            ? "I could not complete this request — I hit a repeat in my tool loop. Please rephrase with more specific details."
+            : "No tool selected.");
         return res.status(200).json({
           success: true,
           data: {
             sessionId: agentResult.data.sessionId,
             persona: agentResult.data.persona,
-            result: agentResult.data.final_result,
+            result,
+            stuck: Boolean(stuckReason),
+            stuckReason: stuckReason,
+            confidence: agentResult.data.confidence,
+            sources: agentResult.data.sources,
             history: cleanHistory,
             iterations: iteration,
           },
@@ -315,6 +263,8 @@ export const aiAgentController = catchAsync(
             sessionId: agentResult.data.sessionId,
             persona: agentResult.data.persona,
             result: agentResult.data.final_result || "No tool selected.",
+            confidence: agentResult.data.confidence,
+            sources: agentResult.data.sources,
             history: cleanHistory,
             iterations: iteration,
           },
@@ -323,21 +273,84 @@ export const aiAgentController = catchAsync(
 
       const tool = findToolByName(finalToolName);
       if (!tool) {
-        history = `${history} Called ${finalToolName} — error: tool not found.\n`;
+        lastTool = {
+          tool: finalToolName,
+          args: agentResult.data.tool_args ?? {},
+          status: "error",
+          result: "Tool not found in the registry.",
+        };
+        continue;
+      }
+
+      // Disabled tools are never executed (defense in depth — Noetix does
+      // not receive them, but stale session state may still select one).
+      if (disabledToolNames.has(tool.name)) {
+        toolLog.push({
+          tool: finalToolName,
+          success: false,
+          summary: "tool is disabled by an administrator",
+        });
+        await logService.create({
+          admin: req.admin.name,
+          admin_id: req.admin._id,
+          action: `${logs_action.NOETIX_AI_ACTION}: ${tool.name} (blocked — disabled)`,
+          target: "Tool is disabled by an administrator; execution blocked.",
+        });
+        lastTool = {
+          tool: finalToolName,
+          args: agentResult.data.tool_args ?? {},
+          status: "error",
+          result:
+            "This tool is disabled by an administrator and cannot be executed. Pick a different tool or state the request cannot be fulfilled.",
+        };
+        continue;
+      }
+
+      // Noetix v3.1 B1: tool_args are validated server-side. If Noetix
+      // reports invalid args after its self-repair retry, feed the details
+      // back so it can fix them on the next turn instead of guessing.
+      const noetixArgs = agentResult.data.tool_args ?? {};
+      if (agentResult.data.tool_args_valid === false) {
+        const details =
+          (agentResult.data.validation ?? []).join("; ") ||
+          "arguments failed validation";
+        toolLog.push({
+          tool: finalToolName,
+          success: false,
+          summary: `args validation failed: ${details}`,
+        });
+        sessionError = `${finalToolName} args validation failed: ${details}`;
+        lastTool = {
+          tool: finalToolName,
+          args: noetixArgs,
+          status: "error",
+          result: `Invalid arguments: ${details}. Correct the arguments and retry.`,
+        };
+        continue;
+      }
+
+      // Noetix returned no args for a tool that requires them — ask it to
+      // populate them on the next turn.
+      const missingArgs = tool.args?.filter((a) => a.required !== false);
+      if (
+        Object.keys(noetixArgs).length === 0 &&
+        missingArgs &&
+        missingArgs.length > 0
+      ) {
+        const missing = missingArgs.map((a) => a.name).join(", ");
+        lastTool = {
+          tool: finalToolName,
+          args: noetixArgs,
+          status: "error",
+          result: `Missing required argument(s): ${missing}. Provide them and retry.`,
+        };
         continue;
       }
 
       let toolResult: unknown;
-      let resolvedArgs: Record<string, string> | undefined;
       try {
-        const noetixArgs = agentResult.data.tool_args;
-        resolvedArgs =
-          noetixArgs && Object.keys(noetixArgs).length > 0
-            ? (noetixArgs as Record<string, string>)
-            : extractToolArgs(finalToolName, trimmedMessage, history, tool.args);
-
         toolResult = await tool.execute(
-          resolvedArgs,
+          noetixArgs,
           resolvedUserAccess,
           userName
         );
@@ -347,11 +360,12 @@ export const aiAgentController = catchAsync(
           success: true,
           summary: resultSummary,
         });
-        history = `${history} Called ${finalToolName}, result: ${
-          resultSummary.length > 6000
-            ? `${resultSummary.slice(0, 6000)}... (truncated)`
-            : resultSummary
-        }.\n`;
+        lastTool = {
+          tool: finalToolName,
+          args: noetixArgs,
+          status: resultSummary === "null" ? "empty" : "ok",
+          result: resultSummary,
+        };
       } catch (err) {
         const errorMsg =
           err instanceof ToolPermissionError
@@ -364,7 +378,13 @@ export const aiAgentController = catchAsync(
           success: false,
           summary: errorMsg,
         });
-        history = `${history} Called ${finalToolName}, error: ${errorMsg}.\n`;
+        sessionError = `${finalToolName} failed: ${errorMsg}`;
+        lastTool = {
+          tool: finalToolName,
+          args: noetixArgs,
+          status: "error",
+          result: errorMsg,
+        };
 
         if (tool.permission !== "read") {
           await logService.create({
@@ -372,27 +392,6 @@ export const aiAgentController = catchAsync(
             admin_id: req.admin._id,
             action: `${logs_action.NOETIX_AI_ACTION}: ${tool.name} (failed)`,
             target: `Error: ${errorMsg}`,
-          });
-        }
-
-        if (lastFailedTool === finalToolName) {
-          consecutiveFailures++;
-        } else {
-          consecutiveFailures = 1;
-          lastFailedTool = finalToolName;
-        }
-        if (consecutiveFailures >= 2) {
-          sessionSuccess = false;
-          await logUsage();
-          return res.status(200).json({
-            success: true,
-            data: {
-              sessionId: effectiveSessionId,
-              persona,
-              result: `The tool '${finalToolName}' encountered an issue and could not complete the request. Please try again with more details.`,
-              history: buildCleanToolHistory(toolLog),
-              iterations: iteration,
-            },
           });
         }
       }
@@ -406,22 +405,17 @@ export const aiAgentController = catchAsync(
           admin: req.admin.name,
           admin_id: req.admin._id,
           action: `${logs_action.NOETIX_AI_ACTION}: ${tool.name}`,
-          target: `Args: ${JSON.stringify(resolvedArgs)} — Result: ${resultSummary.slice(0, 300)}`,
+          target: `Args: ${JSON.stringify(noetixArgs)} — Result: ${resultSummary.slice(0, 300)}`,
         });
       }
     }
 
+    sessionSuccess = false;
+    sessionError = sessionError ?? "reached max iterations";
     await logUsage();
 
-    return res.status(200).json({
-      success: true,
-      data: {
-        sessionId: effectiveSessionId,
-        persona,
-        result: "I was unable to complete this request within the available steps. Please try rephrasing your question with more specific details.",
-        history: buildCleanToolHistory(toolLog),
-        iterations: iteration,
-      },
-    });
+    return finish(
+      "I was unable to complete this request within the available steps. Please try rephrasing your question with more specific details."
+    );
   }
 );

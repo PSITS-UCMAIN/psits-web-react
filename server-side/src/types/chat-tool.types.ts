@@ -90,13 +90,81 @@ export interface ChatTool {
   description: string;
   category: string;
   permission: ToolPermission;
-  args?: Array<{ name: string; description: string; pattern?: string }>;
+  args?: Array<{
+    name: string;
+    description: string;
+    pattern?: string;
+    /** Noetix v3.1 B1: args are required unless marked `required: false`. */
+    required?: boolean;
+  }>;
   execute: (
     args: unknown,
     userAccess: string,
     userName: string
   ) => Promise<unknown>;
 }
+
+// Noetix-contract tool payload (v3.1 B2: access + risk metadata).
+export interface NoetixTool {
+  name: string;
+  description: string;
+  access: ToolPermission;
+  risk: "read" | "write";
+  args?: Array<{
+    name: string;
+    description: string;
+    pattern?: string;
+    required?: boolean;
+  }>;
+}
+
+// Roles that may only reach read-permission tools in the Noetix chat.
+const READ_ONLY_ROLES: readonly string[] = [
+  psits_roles.STANDARD,
+  psits_roles.NO_ACCESS,
+];
+
+export const isRoleReadOnly = (access: string): boolean => {
+  const role = normalizeAccessKey(access);
+  return READ_ONLY_ROLES.includes(role);
+};
+
+export const canRoleUseTool = (
+  access: string,
+  permission: ToolPermission
+): boolean => {
+  if (permission === "read") return true;
+  const role = normalizeAccessKey(access);
+  if (READ_ONLY_ROLES.includes(role)) return false;
+  return PERMISSION_MAP[permission].includes(role);
+};
+
+const buildNoetixTool = (tool: ChatTool): NoetixTool => ({
+  name: tool.name,
+  description: tool.description,
+  access: tool.permission,
+  risk: tool.permission === "read" ? "read" : "write",
+  ...(tool.args
+    ? {
+        args: tool.args.map((arg) => ({
+          name: arg.name,
+          description: arg.description,
+          ...(arg.pattern ? { pattern: arg.pattern } : {}),
+          ...(arg.required === false ? { required: false } : {}),
+        })),
+      }
+    : {}),
+});
+
+// Tools Noetix may offer for a given admin: not disabled, and the admin's
+// role satisfies the tool's permission (read-only roles get read tools only).
+export const buildNoetixTools = (
+  disabled: Set<string>,
+  access: string
+): NoetixTool[] =>
+  TOOL_REGISTRY.filter(
+    (t) => !disabled.has(t.name) && canRoleUseTool(access, t.permission)
+  ).map(buildNoetixTool);
 
 // ─── Read Tools (50) ─────────────────────────────────────────────────────────
 
@@ -251,14 +319,14 @@ const readTools: ChatTool[] = [
   {
     name: "find_student",
     description:
-      "Searches for student by name using a partial wildcard match, so incomplete names still find results. Returns matching students with their ID number, name, course, year, and campus. And use it to other tools add_attendee, create order, approve order, and more. Note that you need to provide the partial name of the student you want to search for, and it will return a list of matching students. Do not call this tool without a name argument, as it will throw an error. Use the returned ID number to perform other actions on the student.",
+      "Searches for student by name using wildcard (substring) matching on first_name, middle_name, and last_name, so incomplete names still find results. For multi-word searches, ALL words must match one of the name fields (order-independent), e.g. 'john smi' finds 'John Smith' but not 'John Doe'. Pasting a full or partial ID number also resolves the student via an id_number prefix wildcard. Returns matching students with their ID number, name, course, year, and campus. And use it to other tools add_attendee, create order, approve order, and more. Note that you need to provide the partial name of the student you want to search for, and it will return a list of matching students. Do not call this tool without a name argument, as it will throw an error. Use the returned ID number to perform other actions on the student.",
     category: "Students",
     permission: "read",
     args: [
       {
         name: "name",
         description:
-          "Full or partial student name to search for. Supports incomplete names.",
+          "Full or partial student name to search for. For multi-word input, every word must match the name. Partial or full ID numbers also work.",
       },
     ],
     execute: async (args: unknown) => {
@@ -268,19 +336,27 @@ const readTools: ChatTool[] = [
       const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       const projection =
         "id_number first_name middle_name last_name course year campus status -_id";
-      // Match any word against name fields so partial or multi-word
-      // queries like "john" or "john smi" still find "John Smith".
-      // id_number is included so pasting an ID also resolves the student.
+      // AND-of-clauses wildcard: every word must match at least one name
+      // field (first/middle/last), order-independent — "john smi" finds
+      // "John Smith" but not "John Doe". Numeric words additionally match
+      // id_number by prefix wildcard, so pasting a (partial) ID still
+      // resolves the student.
       const words = escaped.split(/\s+/).filter(Boolean);
+      const clauses = words.map((word) => {
+        const or: Array<Record<string, unknown>> = [
+          { first_name: new RegExp(word, "i") },
+          { middle_name: new RegExp(word, "i") },
+          { last_name: new RegExp(word, "i") },
+        ];
+        if (/^\d+$/.test(word)) {
+          or.push({ id_number: new RegExp(`^${word}`, "i") });
+        }
+        return { $or: or };
+      });
+      const filter =
+        clauses.length === 1 ? clauses[0] : ({ $and: clauses } as Record<string, unknown>);
       const students = await Student.find(
-        {
-          $or: words.flatMap((word) => [
-            { first_name: new RegExp(word, "i") },
-            { middle_name: new RegExp(word, "i") },
-            { last_name: new RegExp(word, "i") },
-            { id_number: new RegExp(`^${word}`, "i") },
-          ]),
-        },
+        filter,
         projection
       )
         .limit(25)
@@ -400,6 +476,56 @@ const readTools: ChatTool[] = [
       }
     },
   },
+  {
+    name: "get_pending_memberships_list",
+    description:
+      "Returns a paginated list of students with PENDING membership status (id_number, name, course, year, campus). Use limit (default 20, max 50) and skip (default 0) to paginate.",
+    category: "Memberships",
+    permission: "read",
+    args: [
+      {
+        name: "limit",
+        description: "Number of students to return (default 20, max 50).",
+        pattern: "^\\d+$",
+        required: false,
+      },
+      {
+        name: "skip",
+        description: "Number of students to skip for pagination (default 0).",
+        pattern: "^\\d+$",
+        required: false,
+      },
+    ],
+    execute: async (args: unknown) => {
+      const parsed = args as { limit?: string; skip?: string };
+      const limit = Math.min(parseInt(parsed.limit ?? "20", 10) || 20, 50);
+      const skip = parseInt(parsed.skip ?? "0", 10) || 0;
+      const total = await Student.countDocuments({
+        membershipStatus: membership_status.PENDING,
+      });
+      const students = await Student.find({
+        membershipStatus: membership_status.PENDING,
+      })
+        .select("id_number first_name middle_name last_name course year campus -_id")
+        .sort({ createdAt: 1 })
+        .skip(skip)
+        .limit(limit)
+        .lean();
+      return {
+        total,
+        limit,
+        skip,
+        returned: students.length,
+        students: students.map((s) => ({
+          id_number: s.id_number,
+          name: studentService.fullNameFormat(s),
+          course: s.course,
+          year: s.year,
+          campus: s.campus,
+        })),
+      };
+    },
+  },
 
   // ── Orders & Payments (10) ─────────────────────────────────────────────────
   {
@@ -436,11 +562,13 @@ const readTools: ChatTool[] = [
         name: "limit",
         description: "Number of orders to return (default 20, max 100).",
         pattern: "^\\d+$",
+        required: false,
       },
       {
         name: "skip",
         description: "Number of orders to skip for pagination (default 0).",
         pattern: "^\\d+$",
+        required: false,
       },
     ],
     execute: async (args: unknown) => {
@@ -496,6 +624,74 @@ const readTools: ChatTool[] = [
     category: "Orders",
     permission: "read",
     execute: () => Orders.countDocuments({ order_status: "Refunded" }),
+  },
+  {
+    name: "get_orders_by_status",
+    description:
+      "Returns a paginated list of orders filtered by status (Paid, Pending, or Refunded) with order_id, student name/id_number/course/year, items, total, and order_date. Use limit (default 20, max 100) and skip (default 0) to paginate. Do not return all orders at once — paginate using skip.",
+    category: "Orders",
+    permission: "read",
+    args: [
+      {
+        name: "status",
+        description: "Order status to list: Paid, Pending, or Refunded.",
+        pattern: "^(Paid|Pending|Refunded)$",
+      },
+      {
+        name: "limit",
+        description: "Number of orders to return (default 20, max 100).",
+        pattern: "^\\d+$",
+        required: false,
+      },
+      {
+        name: "skip",
+        description: "Number of orders to skip for pagination (default 0).",
+        pattern: "^\\d+$",
+        required: false,
+      },
+    ],
+    execute: async (args: unknown) => {
+      const parsed = args as { status?: string; limit?: string; skip?: string };
+      const status = parsed.status?.trim();
+      if (!status) throw new Error("status is required");
+      const limit = Math.min(parseInt(parsed.limit ?? "20", 10) || 20, 100);
+      const skip = parseInt(parsed.skip ?? "0", 10) || 0;
+      const total = await Orders.countDocuments({ order_status: status });
+      const orders = await Orders.find({ order_status: status })
+        .sort({ order_date: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean();
+      return {
+        total,
+        limit,
+        skip,
+        returned: orders.length,
+        orders: orders.map((o) => ({
+          order_id: o._id.toString(),
+          student: {
+            name: o.student_name,
+            id_number: o.id_number,
+            course: o.course,
+            year: o.year,
+          },
+          items: (
+            o.items as Array<{
+              product_name: string;
+              quantity: number;
+              sub_total: number;
+            }>
+          ).map((item) => ({
+            product_name: item.product_name,
+            quantity: item.quantity,
+            sub_total: item.sub_total,
+          })),
+          total: o.total,
+          order_date: o.order_date,
+          reference_code: o.reference_code,
+        })),
+      };
+    },
   },
   {
     name: "get_total_order_revenue",
@@ -594,6 +790,58 @@ const readTools: ChatTool[] = [
           { $sort: { totalQuantity: -1 } },
           { $limit: 5 },
           { $project: { product_name: "$_id", totalQuantity: 1, _id: 0 } },
+        ]);
+        return result ?? [];
+      } catch {
+        return [];
+      }
+    },
+  },
+  {
+    name: "get_top_sellers_by_period",
+    description:
+      "Returns the top 5 best-selling products by quantity within the last N days (default 30). Use this for recent trends instead of all-time totals.",
+    category: "Orders",
+    permission: "read",
+    args: [
+      {
+        name: "days",
+        description:
+          "Look-back period in days (default 30, max 365). Must be a whole number.",
+        pattern: "^\\d+$",
+        required: false,
+      },
+    ],
+    execute: async (args: unknown) => {
+      const parsed = args as { days?: string };
+      const days = Math.min(parseInt(parsed.days ?? "30", 10) || 30, 365);
+      const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+      try {
+        const result = await Orders.aggregate([
+          {
+            $match: {
+              order_status: "Paid",
+              transaction_date: { $gte: since },
+            },
+          },
+          { $unwind: "$items" },
+          {
+            $group: {
+              _id: "$items.product_name",
+              totalQuantity: { $sum: "$items.quantity" },
+              totalRevenue: { $sum: "$items.sub_total" },
+            },
+          },
+          { $sort: { totalQuantity: -1 } },
+          { $limit: 5 },
+          {
+            $project: {
+              product_name: "$_id",
+              totalQuantity: 1,
+              totalRevenue: 1,
+              _id: 0,
+            },
+          },
         ]);
         return result ?? [];
       } catch {
@@ -771,6 +1019,59 @@ const readTools: ChatTool[] = [
       }
     },
   },
+  {
+    name: "get_merch_on_sale_list",
+    description:
+      "Returns active merchandise products currently on sale (start_date <= now <= end_date) with product_id, name, price, stock, category, and type. Optionally filter by category. Use this to know which products can be ordered right now.",
+    category: "Merch",
+    permission: "read",
+    args: [
+      {
+        name: "category",
+        description: "Optional merch category to filter results.",
+        required: false,
+      },
+      {
+        name: "limit",
+        description: "Number of products to return (default 20, max 50).",
+        pattern: "^\\d+$",
+        required: false,
+      },
+    ],
+    execute: async (args: unknown) => {
+      const parsed = args as { category?: string; limit?: string };
+      const limit = Math.min(parseInt(parsed.limit ?? "20", 10) || 20, 50);
+      const filter: Record<string, unknown> = {
+        is_active: true,
+        start_date: { $lte: new Date() },
+        end_date: { $gte: new Date() },
+      };
+      const category = parsed.category?.trim();
+      if (category) {
+        const escaped = category.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        filter.category = new RegExp(`^${escaped}$`, "i");
+      }
+      const products = await Merch.find(
+        filter,
+        "_id name price stocks category type start_date end_date"
+      )
+        .limit(limit)
+        .lean();
+      return {
+        count: products.length,
+        products: products.map((p) => ({
+          product_id: p._id.toString(),
+          name: p.name,
+          price: p.price,
+          stocks: p.stocks,
+          category: p.category,
+          type: p.type,
+          start_date: p.start_date,
+          end_date: p.end_date,
+        })),
+      };
+    },
+  },
 
   // ── Events (5) ─────────────────────────────────────────────────────────────
   {
@@ -790,6 +1091,7 @@ const readTools: ChatTool[] = [
       {
         name: "event_name",
         description: "Optional event name to filter results.",
+        required: false,
       },
     ],
     execute: async (args: unknown) => {
@@ -883,6 +1185,45 @@ const readTools: ChatTool[] = [
       } catch {
         return 0;
       }
+    },
+  },
+  {
+    name: "get_events_by_date",
+    description:
+      "Returns all events on a given date (event name, event_id, description, status, total revenue, and attendee count). Date is YYYY-MM-DD (e.g. 2026-12-31).",
+    category: "Events",
+    permission: "read",
+    args: [
+      {
+        name: "event_date",
+        description: "Event date in YYYY-MM-DD format.",
+        pattern: "^\\d{4}-\\d{2}-\\d{2}$",
+      },
+    ],
+    execute: async (args: unknown) => {
+      const parsed = args as { event_date?: string };
+      if (!parsed.event_date) throw new Error("event_date is required");
+      const dayStart = startOfDay(new Date(parsed.event_date));
+      if (isNaN(dayStart.getTime()))
+        throw new Error("event_date is not a valid date");
+      const dayEnd = endOfDay(dayStart);
+      const events = await Event.find(
+        { eventDate: { $gte: dayStart, $lte: dayEnd } },
+        "eventId eventName eventDescription eventDate status totalRevenueAll attendees -_id"
+      ).lean();
+      return {
+        count: events.length,
+        events: events.map((e) => ({
+          event_id: e.eventId?.toString(),
+          name: e.eventName,
+          date: e.eventDate,
+          status: e.status,
+          total_revenue: e.totalRevenueAll,
+          attendees: (
+            e.attendees as unknown as Array<Record<string, unknown>>
+          ).length,
+        })),
+      };
     },
   },
 
@@ -1235,6 +1576,55 @@ const readTools: ChatTool[] = [
     },
   },
   {
+    name: "get_refund_detail_by_order",
+    description:
+      "Returns the refund record (refund_id, refund_price, refunded by, refund date) and a snapshot of the original order (total, status, student) for a given order _id. Requires ADMIN or FINANCE access.",
+    category: "Orders",
+    permission: "admin_finance",
+    args: [
+      {
+        name: "order_id",
+        description: "MongoDB ObjectId of the order.",
+        pattern: "^[a-f0-9]{24}$",
+      },
+    ],
+    execute: async (args: unknown, userAccess: string) => {
+      checkPermission("admin_finance", userAccess);
+      const parsed = args as { order_id?: string };
+      if (!parsed.order_id) throw new Error("order_id is required");
+      const oid = new Types.ObjectId(parsed.order_id);
+      const [refund, order] = await Promise.all([
+        Refund.findOne({ order_id: oid }).lean(),
+        Orders.findById(oid)
+          .select(
+            "order_status total student_name id_number order_date reference_code"
+          )
+          .lean(),
+      ]);
+      if (!refund && !order) throw new Error("Order not found");
+      return {
+        refund: refund
+          ? {
+              refund_id: refund._id.toString(),
+              refund_price: refund.refund_price,
+              refunded_by: refund.refund_admin,
+              refund_date: refund.refund_date,
+            }
+          : null,
+        order: order
+          ? {
+              order_id: order._id.toString(),
+              order_status: order.order_status,
+              total: order.total,
+              student_name: order.student_name,
+              id_number: order.id_number,
+              order_date: order.order_date,
+            }
+          : null,
+      };
+    },
+  },
+  {
     name: "get_refunds_today",
     description: "Returns the count of refunds processed today.",
     category: "Orders",
@@ -1358,11 +1748,13 @@ const readTools: ChatTool[] = [
         name: "event_id",
         description: "MongoDB ObjectId of the event.",
         pattern: "^[a-f0-9]{24}$",
+        required: false,
       },
       {
         name: "event_name",
         description:
           "Optional event name to identify the event instead of event_id.",
+        required: false,
       },
     ],
     execute: async (args: unknown) => {
@@ -1589,6 +1981,54 @@ const readTools: ChatTool[] = [
         Admin.countDocuments({ status: account_status.SUSPENDED })
       ),
   },
+  {
+    name: "get_admins_by_access",
+    description:
+      "Returns the list of active admins for a given access level (id_number, name, position, access, email). Access is one of: ADMIN, FINANCE, DEVELOPER, EXECUTIVE, HEAD_FINANCE, STANDARD, or NO_ACCESS. Requires ADMIN access.",
+    category: "Admin",
+    permission: "admin_only",
+    args: [
+      {
+        name: "access",
+        description:
+          "Access level to list admins for: ADMIN, FINANCE, DEVELOPER, EXECUTIVE, HEAD_FINANCE, STANDARD, or NO_ACCESS.",
+        pattern:
+          "^(ADMIN|FINANCE|DEVELOPER|EXECUTIVE|HEAD_FINANCE|STANDARD|NO_ACCESS)$",
+      },
+      {
+        name: "limit",
+        description: "Number of admins to return (default 20, max 50).",
+        pattern: "^\\d+$",
+        required: false,
+      },
+    ],
+    execute: async (args: unknown, userAccess: string) => {
+      checkPermission("admin_only", userAccess);
+      const parsed = args as { access?: string; limit?: string };
+      const accessKey = parsed.access?.trim().toUpperCase();
+      if (!accessKey) throw new Error("access is required");
+      const ACCESS_TO_ROLE: Record<string, string> = {
+        ADMIN: psits_roles.ADMIN,
+        FINANCE: psits_roles.FINANCE,
+        DEVELOPER: psits_roles.DEVELOPER,
+        EXECUTIVE: psits_roles.EXECUTIVE,
+        HEAD_FINANCE: psits_roles.HEAD_FINANCE,
+        STANDARD: psits_roles.STANDARD,
+        NO_ACCESS: psits_roles.NO_ACCESS,
+      };
+      const role = ACCESS_TO_ROLE[accessKey];
+      if (!role) throw new Error("Unknown access level");
+      const limit = Math.min(parseInt(parsed.limit ?? "20", 10) || 20, 50);
+      const admins = await Admin.find({
+        status: account_status.ACTIVE,
+        access: role,
+      })
+        .select("id_number name position access email -_id")
+        .limit(limit)
+        .lean();
+      return { count: admins.length, admins };
+    },
+  },
 
   // ── Membership Extra (2) ───────────────────────────────────────────────────
   {
@@ -1640,22 +2080,26 @@ const writeTools: ChatTool[] = [
         description:
           "Student ID number to create the order for. Composed of 8 digits. Required unless id_numbers is provided.",
         pattern: "^\\d{8}$",
+        required: false,
       },
       {
         name: "id_numbers",
         description:
           'Comma-separated list of student ID numbers (e.g. "20230001, 20230002") to create the same order for multiple students. Each student gets their own separate order. Required unless id_number is provided.',
+        required: false,
       },
       {
         name: "product_id",
         description:
           "MongoDB ObjectId of the product. Required unless product_name is provided.",
         pattern: "^[a-f0-9]{24}$",
+        required: false,
       },
       {
         name: "product_name",
         description:
           "Name of the product. Required unless product_id is provided.",
+        required: false,
       },
       {
         name: "quantity",
@@ -1667,11 +2111,13 @@ const writeTools: ChatTool[] = [
         name: "size",
         description:
           "Optional t-shirt size (e.g. S, M, L, XL). Only applies if the product has sizes.",
+        required: false,
       },
       {
         name: "color",
         description:
           "Optional color variation. Only applies if the product has color variations.",
+        required: false,
       },
     ],
     execute: async (args: unknown, userAccess: string) => {
@@ -1876,6 +2322,7 @@ const writeTools: ChatTool[] = [
         description:
           "Cash amount received (defaults to order total if omitted).",
         pattern: "^\\d+(\\.\\d+)?$",
+        required: false,
       },
     ],
     execute: async (args: unknown, userAccess: string, userName: string) => {
@@ -2081,11 +2528,13 @@ const writeTools: ChatTool[] = [
         name: "event_id",
         description: "Event eventId string.",
         pattern: "^[a-f0-9]{24}$",
+        required: false,
       },
       {
         name: "event_name",
         description:
           "Optional event name to identify the event instead of event_id.",
+        required: false,
       },
       {
         name: "id_number",
@@ -2119,11 +2568,13 @@ const writeTools: ChatTool[] = [
         name: "event_id",
         description: "Event eventId string.",
         pattern: "^[a-f0-9]{24}$",
+        required: false,
       },
       {
         name: "event_name",
         description:
           "Optional event name to identify the event instead of event_id.",
+        required: false,
       },
       {
         name: "id_number",
@@ -2170,11 +2621,13 @@ const writeTools: ChatTool[] = [
         name: "event_id",
         description: "Event eventId string.",
         pattern: "^[a-f0-9]{24}$",
+        required: false,
       },
       {
         name: "event_name",
         description:
           "Optional event name to identify the event instead of event_id.",
+        required: false,
       },
       {
         name: "id_number",
@@ -2186,6 +2639,7 @@ const writeTools: ChatTool[] = [
         description:
           "Session to mark: morning, afternoon, or evening. Defaults to morning.",
         pattern: "^(morning|afternoon|evening)$",
+        required: false,
       },
     ],
     execute: async (args: unknown, userAccess: string) => {
@@ -2463,10 +2917,12 @@ const writeTools: ChatTool[] = [
         name: "start_date",
         description:
           "Optional start date for sale (ISO date string). Defaults to now.",
+        required: false,
       },
       {
         name: "end_date",
         description: "Optional end date for sale (ISO date string).",
+        required: false,
       },
     ],
     execute: async (args: unknown, userAccess: string) => {
@@ -2532,18 +2988,20 @@ const writeTools: ChatTool[] = [
         description: "MongoDB ObjectId of the product to edit.",
         pattern: "^[a-f0-9]{24}$",
       },
-      { name: "name", description: "New product name." },
+      { name: "name", description: "New product name.", required: false },
       {
         name: "price",
         description: "New price as a non-negative number.",
         pattern: "^\\d+(\\.\\d+)?$",
+        required: false,
       },
       {
         name: "stocks",
         description: "New stock count.",
         pattern: "^\\d+$",
+        required: false,
       },
-      { name: "category", description: "New category." },
+      { name: "category", description: "New category.", required: false },
     ],
     execute: async (args: unknown, userAccess: string) => {
       checkPermission("admin_finance", userAccess);
@@ -2626,8 +3084,12 @@ const writeTools: ChatTool[] = [
         name: "event_date",
         description: "Event date as ISO date string (e.g. 2026-12-31).",
       },
-      { name: "event_venue", description: "Event venue location." },
-      { name: "event_theme", description: "Event theme." },
+      { name: "event_venue", description: "Event venue location.", required: false },
+      {
+        name: "event_theme",
+        description: "Event theme.",
+        required: false,
+      },
     ],
     execute: async (args: unknown, userAccess: string) => {
       checkPermission("admin_only", userAccess);
@@ -2714,8 +3176,8 @@ const writeTools: ChatTool[] = [
         name: "scheduled_at",
         description: "Interview date/time as ISO date string.",
       },
-      { name: "location", description: "Interview location." },
-      { name: "notes", description: "Optional interview notes." },
+      { name: "location", description: "Interview location.", required: false },
+      { name: "notes", description: "Optional interview notes.", required: false },
     ],
     execute: async (args: unknown, userAccess: string) => {
       checkPermission("admin_full", userAccess);
@@ -2893,11 +3355,16 @@ const writeTools: ChatTool[] = [
         description: "MongoDB ObjectId of the recruitment position.",
         pattern: "^[a-f0-9]{24}$",
       },
-      { name: "title", description: "New position title." },
-      { name: "description", description: "New position description." },
+      { name: "title", description: "New position title.", required: false },
+      {
+        name: "description",
+        description: "New position description.",
+        required: false,
+      },
       {
         name: "requirements",
         description: "Comma-separated list of requirements.",
+        required: false,
       },
     ],
     execute: async (args: unknown, userAccess: string) => {

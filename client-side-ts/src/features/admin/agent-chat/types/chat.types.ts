@@ -7,6 +7,12 @@ export interface ChatMessage {
   role: ChatMessageRole;
   content: string;
   timestamp: Date;
+  /** Noetix v3.1 grounded-final confidence. */
+  confidence?: "high" | "medium" | "low";
+  /** Noetix v3.1: tools whose results back this answer. */
+  sources?: string[];
+  /** Renders the system pill as an amber warning instead of neutral. */
+  variant?: "default" | "warning";
 }
 
 export interface ToolCallEntry {
@@ -23,6 +29,11 @@ export interface AiAgentResponse {
     result: string;
     history: ToolCallEntry[] | string;
     iterations: number;
+    /** Noetix v3.1 loop guard fired; result is a clarification, not a full answer. */
+    stuck?: boolean;
+    stuckReason?: string;
+    confidence?: "high" | "medium" | "low";
+    sources?: string[];
   };
 }
 

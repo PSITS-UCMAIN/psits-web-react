@@ -238,6 +238,7 @@ export interface NoetixToolItem {
   name: string;
   description: string;
   permission: "read" | "admin_finance" | "admin_only" | "admin_full";
+  risk?: "read" | "write";
   category: string;
   enabled: boolean;
 }

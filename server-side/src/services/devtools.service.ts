@@ -760,6 +760,7 @@ export const getNoetixToolRegistry = async (): Promise<
     name: string;
     description: string;
     permission: string;
+    risk: "read" | "write";
     category: string;
   }>
 > => {
@@ -768,6 +769,7 @@ export const getNoetixToolRegistry = async (): Promise<
     name: t.name,
     description: t.description,
     permission: t.permission,
+    risk: t.permission === "read" ? "read" : "write",
     category: t.category,
   }));
 };
@@ -776,16 +778,14 @@ export const addNoetixDisabledTool = async (
   toolName: string
 ): Promise<string[]> => {
   const { Settings } = await import("../models/settings.model");
-  const existing = await Settings.find();
 
-  if (existing.length === 0) {
-    await new Settings({ noetixDisabledTools: [toolName] }).save();
-    return [toolName];
-  }
-
+  // Deterministic singleton writer: no filter so the write always targets
+  // the same first document the reader (Settings.findOne) sees, and upsert
+  // creates it when the collection is empty. $addToSet keeps it idempotent.
   await Settings.updateOne(
-    { noetixDisabledTools: { $ne: toolName } },
-    { $addToSet: { noetixDisabledTools: toolName } }
+    {},
+    { $addToSet: { noetixDisabledTools: toolName } },
+    { upsert: true }
   );
 
   const updated = await Settings.findOne().lean();
