@@ -1,4 +1,5 @@
 import disposableDomains from "disposable-email-domains";
+import { validateId } from "./studentId.util";
 
 const disposableSet = new Set(disposableDomains);
 
@@ -8,12 +9,6 @@ const TEST_WORD_PATTERN =
 export function isSuspiciousName(value: string): boolean {
   if (!value) return false;
   return TEST_WORD_PATTERN.test(value.trim());
-}
-
-export function isSuspiciousId(value: string): boolean {
-  const isRepeating = /^(\d)\1+$/.test(value);
-  const isSequential = /^(0123456789|1234567890|12345678)$/.test(value);
-  return isRepeating || isSequential;
 }
 
 export function isDisposableEmail(email: string): boolean {
@@ -29,7 +24,11 @@ export function validateSignupData(data: {
 }): string | null {
   if (isSuspiciousName(data.fname)) return "Please enter your real first name";
   if (isSuspiciousName(data.lname)) return "Please enter your real last name";
-  if (isSuspiciousId(data.id)) return "Please enter a valid student ID number";
+
+  // One call covers narrowing, the 8-digit format and the filler-ID check.
+  const idCheck = validateId(data.id, { rejectSuspicious: true });
+  if (!idCheck.valid) return idCheck.message;
+
   if (isDisposableEmail(data.email))
     return "Please use a real, non-disposable email address";
   return null;

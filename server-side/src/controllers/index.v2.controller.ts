@@ -24,6 +24,7 @@ const url = `${frontendBaseUrl}/auth/reset-password?token=`;
 
 import { studentService } from "../services/student.service";
 import { normalizeYear } from "../util/signupValidation.util";
+import { validateId } from "../util/studentId.util";
 import { adminService } from "../services/admin.service";
 import { indexService } from "../services/index.service";
 import { logService } from "../services/log.service";
@@ -129,15 +130,25 @@ export const forgotPasswordController = catchAsync(
     let user;
     let position;
 
+    // Both fields are narrowed to plain strings before they reach a query: this
+    // route is unauthenticated, and an object body such as
+    // { id_number: { $ne: null } } would otherwise be read by Mongoose as a
+    // query operator and match an arbitrary account.
+    // Mode "login", not the strict 8-digit rule — admins reset passwords here too.
+    const idCheck = validateId(req.body?.id_number, { mode: "login" });
+    const email =
+      typeof req.body?.email === "string" ? req.body.email.trim() : "";
+
+    if (!idCheck.valid || !email) {
+      return res.status(400).json({ message: "Invalid ID number or email." });
+    }
+
+    // Trimmed and format-checked, so it is safe to put in a query.
+    const id_number = idCheck.id;
+
     // Find the user by email
-    const userAdmin = await Admin.findOne({
-      email: req.body.email,
-      id_number: req.body.id_number,
-    });
-    const getUser = await Student.findOne({
-      email: req.body.email,
-      id_number: req.body.id_number,
-    });
+    const userAdmin = await Admin.findOne({ email, id_number });
+    const getUser = await Student.findOne({ email, id_number });
 
     if (userAdmin) {
       user = userAdmin;
@@ -162,7 +173,7 @@ export const forgotPasswordController = catchAsync(
       }); 
     }
 
-    const resetCount = await emailService.countBySubtypeToday(req.body.email, "password_reset");
+    const resetCount = await emailService.countBySubtypeToday(email, "password_reset");
     if (resetCount >= 2) {
       return res.status(429).json({
         message: "You've reached today's limit for password reset requests. Please try again tomorrow.",
@@ -173,7 +184,7 @@ export const forgotPasswordController = catchAsync(
       expiresIn: "10m",
     });
 
-    await forgotPasswordMail(req.body.email, url, token);
+    await forgotPasswordMail(email, url, token);
 
     res.status(200).json({
       message:
