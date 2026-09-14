@@ -299,9 +299,9 @@ class MerchandiseController {
       const id = req.params._id;
 
       let imageUrl =
-        (req.files as Express.MulterS3.File[] | undefined)?.map(
-          (file) => file.location
-        ) || [];
+        (req.files as Express.MulterS3.File[] | undefined)?.map((file) =>
+          buildProxyImageUrl(req, file)
+        ) ?? [];
       let parsedSelectedSizes: Record<string, SelectedSizePricing> | undefined;
       if (typeof selectedSizes === "string") {
         try {
