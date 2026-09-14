@@ -1,9 +1,6 @@
 import cron from "node-cron";
 import mongoose, { Types } from "mongoose";
-import path from "path";
-import ejs from "ejs";
-import { Resend } from "resend";
-import { marked } from "marked";
+import axios from "axios";
 import { AutomationJob, IAutomationJob } from "../models/automationJob.model";
 import { Admin } from "../models/admin.model";
 import { EmailQueue } from "../models/email.model";
@@ -15,11 +12,8 @@ import {
 import { logService } from "./log.service";
 import { logs_action } from "../enums/logs.enums";
 import { account_status } from "../enums/status.enums";
-import { psits_roles } from "../enums/role.enums";
-import { queryNoetixAiAgent } from "./noetix-chat.service";
 
 const LOG_RETENTION_DAYS = 90;
-const LOCK_KEY = "automation_job_lock";
 /** Functions run serially under a process-wide lock, so one slow query stalls every job. */
 const FUNCTION_TIMEOUT_MS = 30000;
 let isExecuting = false;
@@ -33,7 +27,45 @@ export interface ExecuteResult {
   job: IAutomationJob;
   results: AutomationFunctionResult[];
   emailQueued: boolean;
+  webhookSent: boolean;
   targets: Array<{ name: string; email: string }>;
+}
+
+type AutomationRunType = "manual" | "scheduled" | "retry";
+
+interface AutomationWebhookPayload {
+  event: "automation.job.executed";
+  source: "psits-web";
+  sentAt: string;
+  job: {
+    id: string;
+    name: string;
+    description?: string;
+    functionKeys: string[];
+    runType: AutomationRunType;
+    startedAt: string;
+  };
+  email: {
+    subject: string;
+    includeSummary: boolean;
+    includeRawData: boolean;
+    useNoetix: boolean;
+    skipIfEmpty: boolean;
+  };
+  recipients: Array<{
+    name: string;
+    email: string;
+    position: string;
+  }>;
+  results: AutomationFunctionResult[];
+  summary: {
+    totalFunctions: number;
+    successfulFunctions: number;
+    failedFunctions: number;
+    totalRecords: number;
+    targetCount: number;
+    allEmpty: boolean;
+  };
 }
 
 // ─── Schedule Builders ──────────────────────────────────────────────────
@@ -172,9 +204,7 @@ const executeFunction = async (
       new Promise<never>((_, reject) => {
         timer = setTimeout(
           () =>
-            reject(
-              new Error(`Timed out after ${FUNCTION_TIMEOUT_MS / 1000}s`)
-            ),
+            reject(new Error(`Timed out after ${FUNCTION_TIMEOUT_MS / 1000}s`)),
           FUNCTION_TIMEOUT_MS
         );
       }),
@@ -204,208 +234,121 @@ const executeFunction = async (
   }
 };
 
-// ─── Email Rendering ────────────────────────────────────────────────────
+// ─── Job Execution ──────────────────────────────────────────────────────
 
-const compressResultsForNoetix = (
-  results: AutomationFunctionResult[]
-): Record<string, unknown> => {
-  const compact: Record<string, unknown> = {};
-  for (const r of results) {
-    const key = r.functionKey ?? "unknown";
-    if (r.success) {
-      if (Array.isArray(r.data) && r.data.length > 0) {
-        const samples = (r.data as Record<string, unknown>[]).slice(0, 3);
-        compact[key] = {
-          recordCount: r.data.length,
-          samples: samples.map((row) => {
-            const flat: Record<string, unknown> = {};
-            const keys = Object.keys(row);
-            for (let i = 0; i < Math.min(keys.length, 5); i++) {
-              const val = row[keys[i]];
-              if (
-                val !== null &&
-                val !== undefined &&
-                typeof val !== "object"
-              ) {
-                flat[keys[i]] = String(val).substring(0, 100);
-              }
-            }
-            return flat;
-          }),
-        };
-      } else if (r.data) {
-        compact[key] = r.data;
-      } else {
-        compact[key] = { recordCount: r.recordCount };
-      }
-    } else {
-      compact[key] = { error: r.error };
-    }
-  }
-  return compact;
-};
-
-const renderEmailTemplate = async (
+const buildAutomationWebhookPayload = (
   job: IAutomationJob,
   results: AutomationFunctionResult[],
-  targets: ResolvedTarget[]
-): Promise<string> => {
-  const templatePath = path.join(
-    __dirname,
-    "../templates/automation-report.ejs"
-  );
+  targets: ResolvedTarget[],
+  startedAt: Date,
+  runType: AutomationRunType
+): AutomationWebhookPayload => {
   const dateStr = new Date().toLocaleDateString("en-US", {
-    weekday: "long",
-    year: "numeric",
     month: "long",
     day: "numeric",
-  });
-  const timeStr = new Date().toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "Asia/Manila",
+    year: "numeric",
   });
   const subject = job.emailConfig.subjectTemplate
     .split("{{jobName}}")
     .join(job.name)
     .split("{{date}}")
     .join(dateStr);
+  const allEmpty =
+    results.length > 0 &&
+    results.every((r) => r.success && r.recordCount === 0);
 
-  return ejs.renderFile(templatePath, {
-    jobName: job.name,
-    executionTime: `${dateStr} at ${timeStr} (Asia/Manila)`,
-    results,
-    includeSummary: job.emailConfig.includeSummary,
-    includeRawData: job.emailConfig.includeRawData,
-    targetCount: targets.length,
-    subject,
-  });
-};
-
-// ─── Email Queue ────────────────────────────────────────────────────────
-
-const queueReportEmail = async (
-  job: IAutomationJob,
-  results: AutomationFunctionResult[],
-  targets: ResolvedTarget[]
-): Promise<boolean> => {
-  const dateStr = new Date().toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
-  const timeStr = new Date().toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "Asia/Manila",
-  });
-  const subject = job.emailConfig.subjectTemplate
-    .split("{{jobName}}")
-    .join(job.name)
-    .split("{{date}}")
-    .join(dateStr);
-
-  const reportPayload = {
-    jobName: job.name,
-    executionTime: new Date().toISOString(),
-    results,
-    includeSummary: job.emailConfig.includeSummary,
-    includeRawData: job.emailConfig.includeRawData,
-    subject,
-  };
-
-  const templatePath = path.join(
-    __dirname,
-    "../templates/automation-report.ejs"
-  );
-  const fallbackHtml = await ejs.renderFile(templatePath, {
-    jobName: job.name,
-    executionTime: `${dateStr} at ${timeStr} (Asia/Manila)`,
-    results,
-    includeSummary: job.emailConfig.includeSummary,
-    includeRawData: job.emailConfig.includeRawData,
-    targetCount: targets.length,
-    subject,
-  });
-
-  let htmlBody: string | null = null;
-
-  if (job.emailConfig.useNoetix) {
-    const noetixData = compressResultsForNoetix(results);
-    try {
-      const noetixMarkdown = await (async () => {
-        const tools = (
-          await import("../types/chat-tool.types")
-        ).buildNoetixTools(new Set(), psits_roles.ADMIN);
-        const res = await queryNoetixAiAgent(
-          "EMAIL_SENDER",
-          `Generate a professional daily operational report for "${job.name}". Include key metrics, highlights, and any concerns from the data below.`,
-          tools,
-          undefined,
-          JSON.stringify(noetixData),
-          false
-        );
-        return res.data.final_result;
-      })();
-      htmlBody = marked(noetixMarkdown) as string;
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.error(
-        `[Automation] Noetix email generation failed for job ${job.name}:`,
-        message
-      );
-      htmlBody = null;
-    }
-  }
-
-  const html = htmlBody ?? fallbackHtml;
-
-  const logoPath = path.join(__dirname, "../assets/psits.jpg");
-  const logoBuffer = await import("fs/promises").then((fs) =>
-    fs.readFile(logoPath)
-  );
-  const resend = new Resend(process.env.RESEND_API_KEY);
-  const from = process.env.EMAIL;
-
-  if (!from) throw new Error("EMAIL is not configured");
-
-  const sendOne = async (t: ResolvedTarget): Promise<void> => {
-    const { error } = await resend.emails.send({
-      from,
-      to: t.email,
+  return {
+    event: "automation.job.executed",
+    source: "psits-web",
+    sentAt: new Date().toISOString(),
+    job: {
+      id: job._id.toString(),
+      name: job.name,
+      description: job.description,
+      functionKeys: job.functionKeys,
+      runType,
+      startedAt: startedAt.toISOString(),
+    },
+    email: {
       subject,
-      html,
-      attachments: [
-        {
-          filename: "psits.jpg",
-          content: logoBuffer,
-          contentType: "image/jpeg",
-          contentId: "logo",
-        },
-      ],
-    });
-    if (error) throw new Error(error.message);
-
-    await new EmailQueue({
-      type: "automation-report",
-      studentId: null,
+      includeSummary: job.emailConfig.includeSummary,
+      includeRawData: job.emailConfig.includeRawData,
+      useNoetix: job.emailConfig.useNoetix,
+      skipIfEmpty: Boolean(job.emailConfig.skipIfEmpty),
+    },
+    recipients: targets.map((t) => ({
+      name: t.name,
       email: t.email,
-      status: "sent",
-      subtype: job.name,
-      referenceCode: job.name,
-      payload: JSON.stringify(reportPayload),
-      htmlBody: htmlBody ?? undefined,
-      retryCount: 0,
-    }).save();
+      position: t.position,
+    })),
+    results,
+    summary: {
+      totalFunctions: results.length,
+      successfulFunctions: results.filter((r) => r.success).length,
+      failedFunctions: results.filter((r) => !r.success).length,
+      totalRecords: results.reduce((sum, r) => sum + r.recordCount, 0),
+      targetCount: targets.length,
+      allEmpty,
+    },
   };
+};
 
-  await Promise.all(targets.map(sendOne));
+export const sendAutomationWebhookPayload = async (
+  payload: AutomationWebhookPayload
+): Promise<void> => {
+  const webhookUrl = process.env.MAKE_AUTOMATION_WEBHOOK_URL;
+  if (!webhookUrl) {
+    throw new Error("MAKE_AUTOMATION_WEBHOOK_URL is not configured");
+  }
+
+  const webhookKey = process.env.MAKE_AUTOMATION_WEBHOOK_API_KEY;
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (webhookKey) {
+    headers["x-make-apikey"] = webhookKey;
+  }
+
+  await axios.post(webhookUrl, payload, {
+    headers,
+    timeout: 15000,
+  });
+};
+
+const queueReportWebhook = async (
+  job: IAutomationJob,
+  results: AutomationFunctionResult[],
+  targets: ResolvedTarget[],
+  startedAt: Date,
+  runType: AutomationRunType
+): Promise<boolean> => {
+  const payload = buildAutomationWebhookPayload(
+    job,
+    results,
+    targets,
+    startedAt,
+    runType
+  );
+  const queueEntry = await new EmailQueue({
+    type: "automation-report",
+    studentId: null,
+    email: targets.map((t) => t.email).join(","),
+    status: "pending",
+    subtype: job.name,
+    referenceCode: job._id.toString(),
+    payload: JSON.stringify(payload),
+    retryCount: 0,
+  }).save();
+
+  await sendAutomationWebhookPayload(payload);
+  await EmailQueue.findByIdAndUpdate(queueEntry._id, { status: "sent" });
   return true;
 };
 
-// ─── Job Execution ──────────────────────────────────────────────────────
-
-export const executeJob = async (jobId: string): Promise<ExecuteResult> => {
+export const executeJob = async (
+  jobId: string,
+  runType: AutomationRunType = "scheduled"
+): Promise<ExecuteResult> => {
   const job = (await AutomationJob.findById(
     jobId
   ).lean()) as IAutomationJob | null;
@@ -432,23 +375,30 @@ export const executeJob = async (jobId: string): Promise<ExecuteResult> => {
   const allSuccess = results.every((r) => r.success);
   const someSuccess = results.some((r) => r.success);
 
-  // Queue email if enabled. Alert-style jobs opt out of "nothing to report"
-  // mail so a daily empty report doesn't train admins to ignore the inbox.
-  // A failed function also reports zero records, so require success here —
-  // failures must still reach someone's inbox.
+  // Send the webhook when delivery is enabled. Alert-style jobs opt out of
+  // "nothing to report" payloads so a daily empty report doesn't train
+  // admins to ignore them. A failed function also reports zero records, so
+  // require success here — failures must still reach Make.com.
   const allEmpty =
-    results.length > 0 && results.every((r) => r.success && r.recordCount === 0);
+    results.length > 0 &&
+    results.every((r) => r.success && r.recordCount === 0);
   const skippedAsEmpty = Boolean(job.emailConfig.skipIfEmpty) && allEmpty;
 
-  let emailQueued = false;
+  let webhookSent = false;
   if (job.emailConfig.enabled && targets.length > 0 && !skippedAsEmpty) {
     try {
-      await queueReportEmail(job, results, targets);
-      emailQueued = true;
-    } catch (err: any) {
+      webhookSent = await queueReportWebhook(
+        job,
+        results,
+        targets,
+        startedAt,
+        runType
+      );
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
       console.error(
-        `[Automation] Failed to queue email for job ${jobId}:`,
-        err.message
+        `[Automation] Failed to send webhook for job ${jobId}:`,
+        message
       );
     }
   }
@@ -468,7 +418,7 @@ export const executeJob = async (jobId: string): Promise<ExecuteResult> => {
     {
       results,
       targetCount: targets.length,
-      emailQueued,
+      webhookSent,
       skippedAsEmpty,
       totalDuration,
     },
@@ -487,7 +437,8 @@ export const executeJob = async (jobId: string): Promise<ExecuteResult> => {
   return {
     job: job as IAutomationJob,
     results,
-    emailQueued,
+    emailQueued: webhookSent,
+    webhookSent,
     targets,
   };
 };
@@ -660,18 +611,30 @@ export const updateJob = async (
   jobId: string,
   data: Partial<IAutomationJob>
 ): Promise<IAutomationJob | null> => {
+  // Drop undefined keys so Mongoose does not silently skip clearing fields
+  // (e.g. `description` sent as undefined when the admin clears it).
+  const clean: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (value !== undefined) clean[key] = value;
+  }
+
+  // Force full replacement of the nested emailConfig and array fields so
+  // stale sub-fields are not carried over by Mongoose's partial merge.
+  const set = { ...clean } as Record<string, unknown>;
+  if (clean.emailConfig) set.emailConfig = { ...(clean.emailConfig as object) };
+  if (clean.targetIds) set.targetIds = [...(clean.targetIds as string[])];
+  if (clean.functionKeys)
+    set.functionKeys = [...(clean.functionKeys as string[])];
+
+  if (data.schedule) {
+    set.nextRunAt = calculateNextRun(
+      data.schedule as IAutomationJob["schedule"]
+    );
+  }
+
   const updated = (await AutomationJob.findByIdAndUpdate(
     jobId,
-    {
-      ...data,
-      ...(data.schedule
-        ? {
-            nextRunAt: calculateNextRun(
-              data.schedule as IAutomationJob["schedule"]
-            ),
-          }
-        : {}),
-    },
+    { $set: set },
     { new: true }
   ).lean()) as IAutomationJob | null;
 
@@ -799,7 +762,7 @@ export const runJobManually = async (
     target_model: "AutomationJob",
   });
 
-  return executeJob(jobId);
+  return executeJob(jobId, "manual");
 };
 
 const automationService = {

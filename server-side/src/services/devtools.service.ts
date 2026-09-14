@@ -6,7 +6,6 @@ import { Student } from "../models/student.model";
 import { Merch } from "../models/merch.model";
 import { Event } from "../models/event.model";
 import { Settings } from "../models/settings.model";
-import ejs from "ejs";
 import path from "path";
 import fs from "fs/promises";
 import os from "os";
@@ -62,59 +61,30 @@ export const resendSingleEmail = async (id: string) => {
     throw new Error("Only receipt and automation report emails can be resent");
   }
 
-  let html: string;
-  let subject: string;
-
   if (entry.type === "automation-report") {
-    let reportPayload: {
-      jobName: string;
-      executionTime: string;
-      results: Array<{
-        success: boolean;
-        data?: unknown;
-        recordCount: number;
-        durationMs: number;
-        error?: string;
-      }>;
-      includeSummary: boolean;
-      includeRawData: boolean;
-      subject: string;
-    };
-
+    let payload: unknown;
     try {
-      reportPayload = JSON.parse(entry.payload || "{}");
+      payload = JSON.parse(entry.payload || "{}");
     } catch {
       throw new Error("Invalid automation report payload");
     }
 
-    const templatePath = path.join(
-      __dirname,
-      "../templates/automation-report.ejs"
+    const { sendAutomationWebhookPayload } = await import(
+      "./automation.service"
     );
-    html = await ejs.renderFile(templatePath, {
-      jobName: reportPayload.jobName,
-      executionTime: new Date(reportPayload.executionTime).toLocaleString(
-        "en-US",
-        {
-          weekday: "long",
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-          timeZone: "Asia/Manila",
-        }
-      ),
-      results: reportPayload.results,
-      includeSummary: reportPayload.includeSummary,
-      includeRawData: reportPayload.includeRawData,
-      targetCount: 1,
-      subject: reportPayload.subject,
-    });
-    subject = reportPayload.subject;
-  } else if (!entry.subtype) {
+    await sendAutomationWebhookPayload(payload as Parameters<typeof sendAutomationWebhookPayload>[0]);
+    await emailService.updateStatusById(String(entry._id), "sent");
+    return { success: true };
+  }
+
+  if (!entry.subtype) {
     throw new Error("Entry has no subtype");
-  } else if (entry.subtype === "membership") {
+  }
+
+  let html: string;
+  let subject: string;
+
+  if (entry.subtype === "membership") {
     html = await renderMembershipReceiptHtml(String(entry.referenceCode));
     subject = "Your Receipt from PSITS - UC Main";
   } else if (entry.subtype === "order") {
@@ -240,6 +210,8 @@ export const getEnvStatus = () => {
   const vars: Array<{ key: string; required: boolean }> = [
     { key: "EMAIL", required: true },
     { key: "RESEND_API_KEY", required: true },
+    { key: "MAKE_AUTOMATION_WEBHOOK_URL", required: false },
+    { key: "MAKE_AUTOMATION_WEBHOOK_API_KEY", required: false },
     { key: "BASE_URL", required: false },
     { key: "MONGODB_URI", required: true },
     { key: "R2_BUCKET_NAME", required: false },
