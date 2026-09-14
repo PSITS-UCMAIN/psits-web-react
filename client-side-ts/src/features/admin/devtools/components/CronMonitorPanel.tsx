@@ -6,7 +6,12 @@ import { Button } from "@/components/ui/button";
 import { showToast } from "@/utils/alertHelper";
 import { ChevronDown, ChevronRight, Play } from "lucide-react";
 
-const JOB_NAMES = ["promo-check", "email-resend", "cancel-expired-orders"];
+const JOB_NAMES = [
+  "promo-check",
+  "email-resend",
+  "cancel-expired-orders",
+  "student-year4-suspend",
+];
 
 export const CronMonitorPanel = () => {
   const [logs, setLogs] = useState<CronExecutionLog[]>([]);
@@ -22,7 +27,10 @@ export const CronMonitorPanel = () => {
         const data = await getCronStatus(job, 10);
         allLogs.push(...data);
       }
-      allLogs.sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
+      allLogs.sort(
+        (a, b) =>
+          new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
+      );
       setLogs(allLogs);
     } catch {
       showToast("error", "Failed to load cron status");
@@ -38,7 +46,13 @@ export const CronMonitorPanel = () => {
   const handleTrigger = async (job: string) => {
     setTriggering(job);
     try {
-      await triggerCron(job === "cancel-expired-orders" ? "promo-check" : job);
+      if (job === "student-year4-suspend") {
+        await triggerCron("student-year4-suspend");
+      } else {
+        await triggerCron(
+          job === "cancel-expired-orders" ? "promo-check" : job
+        );
+      }
       showToast("success", `${job} triggered`);
       fetchLogs();
     } catch {
@@ -50,10 +64,13 @@ export const CronMonitorPanel = () => {
 
   const getJobSummary = (jobName: string) => {
     const jobLogs = logs.filter((l) => l.jobName === jobName);
-    if (jobLogs.length === 0) return { lastRun: "Never", duration: "-", success: false, error: null };
+    if (jobLogs.length === 0)
+      return { lastRun: "Never", duration: "-", success: false, error: null };
 
     const latest = jobLogs[0];
-    const duration = latest.durationMs ? `${(latest.durationMs / 1000).toFixed(1)}s` : "-";
+    const duration = latest.durationMs
+      ? `${(latest.durationMs / 1000).toFixed(1)}s`
+      : "-";
     const success = latest.success;
     const error = latest.errorMessage || null;
 
@@ -78,7 +95,9 @@ export const CronMonitorPanel = () => {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <span className="text-sm text-[#8a8a8a]">{JOB_NAMES.length} scheduled jobs</span>
+        <span className="text-sm text-[#8a8a8a]">
+          {JOB_NAMES.length} scheduled jobs
+        </span>
         <Button
           type="button"
           variant="outline"
@@ -99,7 +118,10 @@ export const CronMonitorPanel = () => {
           const scheduleMap: Record<string, string> = {
             "promo-check": "Daily at midnight UTC",
             "email-resend": "Daily at 1:00 AM (Asia/Manila)",
-            "cancel-expired-orders": "1st of every month, 12:00 AM (Asia/Manila)",
+            "cancel-expired-orders":
+              "1st of every month, 12:00 AM (Asia/Manila)",
+            "student-year4-suspend":
+              "Daily at midnight (Asia/Manila): age/year rule",
           };
 
           return (
@@ -113,19 +135,35 @@ export const CronMonitorPanel = () => {
                     onClick={() => setExpandedJob(isExpanded ? null : job)}
                     className="text-[#8a8a8a]"
                   >
-                    {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    {isExpanded ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    )}
                   </button>
                   <div>
-                    <p className="text-sm font-medium text-[#2b2b2b] capitalize">{job.replace(/-/g, " ")}</p>
+                    <p className="text-sm font-medium text-[#2b2b2b] capitalize">
+                      {job.replace(/-/g, " ")}
+                    </p>
                     <p className="text-xs text-[#8a8a8a]">{scheduleMap[job]}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="text-right">
-                    <p className={`text-xs font-medium ${summary.success ? "text-green-600" : summary.error ? "text-red-600" : "text-[#8a8a8a]"}`}>
-                      {summary.lastRun === "Never" ? "Never run" : summary.success ? "Success" : summary.error ? "Failed" : "-"}
+                    <p
+                      className={`text-xs font-medium ${summary.success ? "text-green-600" : summary.error ? "text-red-600" : "text-[#8a8a8a]"}`}
+                    >
+                      {summary.lastRun === "Never"
+                        ? "Never run"
+                        : summary.success
+                          ? "Success"
+                          : summary.error
+                            ? "Failed"
+                            : "-"}
                     </p>
-                    <p className="text-xs text-[#8a8a8a]">{summary.duration} · {summary.lastRun}</p>
+                    <p className="text-xs text-[#8a8a8a]">
+                      {summary.duration} · {summary.lastRun}
+                    </p>
                   </div>
                   <Button
                     type="button"
@@ -144,20 +182,32 @@ export const CronMonitorPanel = () => {
               {isExpanded && (
                 <div className="border-t border-[#ededed] px-5 py-3">
                   {jobLogs.length === 0 ? (
-                    <p className="text-sm text-[#8a8a8a]">No executions recorded yet.</p>
+                    <p className="text-sm text-[#8a8a8a]">
+                      No executions recorded yet.
+                    </p>
                   ) : (
                     <div className="space-y-2">
                       {jobLogs.slice(0, 5).map((log) => (
-                        <div key={log._id} className="flex items-start justify-between rounded-lg bg-[#f9f9f9] p-3 text-sm">
+                        <div
+                          key={log._id}
+                          className="flex items-start justify-between rounded-lg bg-[#f9f9f9] p-3 text-sm"
+                        >
                           <div>
-                            <p className={`font-medium ${log.success ? "text-green-600" : "text-red-600"}`}>
+                            <p
+                              className={`font-medium ${log.success ? "text-green-600" : "text-red-600"}`}
+                            >
                               {log.success ? "Success" : "Failed"}
                             </p>
                             <p className="text-xs text-[#8a8a8a]">
-                              {new Date(log.startedAt).toLocaleString()} · {(log.durationMs ? (log.durationMs / 1000).toFixed(1) + "s" : "-")}
+                              {new Date(log.startedAt).toLocaleString()} ·{" "}
+                              {log.durationMs
+                                ? (log.durationMs / 1000).toFixed(1) + "s"
+                                : "-"}
                             </p>
                             {log.errorMessage && (
-                              <p className="mt-1 text-xs text-red-500">{log.errorMessage}</p>
+                              <p className="mt-1 text-xs text-red-500">
+                                {log.errorMessage}
+                              </p>
                             )}
                           </div>
                         </div>

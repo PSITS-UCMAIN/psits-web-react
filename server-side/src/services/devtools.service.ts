@@ -69,10 +69,11 @@ export const resendSingleEmail = async (id: string) => {
       throw new Error("Invalid automation report payload");
     }
 
-    const { sendAutomationWebhookPayload } = await import(
-      "./automation.service"
+    const { sendAutomationWebhookPayload } =
+      await import("./automation.service");
+    await sendAutomationWebhookPayload(
+      payload as Parameters<typeof sendAutomationWebhookPayload>[0]
     );
-    await sendAutomationWebhookPayload(payload as Parameters<typeof sendAutomationWebhookPayload>[0]);
     await emailService.updateStatusById(String(entry._id), "sent");
     return { success: true };
   }
@@ -1211,5 +1212,43 @@ export const decrementStudentYears = async (): Promise<{
     eligible: eligibleIds.length,
     updated: result.modifiedCount,
     skippedYear1: students.length - result.modifiedCount,
+  };
+};
+
+export const suspendOldStudents = async (): Promise<{
+  totalChecked: number;
+  suspended: number;
+}> => {
+  const now = new Date();
+  const oneYearAgo = new Date(now);
+  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+  const twoYearsAgo = new Date(now);
+  twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+  const threeYearsAgo = new Date(now);
+  threeYearsAgo.setFullYear(threeYearsAgo.getFullYear() - 3);
+  const fourYearsAgo = new Date(now);
+  fourYearsAgo.setFullYear(fourYearsAgo.getFullYear() - 4);
+
+  const activeStatuses = [account_status.ACTIVE, "True"];
+
+  const students = await Student.find({
+    status: { $in: activeStatuses },
+    $or: [
+      { createdAt: { $lte: fourYearsAgo } },
+      { year: { $gte: 4 }, createdAt: { $lte: oneYearAgo } },
+      { year: { $gte: 3 }, createdAt: { $lte: twoYearsAgo } },
+      { year: { $gte: 2 }, createdAt: { $lte: threeYearsAgo } },
+    ],
+  }).lean();
+
+  const eligibleIds = students.map((s) => s._id);
+  const result = await Student.updateMany(
+    { _id: { $in: eligibleIds }, status: { $in: activeStatuses } },
+    { $set: { status: account_status.SUSPENDED } }
+  );
+
+  return {
+    totalChecked: students.length,
+    suspended: result.modifiedCount,
   };
 };

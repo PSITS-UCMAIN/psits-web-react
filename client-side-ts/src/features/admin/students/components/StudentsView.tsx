@@ -80,7 +80,7 @@ const tabs: Array<{
 }> = [
   { key: "all", label: "All Members", icon: UsersRound },
   { key: "requests", label: "Membership Requests", icon: Clock3 },
-  { key: "deleted", label: "Deleted Accounts", icon: Trash2 },
+  { key: "deleted", label: "Suspended", icon: Trash2 },
 ];
 
 const courses = ["BSIT", "BSCS", "ACT"];
@@ -301,14 +301,14 @@ const StudentsTable = ({
                     field={isDeletedTab ? "deletedDate" : "membershipStatus"}
                     onSort={onSort}
                   >
-                    {isDeletedTab ? "Deleted on" : "Membership"}
+                    {isDeletedTab ? "Suspended on" : "Membership"}
                   </SortLabel>
                 </th>
               )}
               {isDeletedTab && (
                 <th className="px-2 py-2 text-left align-middle font-medium">
-                  <SortLabel field="deletedBy" onSort={onSort}>
-                    Deleted by
+                    <SortLabel field="deletedBy" onSort={onSort}>
+                      Suspended by
                   </SortLabel>
                 </th>
               )}
@@ -455,7 +455,7 @@ const StudentsTable = ({
                               variant="destructive"
                             >
                               <Trash2 className="h-4 w-4" />
-                              Delete Account
+                              Suspend Account
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -1176,7 +1176,7 @@ const ConfirmDialog = ({
   const isCancel = action === "cancelRequest";
   const isMembership = action === "approve";
   const primaryLabel = isDelete
-    ? "Delete"
+    ? "Suspend"
     : isRestore
       ? "Restore"
       : isCancel
@@ -1185,7 +1185,7 @@ const ConfirmDialog = ({
           ? "Approve"
           : "Request";
   const title = isDelete
-    ? "Are you sure you want to delete this account?"
+    ? "Are you sure you want to suspend this account?"
     : isRestore
       ? "Restore this student account?"
       : isCancel
@@ -1317,7 +1317,7 @@ export const StudentsView = () => {
       ? "Restore"
       : bulkAction === "approve"
         ? "Approve"
-        : "Delete";
+        : "Suspend";
 
   return (
     <div className="bg-background flex min-h-full flex-1 flex-col text-[#333] [&_[data-disabled]]:pointer-events-auto [&_[data-disabled]]:cursor-not-allowed [&_[role=menuitem]]:cursor-pointer [&_a]:cursor-pointer [&_button:disabled]:pointer-events-auto [&_button:disabled]:cursor-not-allowed [&_button:not(:disabled)]:cursor-pointer">

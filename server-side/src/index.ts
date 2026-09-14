@@ -66,7 +66,11 @@ app.use(
     credentials: true,
   })
 );
-app.use("/api/webhooks",bodyParser.raw({ type: "application/json" }), webhookRoutes);
+app.use(
+  "/api/webhooks",
+  bodyParser.raw({ type: "application/json" }),
+  webhookRoutes
+);
 app.set("trust proxy", 1);
 app.use(bodyParser.json());
 
@@ -314,6 +318,45 @@ async function startServer() {
         } catch (err: any) {
           await logCronExecution({
             jobName: "membership-expire",
+            scheduledAt: startedAt,
+            startedAt,
+            completedAt: new Date(),
+            durationMs: Date.now() - startedAt.getTime(),
+            success: false,
+            errorMessage: err.message,
+          });
+        }
+      },
+      { timezone: "Asia/Manila" }
+    );
+
+    // Daily: suspend active students who meet the account-age/year rule
+    const studentYear4SuspendJob = cron.schedule(
+      "0 0 * * *",
+      async () => {
+        console.log("[Midnight PH] Running old-student suspend check...");
+        const startedAt = new Date();
+        try {
+          const { suspendOldStudents } =
+            await import("./services/devtools.service");
+          const result = await suspendOldStudents();
+          if (result.suspended > 0) {
+            console.log(
+              `[Midnight PH] Suspended ${result.suspended} student(s) meeting the age/year rule`
+            );
+          }
+          await logCronExecution({
+            jobName: "student-year4-suspend",
+            scheduledAt: startedAt,
+            startedAt,
+            completedAt: new Date(),
+            durationMs: Date.now() - startedAt.getTime(),
+            success: true,
+            metadata: { suspendedCount: result.suspended },
+          });
+        } catch (err: any) {
+          await logCronExecution({
+            jobName: "student-year4-suspend",
             scheduledAt: startedAt,
             startedAt,
             completedAt: new Date(),

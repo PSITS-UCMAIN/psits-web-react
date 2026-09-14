@@ -28,8 +28,7 @@ class StudentService {
     // Several callers pass a bare id_number string. Mongoose rejects a
     // non-object filter outright (ObjectParameterError), so normalize it here
     // rather than at each call site.
-    const filter =
-      typeof params === "string" ? { id_number: params } : params;
+    const filter = typeof params === "string" ? { id_number: params } : params;
     const student = await Student.findOne(filter);
     if (!student) {
       throw new AppError("Student not found!", 404);
@@ -132,7 +131,7 @@ class StudentService {
       }),
       Student.countDocuments({ membershipStatus: membership_status.PENDING }),
       Student.countDocuments({
-        status: account_status.DELETED,
+        status: { $in: [account_status.DELETED, account_status.SUSPENDED] },
       }),
     ]);
 

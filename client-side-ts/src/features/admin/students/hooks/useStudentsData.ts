@@ -415,7 +415,7 @@ export const useStudentsData = () => {
       );
 
       if (isSuccess) {
-        if (action === "delete") showToast("success", "Student deleted.");
+        if (action === "delete") showToast("success", "Student suspended.");
         if (action === "restore") showToast("success", "Student restored.");
         await Promise.all([fetchStudents(), fetchStudentCounts()]);
         setSelectedIds([]);

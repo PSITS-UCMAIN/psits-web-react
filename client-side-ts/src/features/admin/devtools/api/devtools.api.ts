@@ -294,6 +294,15 @@ export const decrementStudentYears = async () => {
   return data;
 };
 
+export const suspendOldStudents = async () => {
+  const { data } = await api.post<{ message: string; data: { totalChecked: number; suspended: number } }>(
+    "/api/v2/dev/actions/cron",
+    { type: "student-year4-suspend" },
+    { headers: getAuthToken() ? { Authorization: `Bearer ${getAuthToken()}` } : {} }
+  );
+  return data;
+};
+
 export const getNoetixUsageLogs = async (params?: NoetixUsageQueryParams) => {
   const { data } = await api.get<{ data: NoetixUsageLog[]; total: number }>("/api/v2/dev/noetix/usage", {
     params,

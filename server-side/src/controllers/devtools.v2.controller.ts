@@ -37,6 +37,7 @@ import {
   backfillCreatedAt,
   updateStudentYears,
   decrementStudentYears,
+  suspendOldStudents,
   getNoetixDisabledAdmins,
   addNoetixDisabledAdmin,
   removeNoetixDisabledAdmin,
@@ -93,23 +94,38 @@ class DevToolsController {
       skip: 0,
     });
 
-    const headers = ["id", "type", "subtype", "email", "status", "referenceCode", "retryCount", "timestamp"];
+    const headers = [
+      "id",
+      "type",
+      "subtype",
+      "email",
+      "status",
+      "referenceCode",
+      "retryCount",
+      "timestamp",
+    ];
     const csvRows = [headers.join(",")];
 
     for (const entry of entries) {
       const row = headers.map((h) => {
         const val = (entry as any)[h];
         const str = val === undefined || val === null ? "" : String(val);
-        return str.includes(",") || str.includes('"') ? `"${str.replace(/"/g, '""')}"` : str;
+        return str.includes(",") || str.includes('"')
+          ? `"${str.replace(/"/g, '""')}"`
+          : str;
       });
       csvRows.push(row.join(","));
     }
 
     res.setHeader("Content-Type", "text/csv");
-    res.setHeader("Content-Disposition", `attachment; filename=email-queue-${new Date().toISOString().split("T")[0]}.csv`);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=email-queue-${new Date().toISOString().split("T")[0]}.csv`
+    );
     const csvAdminName = String(req.admin?.name ?? "");
     await logService.create({
-      admin: csvAdminName || String(req.userV2?.idNumber ?? "") || "Unknown Admin",
+      admin:
+        csvAdminName || String(req.userV2?.idNumber ?? "") || "Unknown Admin",
       admin_id: req.admin?._id,
       action: logs_action.EXPORT_REPORT,
       target: "Email queue CSV",
@@ -155,13 +171,17 @@ class DevToolsController {
     }
     const { role, campus } = req.query;
 
-    const admins = await require("../models/admin.model").Admin.find({
-      currentRefreshToken: { $exists: true, $ne: null },
-    }).lean();
+    const admins = await require("../models/admin.model")
+      .Admin.find({
+        currentRefreshToken: { $exists: true, $ne: null },
+      })
+      .lean();
 
-    const students = await require("../models/student.model").Student.find({
-      currentRefreshToken: { $exists: true, $ne: null },
-    }).lean();
+    const students = await require("../models/student.model")
+      .Student.find({
+        currentRefreshToken: { $exists: true, $ne: null },
+      })
+      .lean();
 
     let adminList = admins.map((a: any) => ({
       id: a._id.toString(),
@@ -183,7 +203,9 @@ class DevToolsController {
     if (role === "admin") {
       adminList = adminList.filter((a: any) => !campus || a.campus === campus);
     } else if (role === "student") {
-      studentList = studentList.filter((s: any) => !campus || s.campus === campus);
+      studentList = studentList.filter(
+        (s: any) => !campus || s.campus === campus
+      );
     } else {
       if (campus) {
         adminList = adminList.filter((a: any) => a.campus === campus);
@@ -277,7 +299,9 @@ class DevToolsController {
       target_model: "Admin",
     });
 
-    res.status(200).json({ message: `${userIds.length} session(s) invalidated` });
+    res
+      .status(200)
+      .json({ message: `${userIds.length} session(s) invalidated` });
   });
 
   triggerCron = catchAsync(async (req: Request, res: Response) => {
@@ -306,6 +330,19 @@ class DevToolsController {
         target_model: "Merchandise",
       });
       res.status(200).json({ message: "Promo check triggered" });
+    } else if (type === "student-year4-suspend") {
+      const result = await suspendOldStudents();
+      await logService.create({
+        admin: req.admin.name,
+        admin_id: req.admin._id,
+        action: logs_action.SUSPEND_OLD_STUDENTS,
+        target: `Suspended ${result.suspended} student(s) meeting the age/year rule`,
+        target_model: "Student",
+      });
+      res.status(200).json({
+        message: `Suspended ${result.suspended} student(s) meeting the age/year rule`,
+        data: result,
+      });
     } else {
       res.status(400).json({ message: "Invalid cron type" });
     }
@@ -423,7 +460,9 @@ class DevToolsController {
       target: `Deleted ${deletedCount} log entries older than ${days} days`,
       target_model: "Admin",
     });
-    res.status(200).json({ message: `Deleted ${deletedCount} log entries`, deletedCount });
+    res
+      .status(200)
+      .json({ message: `Deleted ${deletedCount} log entries`, deletedCount });
   });
 
   getOrders = catchAsync(async (req: Request, res: Response) => {
@@ -477,16 +516,26 @@ class DevToolsController {
     });
 
     const headers = docs.length > 0 ? Object.keys(docs[0]) : [];
-    const csvRows = [headers.join(","), ...docs.map((doc: any) =>
-      headers.map((h) => {
-        const val = doc[h];
-        const str = val === undefined || val === null ? "" : String(val);
-        return str.includes(",") || str.includes('"') ? `"${str.replace(/"/g, '""')}"` : str;
-      }).join(",")
-    )];
+    const csvRows = [
+      headers.join(","),
+      ...docs.map((doc: any) =>
+        headers
+          .map((h) => {
+            const val = doc[h];
+            const str = val === undefined || val === null ? "" : String(val);
+            return str.includes(",") || str.includes('"')
+              ? `"${str.replace(/"/g, '""')}"`
+              : str;
+          })
+          .join(",")
+      ),
+    ];
 
     res.setHeader("Content-Type", "text/csv");
-    res.setHeader("Content-Disposition", `attachment; filename=${collection.toLowerCase()}-export-${new Date().toISOString().split("T")[0]}.csv`);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=${collection.toLowerCase()}-export-${new Date().toISOString().split("T")[0]}.csv`
+    );
     res.status(200).send(csvRows.join("\n"));
   });
 
@@ -503,7 +552,9 @@ class DevToolsController {
       return res.status(403).json({ message: "Campus not authorized" });
     }
     const { threshold } = req.query;
-    const alerts = await getStockAlerts(threshold ? parseInt(String(threshold)) : 5);
+    const alerts = await getStockAlerts(
+      threshold ? parseInt(String(threshold)) : 5
+    );
     res.status(200).json({ data: alerts });
   });
 
@@ -550,7 +601,9 @@ class DevToolsController {
       return res.status(403).json({ message: "Campus not authorized" });
     }
     const { limit } = req.query;
-    const violations = getRateLimitViolationsService(limit ? parseInt(String(limit)) : 50);
+    const violations = getRateLimitViolationsService(
+      limit ? parseInt(String(limit)) : 50
+    );
     res.status(200).json({ data: violations });
   });
 
@@ -567,7 +620,9 @@ class DevToolsController {
       return res.status(403).json({ message: "Campus not authorized" });
     }
     const { limit } = req.query;
-    const details = await getFailedEmailDetails(limit ? parseInt(String(limit)) : 100);
+    const details = await getFailedEmailDetails(
+      limit ? parseInt(String(limit)) : 100
+    );
     res.status(200).json({ data: details });
   });
 
@@ -577,7 +632,9 @@ class DevToolsController {
     }
     const { ids, status } = req.body;
     if (!Array.isArray(ids) || !status) {
-      return res.status(400).json({ message: "ids (array) and status are required" });
+      return res
+        .status(400)
+        .json({ message: "ids (array) and status are required" });
     }
     const updated = await bulkUpdateEmailStatus(ids, status);
     res.status(200).json({ message: `Updated ${updated} email(s)`, updated });
@@ -597,7 +654,9 @@ class DevToolsController {
       return res.status(403).json({ message: "Campus not authorized" });
     }
     const count = clearErrors();
-    res.status(200).json({ message: `Cleared ${count} error(s)`, cleared: count });
+    res
+      .status(200)
+      .json({ message: `Cleared ${count} error(s)`, cleared: count });
   });
 
   getBruteForceLogs = catchAsync(async (req: Request, res: Response) => {
@@ -647,8 +706,13 @@ class DevToolsController {
     };
 
     const normalizedMethod = method.toUpperCase() as "GET" | "POST";
-    if (!allowedEndpoints[endpointPath] || allowedEndpoints[endpointPath] !== normalizedMethod) {
-      return res.status(400).json({ message: "Endpoint/method not allowed for testing" });
+    if (
+      !allowedEndpoints[endpointPath] ||
+      allowedEndpoints[endpointPath] !== normalizedMethod
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Endpoint/method not allowed for testing" });
     }
 
     const axios = (await import("axios")).default;
@@ -735,7 +799,8 @@ class DevToolsController {
     if (!ALLOWED_CAMPUS.includes(req.userV2.campus)) {
       return res.status(403).json({ message: "Campus not authorized" });
     }
-    const { admin, success, toolName, dateFrom, dateTo, limit, skip } = req.query;
+    const { admin, success, toolName, dateFrom, dateTo, limit, skip } =
+      req.query;
     const { entries, total } = await getNoetixUsageLogs({
       admin: admin as string | undefined,
       success: success as string | undefined,
@@ -764,7 +829,9 @@ class DevToolsController {
     if (!days) {
       return res.status(400).json({ message: "days parameter required" });
     }
-    const deletedCount = await deleteOldNoetixUsageLogs(parseInt(days as string));
+    const deletedCount = await deleteOldNoetixUsageLogs(
+      parseInt(days as string)
+    );
     await logService.create({
       admin: req.admin.name,
       admin_id: req.admin._id,
@@ -772,7 +839,12 @@ class DevToolsController {
       target: `Deleted ${deletedCount} noetix usage entries older than ${days} days`,
       target_model: "Settings",
     });
-    res.status(200).json({ message: `Deleted ${deletedCount} noetix usage logs`, deletedCount });
+    res
+      .status(200)
+      .json({
+        message: `Deleted ${deletedCount} noetix usage logs`,
+        deletedCount,
+      });
   });
 
   getNoetixDisabledAdmins = catchAsync(async (_req: Request, res: Response) => {
@@ -802,24 +874,27 @@ class DevToolsController {
     res.status(200).json({ data: { noetixDisabledAdmins: admins } });
   });
 
-  removeNoetixDisabledAdmin = catchAsync(async (req: Request, res: Response) => {
-    if (!ALLOWED_CAMPUS.includes(req.userV2.campus)) {
-      return res.status(403).json({ message: "Campus not authorized" });
+  removeNoetixDisabledAdmin = catchAsync(
+    async (req: Request, res: Response) => {
+      if (!ALLOWED_CAMPUS.includes(req.userV2.campus)) {
+        return res.status(403).json({ message: "Campus not authorized" });
+      }
+      const adminId =
+        typeof req.params.adminId === "string" ? req.params.adminId : undefined;
+      if (!adminId) {
+        return res.status(400).json({ message: "adminId is required" });
+      }
+      const admins = await removeNoetixDisabledAdmin(adminId);
+      await logService.create({
+        admin: req.admin.name,
+        admin_id: req.admin._id,
+        action: "Re-enabled Noetix Admin",
+        target: adminId,
+        target_model: "Admin",
+      });
+      res.status(200).json({ data: { noetixDisabledAdmins: admins } });
     }
-    const adminId = typeof req.params.adminId === "string" ? req.params.adminId : undefined;
-    if (!adminId) {
-      return res.status(400).json({ message: "adminId is required" });
-    }
-    const admins = await removeNoetixDisabledAdmin(adminId);
-    await logService.create({
-      admin: req.admin.name,
-      admin_id: req.admin._id,
-      action: "Re-enabled Noetix Admin",
-      target: adminId,
-      target_model: "Admin",
-    });
-    res.status(200).json({ data: { noetixDisabledAdmins: admins } });
-  });
+  );
 
   getNoetixDisabledTools = catchAsync(async (_req: Request, res: Response) => {
     if (!ALLOWED_CAMPUS.includes(_req.userV2.campus)) {
@@ -869,7 +944,8 @@ class DevToolsController {
     if (!ALLOWED_CAMPUS.includes(req.userV2.campus)) {
       return res.status(403).json({ message: "Campus not authorized" });
     }
-    const toolName = typeof req.params.toolName === "string" ? req.params.toolName : undefined;
+    const toolName =
+      typeof req.params.toolName === "string" ? req.params.toolName : undefined;
     if (!toolName) {
       return res.status(400).json({ message: "toolName is required" });
     }
@@ -902,7 +978,9 @@ class DevToolsController {
     }
     const parsed = parseInt(String(value), 10);
     if (isNaN(parsed) || parsed < 1 || parsed > 50) {
-      return res.status(400).json({ message: "value must be between 1 and 50" });
+      return res
+        .status(400)
+        .json({ message: "value must be between 1 and 50" });
     }
     const updated = await setNoetixMaxIterations(parsed);
     await logService.create({

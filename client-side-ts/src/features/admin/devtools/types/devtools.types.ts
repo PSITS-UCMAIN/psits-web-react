@@ -193,6 +193,11 @@ export interface StudentYearDecrementResult {
   skippedYear1: number;
 }
 
+export interface SuspendOldStudentsResult {
+  totalChecked: number;
+  suspended: number;
+}
+
 export interface MigrationStatus {
   studentCreatedAtBackfilled: boolean;
   studentYearLastUpdated: string | null;
