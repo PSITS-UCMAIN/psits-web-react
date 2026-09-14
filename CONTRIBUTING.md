@@ -86,7 +86,7 @@ Recommended flow:
 - Development (iterate locally):
 
 ```bash
-cd client-side
+cd client-side-ts
 npm run dev
 ```
 

@@ -35,13 +35,22 @@ const DEFAULT_FILTERS: StudentFilters = {
   courses: [],
   years: [],
   membershipStatus: "all",
-  appliedOn: "",
 };
 
 const DEFAULT_SORT: StudentSort = {
   field: "name",
   direction: "asc",
 };
+
+// The requests tab is a work queue, so it opens on the newest application
+// rather than alphabetically like the other tabs.
+const REQUESTS_DEFAULT_SORT: StudentSort = {
+  field: "applied",
+  direction: "desc",
+};
+
+const defaultSortForTab = (tab: StudentsTab): StudentSort =>
+  tab === "requests" ? REQUESTS_DEFAULT_SORT : DEFAULT_SORT;
 
 const DEFAULT_TAB_COUNTS: StudentTabCounts = {
   all: 0,
@@ -120,11 +129,22 @@ const getSortValue = (student: AdminStudent, field: StudentSortField) => {
   return String(student[field] || "");
 };
 
-const formatDateKey = (value: string) => {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toISOString().slice(0, 10);
+/** Date columns sort chronologically, not by how the string happens to read. */
+const DATE_SORT_FIELDS = new Set<StudentSortField>(["applied", "deletedDate"]);
+
+/** Missing/unparseable dates sort last in either direction. */
+const compareDates = (left: string, right: string, descending: boolean) => {
+  const leftTime = left ? new Date(left).getTime() : NaN;
+  const rightTime = right ? new Date(right).getTime() : NaN;
+  const leftMissing = Number.isNaN(leftTime);
+  const rightMissing = Number.isNaN(rightTime);
+
+  if (leftMissing && rightMissing) return 0;
+  if (leftMissing) return 1;
+  if (rightMissing) return -1;
+
+  const result = leftTime - rightTime;
+  return descending ? -result : result;
 };
 
 export const useStudentsData = () => {
@@ -134,7 +154,7 @@ export const useStudentsData = () => {
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [filters, setFilters] = useState<StudentFilters>(DEFAULT_FILTERS);
-  const [sort, setSort] = useState<StudentSort>(DEFAULT_SORT);
+  const [sort, setSort] = useState<StudentSort>(defaultSortForTab("all"));
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [isMutating, setIsMutating] = useState(false);
@@ -207,7 +227,7 @@ export const useStudentsData = () => {
     setPage(1);
     setSearch("");
     setFilters(DEFAULT_FILTERS);
-    setSort(DEFAULT_SORT);
+    setSort(defaultSortForTab(activeTab));
   }, [activeTab]);
 
   const filteredStudents = useMemo(() => {
@@ -231,15 +251,17 @@ export const useStudentsData = () => {
         ) {
           return false;
         }
-        if (
-          filters.appliedOn &&
-          formatDateKey(student.applied) !== filters.appliedOn
-        ) {
-          return false;
-        }
         return true;
       })
       .sort((left, right) => {
+        if (DATE_SORT_FIELDS.has(sort.field)) {
+          return compareDates(
+            getSortValue(left, sort.field),
+            getSortValue(right, sort.field),
+            sort.direction === "desc"
+          );
+        }
+
         const leftValue = getSortValue(left, sort.field).toLowerCase();
         const rightValue = getSortValue(right, sort.field).toLowerCase();
         const result = leftValue.localeCompare(rightValue, undefined, {
@@ -276,7 +298,11 @@ export const useStudentsData = () => {
             field,
             direction: currentSort.direction === "asc" ? "desc" : "asc",
           }
-        : { field, direction: "asc" }
+        : // Date columns open newest-first; text columns open A→Z.
+          {
+            field,
+            direction: DATE_SORT_FIELDS.has(field) ? "desc" : "asc",
+          }
     );
   };
 

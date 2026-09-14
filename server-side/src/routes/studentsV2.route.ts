@@ -8,6 +8,7 @@ import {
   getStudentMembershipStatusV2,
   requestStudentMembershipV2,
   searchStudentsV2Controller,
+  getStudentImageController,
 } from "../controllers/studentV2.controller";
 import {
   requireAccessTokenV2,
@@ -35,6 +36,8 @@ router.get(
   roleAuthenticateV2(["admin"]),
   searchStudentsV2Controller
 );
+
+router.get("/image/*", getStudentImageController);
 
 router.get("/profile/:id_number",   
   requireAccessTokenV2, 

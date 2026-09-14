@@ -7,10 +7,10 @@ build/
 .opencode
 opencode.json
 .archiona
-.cursor/rules/archiona.mdc 
-.continue/archiona.md 
-.clinerules/archiona.md 
-.github/copilot-instructions.md 
+.cursor/rules/archiona.mdc
+.continue/archiona.md
+.clinerules/archiona.md
+.github/copilot-instructions.md
 .aider.archiona.conf.yml
 # SCA scan output (.github/scripts/sca-check.mjs)
 sca-report/

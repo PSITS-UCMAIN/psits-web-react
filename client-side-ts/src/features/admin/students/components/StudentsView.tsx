@@ -255,7 +255,9 @@ const StudentsTable = ({
             <col className="w-[14%]" />
             <col className="w-[14%]" />
             <col className="w-[15%]" />
-            <col className={isDeletedTab ? "w-[14%]" : "w-[17%]"} />
+            {!isRequestTab && (
+              <col className={isDeletedTab ? "w-[14%]" : "w-[17%]"} />
+            )}
             {isDeletedTab && <col className="w-[14%]" />}
             <col className={isRequestTab ? "w-[190px]" : "w-16"} />
           </colgroup>
@@ -291,24 +293,16 @@ const StudentsTable = ({
                   Course & Year
                 </SortLabel>
               </th>
-              <th className="px-2 py-2 text-left align-middle font-medium">
-                <SortLabel
-                  field={
-                    isDeletedTab
-                      ? "deletedDate"
-                      : isRequestTab
-                        ? "applied"
-                        : "membershipStatus"
-                  }
-                  onSort={onSort}
-                >
-                  {isDeletedTab
-                    ? "Deleted on"
-                    : isRequestTab
-                      ? "Applied on"
-                      : "Membership"}
-                </SortLabel>
-              </th>
+              {!isRequestTab && (
+                <th className="px-2 py-2 text-left align-middle font-medium">
+                  <SortLabel
+                    field={isDeletedTab ? "deletedDate" : "membershipStatus"}
+                    onSort={onSort}
+                  >
+                    {isDeletedTab ? "Deleted on" : "Membership"}
+                  </SortLabel>
+                </th>
+              )}
               {isDeletedTab && (
                 <th className="px-2 py-2 text-left align-middle font-medium">
                   <SortLabel field="deletedBy" onSort={onSort}>
@@ -323,11 +317,14 @@ const StudentsTable = ({
             {isLoading ? (
               Array.from({ length: 8 }, (_, index) => (
                 <tr key={index} className="border-b border-[#ededed]">
-                  {Array.from({ length: isDeletedTab ? 8 : 7 }, (_, cell) => (
-                    <td key={cell} className="px-2 py-3">
-                      <Skeleton className="h-4 w-full rounded-full" />
-                    </td>
-                  ))}
+                  {Array.from(
+                    { length: isDeletedTab ? 8 : isRequestTab ? 6 : 7 },
+                    (_, cell) => (
+                      <td key={cell} className="px-2 py-3">
+                        <Skeleton className="h-4 w-full rounded-full" />
+                      </td>
+                    )
+                  )}
                 </tr>
               ))
             ) : data.length > 0 ? (
@@ -365,27 +362,22 @@ const StudentsTable = ({
                       {student.course || "-"}{" "}
                       {student.year ? `- ${student.year}` : ""}
                     </td>
-                    <td className="px-2 py-3 text-left align-middle">
-                      {isDeletedTab ? (
-                        formatDeletedDate(student.deletedDate)
-                      ) : isRequestTab ? (
-                        <>
-                          <span>{formatDate(student.applied)}</span>
-                          <span className="block text-xs text-[#8a8a8a]">
-                            Membership
+                    {!isRequestTab && (
+                      <td className="px-2 py-3 text-left align-middle">
+                        {isDeletedTab ? (
+                          formatDeletedDate(student.deletedDate)
+                        ) : (
+                          <span
+                            className={cn(
+                              "inline-flex rounded-full px-3 py-1 text-xs font-medium",
+                              membershipTone(student.membershipStatus)
+                            )}
+                          >
+                            {formatMembership(student.membershipStatus)}
                           </span>
-                        </>
-                      ) : (
-                        <span
-                          className={cn(
-                            "inline-flex rounded-full px-3 py-1 text-xs font-medium",
-                            membershipTone(student.membershipStatus)
-                          )}
-                        >
-                          {formatMembership(student.membershipStatus)}
-                        </span>
-                      )}
-                    </td>
+                        )}
+                      </td>
+                    )}
                     {isDeletedTab && (
                       <td className="truncate px-2 py-3 text-left align-middle">
                         {student.deletedBy || "-"}
@@ -473,7 +465,7 @@ const StudentsTable = ({
             ) : (
               <tr>
                 <td
-                  colSpan={isDeletedTab ? 8 : 7}
+                  colSpan={isDeletedTab ? 8 : isRequestTab ? 6 : 7}
                   className="px-3 py-16 text-center text-sm text-[#777]"
                 >
                   No student records found.
@@ -534,13 +526,11 @@ const StudentsTable = ({
 };
 
 interface StudentsFilterPopoverProps {
-  activeTab: StudentsTab;
   filters: StudentFilters;
   onApply: (filters: StudentFilters) => void;
 }
 
 const StudentsFilterPopover = ({
-  activeTab,
   filters,
   onApply,
 }: StudentsFilterPopoverProps) => {
@@ -550,13 +540,11 @@ const StudentsFilterPopover = ({
     courses: [],
     years: [],
     membershipStatus: "all",
-    appliedOn: "",
   };
   const hasActiveFilters =
     filters.courses.length > 0 ||
     filters.years.length > 0 ||
-    filters.membershipStatus !== "all" ||
-    Boolean(filters.appliedOn);
+    filters.membershipStatus !== "all";
 
   useEffect(() => {
     setDraft(filters);
@@ -686,24 +674,6 @@ const StudentsFilterPopover = ({
                 </SelectContent>
               </Select>
             </div>
-            {activeTab === "requests" && (
-              <div>
-                <Label className="mb-2 block text-xs font-medium">
-                  Applied on
-                </Label>
-                <Input
-                  type="date"
-                  value={draft.appliedOn}
-                  onChange={(event) =>
-                    setDraft((current) => ({
-                      ...current,
-                      appliedOn: event.target.value,
-                    }))
-                  }
-                  className="h-10 rounded-xl border-[#ececec]"
-                />
-              </div>
-            )}
           </div>
           <div className="mt-6 flex justify-end gap-3">
             <Button
@@ -1378,11 +1348,7 @@ export const StudentsView = () => {
                 className="h-9 rounded-full border-[#e8e8e8] pl-9 text-sm"
               />
             </div>
-            <StudentsFilterPopover
-              activeTab={activeTab}
-              filters={filters}
-              onApply={setFilters}
-            />
+            <StudentsFilterPopover filters={filters} onApply={setFilters} />
           </div>
 
           <StudentsTable

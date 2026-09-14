@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Search, X } from "lucide-react";
 import { useAuth } from "@/features/auth";
+import { isActiveMembership } from "@/features/student";
 import { approveMembership } from "@/features/admin/api/admin";
 import { searchStudentsV2 } from "@/features/events/api/eventService";
 import { membershipPrice } from "@/features/admin/settings/api/settings.endpoints";
@@ -97,8 +98,14 @@ export const AddMembershipDialog = ({
     onClose();
   };
 
+  // Mirrors the server guard: a student who is already a member in the running
+  // term cannot be approved again.
+  const alreadyMember = selected
+    ? isActiveMembership(selected.membershipStatus)
+    : false;
+
   const handleSave = async () => {
-    if (!selected) return;
+    if (!selected || alreadyMember) return;
 
     setSaving(true);
     try {
@@ -131,31 +138,50 @@ export const AddMembershipDialog = ({
         </DialogHeader>
 
         {selected ? (
-          <div className="flex items-start justify-between gap-3 rounded-lg border border-[#e5e5e5] bg-[#fafafa] p-3 text-sm">
-            <div>
-              <p className="font-medium text-[#2b2b2b]">{fullName(selected)}</p>
-              <p className="mt-0.5 text-xs text-[#8a8a8a]">
-                {selected.id_number} · {selected.course}
-                {selected.year ? ` - ${selected.year}` : ""}
-                {selected.campus ? ` · ${selected.campus}` : ""}
-              </p>
-              <p className="mt-1 text-xs text-[#8a8a8a]">
-                Current status:{" "}
-                <span className="font-medium text-[#2b2b2b]">
-                  {prettyStatus(selected.membershipStatus)}
-                </span>
-              </p>
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-7 w-7 shrink-0 rounded-full p-0 text-[#8a8a8a]"
-              aria-label="Clear selection"
-              onClick={() => setSelected(null)}
+          <div className="space-y-2">
+            <div
+              className={`flex items-start justify-between gap-3 rounded-lg border p-3 text-sm ${
+                alreadyMember
+                  ? "bg-white-50 border-white-200"
+                  : "border-[#e5e5e5] bg-[#fafafa]"
+              }`}
             >
-              <X className="h-4 w-4" />
-            </Button>
+              <div>
+                <p className="font-medium text-[#2b2b2b]">
+                  {fullName(selected)}
+                </p>
+                <p className="mt-0.5 text-xs text-[#8a8a8a]">
+                  {selected.id_number} · {selected.course}
+                  {selected.year ? ` - ${selected.year}` : ""}
+                  {selected.campus ? ` · ${selected.campus}` : ""}
+                </p>
+                <p className="mt-1 text-xs text-[#8a8a8a]">
+                  Current status:{" "}
+                  <span
+                    className={`font-medium ${
+                      alreadyMember ? "text-green-600" : "text-[#2b2b2b]"
+                    }`}
+                  >
+                    {prettyStatus(selected.membershipStatus)}
+                  </span>
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 shrink-0 rounded-full p-0 text-[#8a8a8a]"
+                aria-label="Clear selection"
+                onClick={() => setSelected(null)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            {alreadyMember && (
+              <p className="text-xs text-red-400">
+                This student is already has a membership for the current term.
+              </p>
+            )}
           </div>
         ) : (
           <div className="space-y-2">
@@ -188,9 +214,16 @@ export const AddMembershipDialog = ({
                     onClick={() => setSelected(student)}
                     className="w-full cursor-pointer rounded-lg border border-[#e5e5e5] bg-white p-2.5 text-left transition-colors hover:border-[#1c9dde]/40 hover:bg-[#f7fbfe]"
                   >
-                    <p className="text-sm font-medium text-[#2b2b2b]">
-                      {fullName(student)}
-                    </p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-medium text-[#2b2b2b]">
+                        {fullName(student)}
+                      </p>
+                      {isActiveMembership(student.membershipStatus) && (
+                        <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+                          Already has membership
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-[#8a8a8a]">
                       {student.id_number} · {student.course}
                       {student.year ? ` - ${student.year}` : ""}
@@ -222,7 +255,7 @@ export const AddMembershipDialog = ({
             type="button"
             className="rounded-full bg-[#1c9dde] hover:bg-[#168bc7]"
             onClick={() => void handleSave()}
-            disabled={saving || !selected}
+            disabled={saving || !selected || alreadyMember}
           >
             {saving ? "Adding..." : "Add Membership"}
           </Button>

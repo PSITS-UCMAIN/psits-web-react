@@ -4,12 +4,9 @@ import {
   getAllOrdersController,
   getAllPendingOrdersController,
   getAllPaidOrdersController,
-  studentAndAdminOrderController,
   cancelOrderController,
   approveOrderController,
   getAllPendingCountController,
-  refund,
-  getAllRefund,
 } from "../controllers/order.controller";
 import { orderController as orderV2Controller } from "../controllers/order.v2.controller";
 import {
@@ -54,15 +51,7 @@ router.get(
   getAllPaidOrdersController
 );
 
-router.post(
-  "/student-order",
-  requireAccessTokenWithDBCheck,
-  roleAuthenticateV2(["admin", "student"]),
-  requireActiveStudentMembershipV2,
-  studentAndAdminOrderController
-);
-
-// Cancel Order
+//Cancel Order
 router.put(
   "/cancel/:product_id",
   requireAccessTokenWithDBCheck,
@@ -84,20 +73,6 @@ router.get(
   requireAccessTokenV2,
   roleAuthenticateV2(["admin"]),
   getAllPendingCountController
-);
-router.post(
-  "/refund",
-  requireAccessTokenWithDBCheck,
-  roleAuthenticateV2(["admin"]),
-  adminAccessAuthenticateV2(["admin", "finance"]),
-  refund
-);
-router.get(
-  "/get-refund",
-  requireAccessTokenV2,
-  roleAuthenticateV2(["admin"]),
-  adminAccessAuthenticateV2(["admin", "finance"]),
-  getAllRefund
 );
 
 // ─── V2 Routes ─────────────────────────────────────────────

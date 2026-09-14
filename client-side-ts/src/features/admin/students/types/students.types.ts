@@ -42,7 +42,6 @@ export interface StudentFilters {
   courses: string[];
   years: string[];
   membershipStatus: string;
-  appliedOn: string;
 }
 
 export interface StudentSort {

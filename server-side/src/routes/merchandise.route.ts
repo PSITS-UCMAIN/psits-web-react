@@ -5,7 +5,6 @@ import { S3Client } from "@aws-sdk/client-s3";
 import path from "path";
 import { merchandiseController } from "../controllers/merchandise.v2.controller";
 import {
-  retrieveReportController,
   deleteReportController,
 } from "../controllers/merchandise.controller";
 import dotenv from "dotenv";
@@ -145,11 +144,4 @@ router.put(
   adminAccessAuthenticateV2(["admin", "finance"]),
   merchandiseController.publish
 );
-router.get(
-  "/reports",
-  requireAccessTokenV2,
-  roleAuthenticateV2(["admin"]),
-  retrieveReportController
-);
-
 export default router;

@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { IStudent } from "../models/student.interface";
 import { Student } from "../models/student.model";
 import { user_model } from "../model_template/model_data";
@@ -9,9 +10,17 @@ import { Settings } from "../models/settings.model";
 import { membership_status } from "../enums/status.enums";
 import { campus_type } from "../enums/campus.enums";
 import { normalizeMembershipStatus } from "../util/membership.util";
+import { r2Client, R2_BUCKET_NAME } from "../lib/r2Client";
 
 const escapeRegex = (value: string) =>
   value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const isNoSuchKeyError = (error: unknown): boolean => {
+  if (!error || typeof error !== "object") return false;
+
+  const candidate = error as { name?: unknown; Code?: unknown };
+  return candidate.name === "NoSuchKey" || candidate.Code === "NoSuchKey";
+};
 
 const findStudentByLookupId = async (rawIdNumber: string) => {
   const normalized = rawIdNumber.trim();
@@ -42,6 +51,44 @@ export const getStudentProfile = async(req: Request, res: Response)=>{
     return res.status(500).json({ message: 'Server error' });  
   }
 }
+
+export const getStudentImageController = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const key = req.params[0];
+    if (!key) {
+      return res.status(400).json({ message: "Image key is required" });
+    }
+
+    if (!R2_BUCKET_NAME) {
+      return res.status(500).json({ message: "Image storage not configured" });
+    }
+
+    const command = new GetObjectCommand({ Bucket: R2_BUCKET_NAME, Key: key });
+    const object = await r2Client.send(command);
+
+    if (!object.Body) {
+      return res.status(404).json({ message: "Image not found" });
+    }
+
+    res.setHeader(
+      "Content-Type",
+      object.ContentType || "application/octet-stream"
+    );
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+
+    const stream = object.Body as NodeJS.ReadableStream;
+    stream.pipe(res);
+  } catch (error: unknown) {
+    if (isNoSuchKeyError(error)) {
+      return res.status(404).json({ message: "Image not found" });
+    }
+    console.error("Error streaming student image:", error);
+    return res.status(500).json({ message: "Failed to load image" });
+  }
+};
 
 export const getStudentLookupForAdmin = async (
   req: Request,
@@ -200,9 +247,17 @@ export const requestStudentMembershipV2 = async (
         .json({ message: "You already have a pending membership request." });
     }
 
+    // `applied` backs the "Applied on" column of the admin requests queue, so it
+    // is stamped here rather than left at the account's registration date.
+    // Stored as ISO because the schema field is a String.
     await Student.updateOne(
       { _id: student._id },
-      { $set: { membershipStatus: membership_status.PENDING } }
+      {
+        $set: {
+          membershipStatus: membership_status.PENDING,
+          applied: new Date().toISOString(),
+        },
+      }
     );
 
     return res.status(200).json({
