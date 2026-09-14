@@ -13,6 +13,8 @@ import {
   ChevronsUpDown,
   Clock3,
   Edit3,
+  Eye,
+  EyeOff,
   Filter,
   History,
   KeyRound,
@@ -740,7 +742,7 @@ const StudentFormDialog = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-[560px] rounded-[24px] border-0 p-0">
+      <DialogContent className="h-[95vh] w-[95vw] overflow-y-auto rounded-[24px] border-0 p-0 sm:h-auto sm:w-[480px]">
         <DialogTitle className="sr-only">Edit student account</DialogTitle>
         <DialogDescription className="sr-only">
           Update the selected student's account details.
@@ -909,6 +911,8 @@ const PasswordDialog = ({
 }: PasswordDialogProps) => {
   const [values, setValues] =
     useState<StudentPasswordValues>(emptyPasswordValues);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -924,7 +928,7 @@ const PasswordDialog = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-[420px] rounded-[24px] border-0 p-0">
+      <DialogContent className="rounded-[24px] border-0 p-0 sm:w-[280px] md:w-[420px]">
         <DialogTitle className="sr-only">Change student password</DialogTitle>
         <DialogDescription className="sr-only">
           Change the selected student's account password.
@@ -939,37 +943,67 @@ const PasswordDialog = ({
               <Label className="mb-1.5 block text-xs font-medium">
                 New Password
               </Label>
-              <Input
-                type="password"
-                autoComplete="new-password"
-                value={values.password}
-                onChange={(event) =>
-                  setValues((current) => ({
-                    ...current,
-                    password: event.target.value,
-                  }))
-                }
-                className="h-10 rounded-lg border-[#ececec]"
-                placeholder="Enter your new password"
-              />
+              <div className="relative">
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  value={values.password}
+                  onChange={(event) =>
+                    setValues((current) => ({
+                      ...current,
+                      password: event.target.value,
+                    }))
+                  }
+                  className="h-10 rounded-lg border-[#ececec] pr-10"
+                  placeholder="Enter your new password"
+                />
+                <button
+                  type="button"
+                  className="absolute top-1/2 right-3 -translate-y-1/2 text-[#8f8f8f]"
+                  onClick={() => setShowPassword((current) => !current)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
             </div>
             <div>
               <Label className="mb-1.5 block text-xs font-medium">
                 Re-enter your new password
               </Label>
-              <Input
-                type="password"
-                autoComplete="new-password"
-                value={values.confirm_password}
-                onChange={(event) =>
-                  setValues((current) => ({
-                    ...current,
-                    confirm_password: event.target.value,
-                  }))
-                }
-                className="h-10 rounded-lg border-[#ececec]"
-                placeholder="Confirm password"
-              />
+              <div className="relative">
+                <Input
+                  type={showConfirmPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  value={values.confirm_password}
+                  onChange={(event) =>
+                    setValues((current) => ({
+                      ...current,
+                      confirm_password: event.target.value,
+                    }))
+                  }
+                  className="h-10 rounded-lg border-[#ececec] pr-10"
+                  placeholder="Confirm password"
+                />
+                <button
+                  type="button"
+                  className="absolute top-1/2 right-3 -translate-y-1/2 text-[#8f8f8f]"
+                  onClick={() => setShowConfirmPassword((current) => !current)}
+                  aria-label={
+                    showConfirmPassword ? "Hide password" : "Show password"
+                  }
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
             </div>
           </div>
           <div className="mt-8 flex justify-end gap-3">
@@ -1025,20 +1059,20 @@ const HistoryDialog = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-[720px] rounded-[24px] border-0 p-0">
+      <DialogContent className="w-[95vw] rounded-[24px] border-0 p-0 sm:w-[600px] sm:max-w-[720px] md:w-[720px]">
         <DialogTitle className="sr-only">Membership history</DialogTitle>
         <DialogDescription className="sr-only">
           View the selected student's membership transactions.
         </DialogDescription>
-        <div className="p-6">
-          <div className="mb-6 flex items-center justify-between">
+        <div className="min-w-0 p-6">
+          <div className="mb-6 flex items-center justify-between pr-8">
             <h2 className="flex items-center gap-2 text-lg font-medium">
               <History className="h-5 w-5" />
               Membership History
             </h2>
           </div>
-          <div className="max-h-[380px] overflow-y-auto">
-            <table className="w-full text-sm">
+          <div className="max-h-[380px] overflow-x-auto overflow-y-auto">
+            <table className="w-full min-w-[560px] text-sm">
               <thead>
                 <tr className="bg-[#efefef] text-left text-[#3a3a3a]">
                   <th className="rounded-l-md px-3 py-2 font-medium">
@@ -1169,7 +1203,7 @@ const ConfirmDialog = ({
 
   return (
     <Dialog open={Boolean(state)} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-[420px] rounded-[24px] border-0 p-0">
+      <DialogContent className="w-[420px] rounded-[24px] border-0 p-0">
         <DialogTitle className="sr-only">{title}</DialogTitle>
         <DialogDescription className="sr-only">{description}</DialogDescription>
         <div className="p-8">
