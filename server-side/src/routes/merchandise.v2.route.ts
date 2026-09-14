@@ -105,6 +105,8 @@ router.get(
   merchandiseController.retrievePublished
 );
 
+router.get("/image/*", merchandiseController.getImage);
+
 router.get(
   "/:id",
   requireAccessTokenV2,
