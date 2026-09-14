@@ -189,8 +189,13 @@ export const AgentChatPanel = ({
           exit={{ opacity: 0 }}
           className="pointer-events-none fixed inset-0 z-50 flex items-end justify-end"
         >
-          {/* Mobile: full-screen overlay */}
-          <div className="bg-background pointer-events-auto absolute inset-0 flex flex-col lg:hidden">
+          {/* Mobile: bottom sheet */}
+          <div
+            aria-hidden="true"
+            onClick={() => onOpenChange(false)}
+            className="pointer-events-auto absolute inset-0 bg-black/30 lg:hidden"
+          />
+          <div className="bg-background pointer-events-auto absolute inset-x-3 bottom-3 flex h-[70dvh] max-h-[560px] flex-col overflow-hidden rounded-2xl border shadow-2xl lg:hidden">
             {/* Header */}
             <div className="flex items-center justify-between border-b px-4 py-3">
               <div className="flex flex-col gap-1">

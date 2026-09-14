@@ -156,7 +156,7 @@ export const MembershipView = () => {
   return (
     <div className="bg-background flex min-h-full flex-1 flex-col">
       {/* Header */}
-      <div className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-6 lg:px-8">
+      <div className="flex flex-col justify-between gap-4 px-4 py-4 sm:flex-row sm:items-center sm:px-6 sm:py-6 lg:px-8">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Membership</h1>
           <p className="text-muted-foreground text-sm">
@@ -166,7 +166,7 @@ export const MembershipView = () => {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={openCreateDialog} className="gap-2">
+          <Button type="button" onClick={openCreateDialog} className="w-[90vw]">
             <Plus className="h-4 w-4" />
             Create Membership
           </Button>
