@@ -570,12 +570,7 @@ export const organizationSectionData: OrganizationSectionData = {
         },
       ],
       developers: [
-        {
-          name: "Anton James Genabio",
-          role: "Former Head Developer",
-          image: Genabio,
-          socials: { github: "johnsmith" },
-        },
+       
         {
           name: "Marriane Joy Napisa",
           role: "Project Manager",
