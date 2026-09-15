@@ -830,6 +830,17 @@ export const OrdersView = () => {
                     Transaction Date: {formatDate(detailOrder.transaction_date)}
                   </p>
                 )}
+              <p className="mt-1 text-xs text-[#8a8a8a]">
+                {detailOrder?.membership_discount
+                  ? "Discount: Member"
+                  : detailOrder?.promo?.promo_discount
+                    ? `Discount: Promo${
+                        detailOrder.promo.promo_name
+                          ? ` — ${detailOrder.promo.promo_name}`
+                          : ""
+                      }`
+                    : "No Discount"}
+              </p>
             </div>
 
             <table className="w-full text-sm">

@@ -1,5 +1,9 @@
 # Admin Frontend TypeScript Migration and Redesign Plan
 
+> **Status: Completed** — The legacy JavaScript app in `client-side/` has been
+> removed from the repository. `client-side-ts/` is the sole frontend. This
+> document is retained for historical reference only.
+
 ## Purpose
 
 Migrate the remaining admin frontend from the legacy JavaScript app in `client-side/` into the active TypeScript app in `client-side-ts/`, while preserving the existing admin behavior and applying the new redesign that will be provided.

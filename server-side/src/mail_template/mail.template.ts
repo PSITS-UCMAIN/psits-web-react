@@ -18,6 +18,25 @@ import { AppError } from "../util/app.error.util";
 
 const MANILA_TIME_ZONE = "Asia/Manila";
 
+/**
+ * The PSITS logo is attached to every receipt and never changes at runtime, so
+ * it is read from disk once per process instead of on every send.
+ */
+let logoBufferPromise: Promise<Buffer> | null = null;
+
+export const psitsLogoBuffer = (): Promise<Buffer> => {
+  if (!logoBufferPromise) {
+    logoBufferPromise = fs
+      .readFile(path.join(__dirname, "../assets/psits.jpg"))
+      .catch((err) => {
+        // Don't cache a failed read — the next send should try again.
+        logoBufferPromise = null;
+        throw err;
+      });
+  }
+  return logoBufferPromise;
+};
+
 const receiptDateTimeFormatter = new Intl.DateTimeFormat("en-US", {
   timeZone: MANILA_TIME_ZONE,
   month: "long",
@@ -207,13 +226,15 @@ export const membershipRequestReceipt = async (
     return;
   }
 
-  const emailTemplate = await ejs.renderFile(
-    path.join(__dirname, "../assets/appr-membership-receipt.ejs"),
-    data
-  );
-
-  const logoPath = path.join(__dirname, "../assets/psits.jpg");
-  const logoBuffer = await fs.readFile(logoPath);
+  // Template compilation is cached by ejs; the logo is cached per process.
+  const [emailTemplate, logoBuffer] = await Promise.all([
+    ejs.renderFile(
+      path.join(__dirname, "../assets/appr-membership-receipt.ejs"),
+      data,
+      { cache: true }
+    ),
+    psitsLogoBuffer(),
+  ]);
 
   try {
     const queueEntry = await emailService.createByEmail(

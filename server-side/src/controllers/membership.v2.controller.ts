@@ -1,6 +1,5 @@
 import { Request, Response } from "express";
 
-import mongoose from "mongoose";
 import { settingsService } from "../services/settings.service";
 import { studentService } from "../services/student.service";
 import { Settings } from "../models/settings.model";
@@ -22,6 +21,7 @@ import { Membership } from "../models/membership.model";
 import { AppError } from "../util/app.error.util";
 import {
   formatReceiptReference,
+  hasActiveMembership,
   normalizeMembershipStatus,
 } from "../util/membership.util";
 
@@ -32,46 +32,49 @@ class MembershipController {
     async (req: Request, res: Response) => {
       const { id_number, admin, rfid } = req.body;
 
-      // Generated server-side; any reference_code sent by a client is ignored.
-      // Claimed before the transaction opens so a rollback burns a number rather
-      // than holding the counter and conflicting with concurrent approvals.
-      const reference_code = await nextMembershipReference();
-
-      const session = await mongoose.startSession();
-      session.startTransaction();
-
-      const settings: ISettings | null = await settingsService.getConfig();
+      // Independent reads — issued together rather than in series so approval
+      // costs one round trip here instead of three. getSpecific throws a 404
+      // AppError when the student does not exist, which catchAsync surfaces.
+      const [settings, student, activeParent] = await Promise.all([
+        settingsService.getConfig() as Promise<ISettings | null>,
+        studentService.getSpecific(id_number) as Promise<IStudent>,
+        membershipService.getActiveParent(),
+      ]);
 
       if (!settings) {
-        res.status(500).json({ message: "No membership price in the backend" });
+        return res
+          .status(500)
+          .json({ message: "No membership price in the backend" });
       }
-      const student: IStudent | null = await studentService.getIdSession(
-        id_number,
-        session
-      );
 
-      if (!student) {
-        console.error(`Student with id_number ${id_number} not found.`);
-        return res.status(404).json({ message: "Student not found" });
+      
+      // Block duplicate another approval for a student who already has an active membership.
+      if (hasActiveMembership(student.membershipStatus)) {
+        return res.status(409).json({
+          message: `${studentService.fullNameFormat(
+            student
+          )} already has an active membership.`,
+        });
       }
 
       // Approval requires an active membership term; the history record is
       // linked to it via membership_id.
-      const activeParent = await membershipService.getActiveParent();
       if (!activeParent) {
-        await session.abortTransaction();
-        session.endSession();
         return res.status(400).json({
           message: "No active membership. Create a membership term first.",
         });
       }
 
-      //check membership
-      const result = await membershipService.checkApplication(student);
+      // The reference_code is generated server-side; any value sent by a client
+      // is ignored. It is claimed only once the approval has passed validation,
+      // so a rejected approval no longer burns a number in the sequence, and
+      // alongside the status update since neither depends on the other.
+      const [reference_code, result] = await Promise.all([
+        nextMembershipReference(),
+        membershipService.checkApplication(student),
+      ]);
 
       if (!result.status) {
-        await session.abortTransaction();
-        session.endSession();
         return res.status(400).json({ message: result.message });
       }
       const historyQuery = {
@@ -96,8 +99,6 @@ class MembershipController {
           .status(500)
           .json({ message: "Failed to save membership history" });
       }
-      await session.commitTransaction();
-      session.endSession();
 
       const data: IMembershipRequest = {
         name: studentService.fullNameFormat(student),
@@ -113,24 +114,41 @@ class MembershipController {
         date: format(new Date(), "MMMM d, yyyy"),
       };
 
-      // Call the reusable receipt function
+      // The approval is already durable at this point, so the receipt and the
+      // audit log are not awaited — rendering the template and handing the mail
+      // to Resend is a third-party round trip the admin should not wait on.
+      // membershipRequestReceipt writes its queue entry as "pending" and only
+      // marks it "sent" once Resend accepts it, so anything that fails or is cut
+      // short here is picked up by the 1AM resendPendingEmails job.
       if (student?.email) {
-        await membershipRequestReceipt(
+        void membershipRequestReceipt(
           data,
           student.email,
           (student as any)._id,
           reference_code
+        ).catch((err: unknown) =>
+          console.error(
+            `Membership receipt for ${reference_code} failed to send; left queued for retry:`,
+            err instanceof Error ? err.message : err
+          )
         );
       }
 
-      await logService.create({
-        admin: admin ?? req.admin?.name ?? "Unknown Admin",
-        admin_id: req.admin?._id,
-        action: logs_action.APPROVE_MEMBERSHIP,
-        target: studentService.fullNameFormat(student),
-        target_id: (student as any)._id,
-        target_model: "Membership",
-      });
+      void logService
+        .create({
+          admin: admin ?? req.admin?.name ?? "Unknown Admin",
+          admin_id: req.admin?._id,
+          action: logs_action.APPROVE_MEMBERSHIP,
+          target: studentService.fullNameFormat(student),
+          target_id: (student as any)._id,
+          target_model: "Membership",
+        })
+        .catch((err: unknown) =>
+          console.error(
+            "Failed to write APPROVE_MEMBERSHIP log:",
+            err instanceof Error ? err.message : err
+          )
+        );
 
       return res
         .status(200)
@@ -367,8 +385,12 @@ class MembershipController {
           .json({ message: "Student already has a pending membership request." });
       }
 
+      // Stamp `applied` so the requests queue shows when membership was asked
+      // for, not when the account was registered. ISO, since the field is a
+      // String on the schema.
       await studentService.updateOneDynamic(student.id_number, {
         membershipStatus: membership_status.PENDING,
+        applied: new Date().toISOString(),
       });
 
       await logService.create({

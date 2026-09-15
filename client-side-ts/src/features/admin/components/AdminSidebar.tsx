@@ -126,7 +126,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     <TooltipProvider delayDuration={700}>
       <aside
         className={cn(
-          "group/sidebar bg-background fixed top-0 flex h-screen flex-col border transition-all duration-300 lg:sticky",
+          "group/sidebar bg-background fixed top-0 flex h-full flex-col border transition-all duration-300 lg:sticky lg:h-dvh",
           collapsed ? "w-16" : "w-64"
         )}
       >
@@ -284,7 +284,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                   {collapsed && (
                     <TooltipContent side="right">
                       <p>Recruitment</p>
-                    </TooltipContent> 
+                    </TooltipContent>
                   )}
                 </Tooltip>
               </li>
@@ -665,7 +665,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
         </nav>
 
         {/* User Profile */}
-        <div className="rounded-3xl p-3">
+        <div className="shrink-0 rounded-3xl p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           {collapsed ? (
             <Tooltip>
               <TooltipTrigger asChild>

@@ -21,6 +21,7 @@ import {
   normalizeYear,
   getSignupErrorResponse,
 } from "../util/signupValidation.util";
+import { validateId } from "../util/studentId.util";
 
 /**
  * Shared user response type for frontend
@@ -95,6 +96,12 @@ export const loginV2Controller = async (
   try {
     if (!id_number || !password) {
       throw new AuthError(AuthErrorCodes.InvalidCredentials);
+    }
+
+    // Rejecting the format before any lookup keeps malformed and oversized
+    // values out of the query entirely. It leaks nothing about who exists.
+    if (!validateId(id_number, { mode: "login" }).valid) {
+      return res.status(400).json({ message: "Invalid ID number format." });
     }
 
     let user: IAdminDocument | IStudentDocument | null = null;

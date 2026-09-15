@@ -14,9 +14,21 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router";
 import logo from "@/assets/logo_forms_100x100.png";
+import {
+  LOGIN_ID_MAX_LENGTH,
+  LOGIN_ID_MESSAGE,
+  validateId,
+} from "@/utils/studentId";
 
 const forgotPasswordSchema = z.object({
-  id: z.string().min(8, "ID Number must at least be 8 digits."),
+  // Admins reset passwords through this form too, so it takes the suffixed
+  // pattern rather than the strict 8-digit signup rule.
+  id: z
+    .string()
+    .trim()
+    .refine((val) => validateId(val, { mode: "login" }).valid, {
+      message: LOGIN_ID_MESSAGE,
+    }),
   email: z.email({ error: "Invalid email address" }),
 });
 
@@ -128,6 +140,7 @@ export default function ForgotPasswordForm({
                           aria-invalid={isInvalid}
                           placeholder=" "
                           autoComplete="off"
+                          maxLength={LOGIN_ID_MAX_LENGTH}
                           className={inputClasses}
                         />
                         <label

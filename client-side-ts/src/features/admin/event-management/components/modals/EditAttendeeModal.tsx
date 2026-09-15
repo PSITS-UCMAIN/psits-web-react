@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { showToast } from "@/utils/alertHelper";
+import { validateId } from "@/utils/studentId";
 import {
   getEditableAttendee,
   editAttendeeV2,
@@ -51,7 +52,6 @@ interface EditFormData {
 const COURSE_OPTIONS = ["BSIT", "BSCS", "ACT"];
 const YEAR_LEVEL_OPTIONS = ["1st Year", "2nd Year", "3rd Year", "4th Year"];
 const REQUIRED_MESSAGE = "This field is required";
-const STUDENT_ID_REGEX = /^\d{8}$/;
 const EDIT_CONFIRMATION_PHRASE =
   "I confirm that the edited fields are correct.";
 
@@ -66,9 +66,9 @@ type FormErrors = Partial<
 >;
 
 const CAMPUS_ID_SUFFIX_LABELS: Record<string, string> = {
-  "UC_BANILAD": "ucb",
-  "UC_LM": "uclm",
-  "UC_PT": "ucpt",
+  UC_BANILAD: "ucb",
+  UC_LM: "uclm",
+  UC_PT: "ucpt",
 };
 
 const shouldShowShirtFields = (merch?: EventMerchMeta | null): boolean => {
@@ -249,8 +249,9 @@ export const EditAttendeeModal: React.FC<EditAttendeeModalProps> = ({
 
     if (!formData.studentId.trim()) {
       nextErrors.studentId = REQUIRED_MESSAGE;
-    } else if (!STUDENT_ID_REGEX.test(formData.studentId.trim())) {
-      nextErrors.studentId = "Student ID must be exactly 8 digits";
+    } else if (!validateId(formData.studentId).valid) {
+      nextErrors.studentId =
+        "Student ID must be exactly a numeric 8-digit value (e.g. 20201234)";
     }
 
     const firstNameError = validateName(formData.firstName, "First name", true);

@@ -39,7 +39,7 @@ export const AdminLayout = () => {
   };
 
   return (
-    <div className="bg-background flex min-h-screen overflow-hidden">
+    <div className="bg-background flex min-h-dvh overflow-hidden">
       {/* Hamburger button for mobile */}
       <Button
         variant="ghost"
@@ -87,7 +87,7 @@ export const AdminLayout = () => {
       </div>
 
       {/* Main Content */}
-      <main className="flex h-screen min-w-0 flex-1 flex-col overflow-hidden">
+      <main className="flex h-dvh min-w-0 flex-1 flex-col overflow-hidden">
         {/* Page Content */}
         <div className="flex-1 overflow-y-auto overscroll-contain pt-14 lg:pt-0">
           <Outlet />

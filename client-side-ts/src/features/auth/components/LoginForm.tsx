@@ -16,9 +16,21 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router";
 import logo from "@/assets/logo_forms_100x100.png";
+import {
+  LOGIN_ID_MAX_LENGTH,
+  LOGIN_ID_MESSAGE,
+  validateId,
+} from "@/utils/studentId";
 
 const formSchema = z.object({
-  id: z.string().min(8, "ID Number must at least be 8 digits."),
+  // Admins sign in through this same form as `<8 digits>-admin`, so the login
+  // pattern is the one that allows a suffix — not the strict 8-digit rule.
+  id: z
+    .string()
+    .trim()
+    .refine((val) => validateId(val, { mode: "login" }).valid, {
+      message: LOGIN_ID_MESSAGE,
+    }),
   password: z.string(),
   rememberMe: z.boolean(),
 });
@@ -91,6 +103,9 @@ export default function LoginForm({ onLogin, isSubmitting }: LoginFormProps) {
                           onChange={(e) => field.handleChange(e.target.value)}
                           aria-invalid={isInvalid}
                           autoComplete="username"
+                          maxLength={LOGIN_ID_MAX_LENGTH}
+                          // No inputMode="numeric": admin IDs end in "-admin",
+                          // which a numeric keypad cannot type.
                           // IMPORTANT: this is purposedly empty. placeholder must be a space for CSS :placeholder-shown to work
                           placeholder=" "
                           className="peer h-12 rounded-xl border-gray-200 bg-transparent px-3 text-gray-900 placeholder-transparent focus:border-sky-500 focus:outline-none focus-visible:border-sky-500 focus-visible:ring-0"

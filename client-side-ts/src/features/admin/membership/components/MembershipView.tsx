@@ -32,6 +32,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TableRowsSkeleton } from "@/components/ui/table-skeleton";
+import { cn } from "@/lib/utils";
 import { useMembershipData } from "../hooks/useMembershipData";
 import type { MembershipSort } from "../types/membership.types";
 
@@ -56,14 +57,26 @@ interface SortHeaderProps {
   label: string;
   sort: MembershipSort;
   onToggle: (field: MembershipSort["field"]) => void;
+  className?: string;
+  contentClassName?: string;
 }
 
-const SortHeader = ({ field, label, sort, onToggle }: SortHeaderProps) => (
+const SortHeader = ({
+  field,
+  label,
+  sort,
+  onToggle,
+  className,
+  contentClassName,
+}: SortHeaderProps) => (
   <th
-    className="hover:bg-muted/50 h-12 cursor-pointer px-4 text-left align-middle text-xs font-semibold select-none"
+    className={cn(
+      "hover:bg-muted/50 h-12 cursor-pointer px-4 text-left align-middle text-xs font-semibold select-none",
+      className
+    )}
     onClick={() => onToggle(field)}
   >
-    <span className="flex items-center gap-1">
+    <span className={cn("flex items-center gap-1", contentClassName)}>
       {label}
       {sort.field === field && (
         <span className="text-[#1C9DDE]">
@@ -143,7 +156,7 @@ export const MembershipView = () => {
   return (
     <div className="bg-background flex min-h-full flex-1 flex-col">
       {/* Header */}
-      <div className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-6 lg:px-8">
+      <div className="flex flex-col justify-between gap-4 px-4 py-4 sm:flex-row sm:items-center sm:px-6 sm:py-6 lg:px-8">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Membership</h1>
           <p className="text-muted-foreground text-sm">
@@ -153,7 +166,7 @@ export const MembershipView = () => {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={openCreateDialog} className="gap-2">
+          <Button type="button" onClick={openCreateDialog} className="w-[90vw]">
             <Plus className="h-4 w-4" />
             Create Membership
           </Button>
@@ -253,7 +266,7 @@ export const MembershipView = () => {
             onValueChange={(v) => setStatusFilter(v as any)}
           >
             <SelectTrigger className="w-[150px] rounded-xl font-medium">
-              <Filter className="mr-2 h-4 w-4" />
+              <Filter className="mr-2 h-4 w-4 font-semibold" />
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -280,9 +293,9 @@ export const MembershipView = () => {
 
         {/* Table */}
         <div className="overflow-x-auto rounded-xl border">
-          <table className="w-full">
+          <table className="w-full px-1 pl-10 text-left">
             <thead>
-              <tr className="bg-muted/50 text-foreground border-b font-semibold">
+              <tr className="bg-muted/50 text-foreground border-b text-center font-semibold">
                 <SortHeader
                   field="name"
                   label="Membership Name"
@@ -294,14 +307,16 @@ export const MembershipView = () => {
                   label="Start Date"
                   sort={sort}
                   onToggle={toggleSort}
+                  className="px-6"
                 />
                 <SortHeader
                   field="endDate"
                   label="End Date"
                   sort={sort}
                   onToggle={toggleSort}
+                  className="px-8"
                 />
-                <th className="h-12 px-4 text-left text-xs font-semibold">
+                <th className="h-12 px-2 pr-11 text-center text-xs font-semibold">
                   Semester
                 </th>
                 <SortHeader
@@ -309,8 +324,9 @@ export const MembershipView = () => {
                   label="Status"
                   sort={sort}
                   onToggle={toggleSort}
+                  className="px-8"
                 />
-                <th className="h-12 px-4 text-right text-xs font-semibold">
+                <th className="h-12 px-4 pl-20 text-center text-xs font-semibold">
                   Actions
                 </th>
               </tr>

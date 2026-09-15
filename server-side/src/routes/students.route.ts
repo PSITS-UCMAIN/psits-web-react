@@ -1,9 +1,7 @@
 import { Router } from "express";
 import {
   getAllActiveStudentsController,
-  setStudentMembershipRequest,
   getAllDeleteStudentController,
-  getMembershipStatusController,
   softDeleteStudentController,
   restoreDeletedStudentController,
   cancelMembershipRequestController,
@@ -30,26 +28,11 @@ router.get(
   roleAuthenticateV2(["admin"]),
   getAllActiveStudentsController
 );
-//Student Request Membership
-router.put(
-  "/students/request",
-  requireAccessTokenWithDBCheck,
-  roleAuthenticateV2(["student"]),
-  setStudentMembershipRequest
-);
-
 router.get(
   "/students/deleted-students",
   requireAccessTokenV2,
   roleAuthenticateV2(["admin"]),
   getAllDeleteStudentController
-);
-
-router.get(
-  "/students/get-membership-status/:id",
-  requireAccessTokenV2,
-  roleAuthenticateV2(["admin", "student"]),
-  getMembershipStatusController
 );
 
 // SOFT DELETE student by id_number
@@ -137,14 +120,6 @@ router.get(
   requireAccessTokenV2,
   roleAuthenticateV2(["admin"]),
   membershipController.getMembershipHistoriesController
-);
-
-// Admin requests membership on a student's behalf (sets student PENDING)
-router.post(
-  "/membership/request",
-  requireAccessTokenV2,
-  roleAuthenticateV2(["admin"]),
-  membershipController.requestMembershipForStudentController
 );
 
 router.put(

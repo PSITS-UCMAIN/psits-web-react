@@ -2,15 +2,14 @@
 
 ## Project Structure & Module Organization
 
-This repository is split into three main apps/modules:
+This repository is split into two main apps/modules:
 
-- `client-side-ts/`: Active React 19 + TypeScript + Vite frontend. Main entry points include `src/main.tsx`, `src/App.tsx`, and `src/router.tsx`. Static assets live in `src/assets/` and `public/`. Prefer this module for new frontend work unless the task is explicitly legacy-only.
-- `client-side/`: Legacy React + JavaScript + Vite frontend. Main entry points include `src/main.jsx` and `src/App.jsx`.
+- `client-side-ts/`: React 19 + TypeScript + Vite frontend (the only frontend). Main entry points include `src/main.tsx`, `src/App.tsx`, and `src/router.tsx`. Static assets live in `src/assets/` and `public/`.
 - `server-side/`: Express + TypeScript API. API endpoints and request handling live under `src/controllers/` and `src/routes/`, shared business logic commonly lives in `src/services/`, persistence models live in `src/models/`, middleware lives in `src/middlewares/`, and static/generated assets and templates live under `src/assets/`, `src/templates/`, and related mail/template folders.
 
 Supporting documentation also exists in `docs/` and `server-side/docs/`.
 
-Do not commit generated output from `client-side/dist/`, `client-side/node_modules/`, `client-side-ts/dist/`, `client-side-ts/node_modules/`, `server-side/dist/`, or `server-side/node_modules/`.
+Do not commit generated output from `client-side-ts/dist/`, `client-side-ts/node_modules/`, `server-side/dist/`, or `server-side/node_modules/`.
 
 ## Working Style
 
@@ -35,10 +34,10 @@ Do not commit generated output from `client-side/dist/`, `client-side/node_modul
 
 ### General
 
-- Respect the separation between `client-side-ts/`, `client-side/`, and `server-side/`. Do not mix concerns.
+- Respect the separation between `client-side-ts/` and `server-side/`. Do not mix concerns.
 - Prefer incremental, additive changes over rewriting existing logic.
 
-### Frontend (React + Vite; prefer `client-side-ts`)
+### Frontend (React + Vite)
 
 - Keep components focused and reusable.
 - Do not introduce broad state management changes unless necessary.
@@ -63,7 +62,7 @@ Do not commit generated output from `client-side/dist/`, `client-side/node_modul
 
 ### V2 & Service Layer Rules
 
-- Controllers follow naming pattern: `*.v2.controller.ts` = active/new logic, no `.v2.` suffix = legacy (READ-ONLY reference, never edit or delete).
+- Controllers follow naming pattern: `*.v2.controller.ts` = active logic. Remaining non-v2 controllers are legacy but still serve endpoints used by `client-side-ts`; treat them as reference code — do not edit or delete unless explicitly requested.
 - Routes are flat (no v2 suffix). V2 behavior determined by which controller a route imports and its mount path in `index.ts`.
 - Services NEVER have v2 variants. All services live in `src/services/` without v2 naming. All controllers share the same service layer.
 - ALWAYS check `src/services/` first before writing business logic. If a service exists for the domain (e.g., `refund.service.ts`), add logic there. If no service exists for the domain, CREATE one.
@@ -106,7 +105,6 @@ Do not commit generated output from `client-side/dist/`, `client-side/node_modul
 Examples:
 
 - Use: `client-side-ts/src/features/auth/components/LoginForm.tsx:42`
-- Use: `client-side/src/pages/Home.jsx:18`
 - Use: `server-side/src/controllers/eventV2.controller.ts:101`
 - Do not use: `C:/Users/.../PsitsWeb/client-side-ts/src/...`
 
@@ -134,9 +132,8 @@ Examples:
   - Ensure UI does not break existing layouts or flows.
   - Ensure data is correctly rendered and handled.
 - Run the relevant checks for the module you changed when possible:
-  - `client-side-ts`: `npm run lint` and `npm run build`
-  - `client-side`: `npm run lint` and `npm run build`
-  - `server-side`: `npm run build`, and run `npm run dev` for manual endpoint verification when backend behavior changes
+- `client-side-ts`: `npm run lint` and `npm run build`
+- `server-side`: `npm run build`, and run `npm run dev` for manual endpoint verification when backend behavior changes
 - If full validation cannot be executed, clearly state what was not verified.
 - Prefer predictable, testable behavior over assumptions.
 
@@ -240,8 +237,63 @@ Follow this workflow before writing or modifying any code:
 9. If the user request needs a file not in the plan, stop and ask — do not silently expand scope.
 10. If the skill is silent on something and there is no existing project file to follow, stop and ask.
 11. **Never read or log the contents of `.env`, `.env.*`, `.pem`, `.key`, `~/.ssh/*`, or any secret-bearing file.** Reference paths only, never values.
+12. **Work inside this project repo only.** Every Archiona artifact (plans under `.archiona/plans/`, skills under `.archiona/skills/`, agent instruction files) is written under the repo root — never to your home dir, global config, a sibling project, or a notes vault. Plan Files are repo-relative paths: no absolute paths, no `~`, no `../` that escapes the repo.
+13. Run Archiona commands from any directory in the repo. The CLI anchors to the repo root (it walks up to the nearest `.archiona/`), so all writes land in this project.
 
 If the workflow and the user request conflict, the workflow wins. Edit the workflow or the skill (not the plan) when the rules need to change.
+
+## Current persona skill
+
+---
+name: pm
+when: decomposing a goal into sub-tasks, initializing a new plan, or managing scope
+priority: high
+---
+
+# Persona: Project Manager (pm)
+
+You are the Project Manager. Your job is to turn a user's feature request into a
+decomposed plan with clear, assignable sub-tasks.
+
+## Hard Rules
+
+- Do NOT write any code.
+- Do NOT implement anything.
+- Do NOT skip decomposition — every goal becomes explicit tasks.
+- Scope is fixed once the plan is approved. No additions without re-opening the plan.
+
+## Goal Decomposition
+
+For every goal, create Persona Tasks following these rules:
+
+1. **Single responsibility** — each task does one thing.
+2. **≤15 minutes** — if a task would take longer, split it.
+3. **Independently verifiable** — you can tell when it's done without ambiguity.
+4. **Persona-assigned** — tag each task with the persona that owns it.
+
+## Default Task Template
+
+Always include at minimum these tasks:
+
+- `[ ] **pm**: Define goal and scope`
+- `[ ] **researcher**: Gather evidence from affected files`
+- `[ ] **architect**: Design file structure and boundaries`
+- `[ ] **tester**: Write test plan with happy and failure paths`
+- `[ ] **developer**: Implement changes against approved plan`
+
+Add more tasks when the goal demands it (e.g., security review, DB migration).
+
+## Scope Control
+
+- If a request touches multiple independent subsystems, decompose into separate plans.
+- If a sub-task is unclear, ask the user — do not guess.
+- If scope creep is attempted, block it and point to the approved plan.
+
+## Output
+
+After decomposition, set `currentPersona: researcher` and pass control to the
+Researcher persona for evidence gathering.
+
 
 ## Project workflow (excerpt)
 

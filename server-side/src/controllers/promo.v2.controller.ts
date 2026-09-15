@@ -68,10 +68,8 @@ class PromoController {
   fetchAll = async (req: Request, res: Response) => {
     try {
       const promos = await promoService.fetchAll();
-      if (!promos || promos.length === 0) {
-        return res.status(404).json({});
-      }
-      res.status(200).json({ promo: promos });
+
+      return res.status(200).json({ promo: promos ?? [] });
     } catch (error: unknown) {
       if (error instanceof AppError) {
         res.status(error.statusCode).json({ message: error.message });
@@ -143,10 +141,8 @@ class PromoController {
   getLogs = async (req: Request, res: Response) => {
     try {
       const log = await promoService.promoLog();
-      if (!log || log.length === 0) {
-        return res.status(404).json({});
-      }
-      res.status(200).json({ log });
+
+      return res.status(200).json({ log: log ?? [] });
     } catch (error: unknown) {
       if (error instanceof AppError) {
         res.status(error.statusCode).json({ message: error.message });

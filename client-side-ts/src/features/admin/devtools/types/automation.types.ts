@@ -65,6 +65,7 @@ export interface ExecuteResult {
   job: AutomationJob;
   results: FunctionResult[];
   emailQueued: boolean;
+  webhookSent: boolean;
   targets: Array<{ name: string; email: string }>;
 }
 

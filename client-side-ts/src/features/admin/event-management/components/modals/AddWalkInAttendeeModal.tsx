@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { showToast } from "@/utils/alertHelper";
+import { validateId } from "@/utils/studentId";
 import {
   addWalkInAttendeeV2,
   searchStudentsV2,
@@ -53,7 +54,6 @@ interface AddWalkInAttendeeModalProps {
 const COURSE_OPTIONS = ["BSIT", "BSCS", "ACT"];
 const YEAR_LEVEL_OPTIONS = ["1st Year", "2nd Year", "3rd Year", "4th Year"];
 const REQUIRED_MESSAGE = "This field is required";
-const STUDENT_ID_REGEX = /^\d{8}$/;
 
 // Validation constants
 const NAME_REGEX = /^[a-zA-ZÀ-ÿ\s'.,-]+$/;
@@ -215,7 +215,7 @@ export const AddWalkInAttendeeModal: React.FC<AddWalkInAttendeeModalProps> = ({
 
     if (!formData.studentId.trim()) {
       nextErrors.studentId = REQUIRED_MESSAGE;
-    } else if (!STUDENT_ID_REGEX.test(formData.studentId.trim())) {
+    } else if (!validateId(formData.studentId).valid) {
       nextErrors.studentId = "Student ID must be exactly 8 digits";
     }
 

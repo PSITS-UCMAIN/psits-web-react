@@ -552,6 +552,7 @@ const ProductTable = ({
             products.map((product) => {
               const status = getProductStatus(product);
               const primaryImage = product.imageUrl?.[0];
+
               return (
                 <tr key={product._id} className="border-b border-[#eeeeee]">
                   <td className="px-2 py-3 align-middle">
@@ -909,12 +910,11 @@ const ExtendSaleDialog = ({
   const today = toDateInputValue(new Date());
 
   return (
-    <Dialog
-      open={Boolean(product)}
-      onOpenChange={(open) => !open && onClose()}
-    >
+    <Dialog open={Boolean(product)} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-[430px] rounded-3xl border-none p-7">
-        <DialogTitle className="text-xl font-semibold">Extend sale?</DialogTitle>
+        <DialogTitle className="text-xl font-semibold">
+          Extend sale?
+        </DialogTitle>
         <DialogDescription className="text-sm leading-relaxed text-[#8c8c8c]">
           {product?.name || "This product"} stopped selling on{" "}
           {formatDate(product?.end_date)}. Pick a new end date to put it back on

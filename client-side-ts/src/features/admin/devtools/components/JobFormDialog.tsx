@@ -165,7 +165,7 @@ export const JobFormDialog = ({ open, onClose, job, onSuccess }: JobFormDialogPr
           {/* Email Config */}
           <div className="space-y-3 rounded-lg border border-[#e5e5e5] bg-white p-4">
             <div className="flex items-center justify-between">
-              <Label className="text-xs font-medium text-[#555]">Email Report</Label>
+              <Label className="text-xs font-medium text-[#555]">Webhook Report (Make.com)</Label>
               <Switch
                 checked={emailConfig.enabled}
                 onCheckedChange={(v) => setEmailConfig({ ...emailConfig, enabled: v })}
@@ -211,7 +211,7 @@ export const JobFormDialog = ({ open, onClose, job, onSuccess }: JobFormDialogPr
                   <div>
                     <label className="text-sm text-[#555]">Only send when there's something to report</label>
                     <p className="text-xs text-[#8a8a8a] mt-0.5">
-                      Skips the email when every selected function returns zero records. Failures are always sent.
+                      Skips the webhook payload when every selected function returns zero records. Failures are always sent.
                     </p>
                   </div>
                 </div>
@@ -221,8 +221,8 @@ export const JobFormDialog = ({ open, onClose, job, onSuccess }: JobFormDialogPr
                     onCheckedChange={(v) => setEmailConfig({ ...emailConfig, useNoetix: v })}
                   />
                   <div>
-                    <label className="text-sm text-[#555]">AI-generated report (Noetix)</label>
-                    <p className="text-xs text-[#8a8a8a] mt-0.5">Uses Noetix to write a narrative email instead of tables</p>
+                      <label className="text-sm text-[#555]">Request Noetix analysis</label>
+                      <p className="text-xs text-[#8a8a8a] mt-0.5">Flag passed to Make.com so it can run Noetix on the job data before sending the report</p>
                   </div>
                 </div>
               </div>

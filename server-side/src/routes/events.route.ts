@@ -10,8 +10,6 @@ import {
 } from "../middlewares/authV2.middleware";
 import {
   createManualEventController,
-  getAllEventsController,
-  getAllEventsAndAttendeesController,
   updateAttendancePerSessionController,
   checkLimitPerCampusController,
   updateLimitSettingsController,
@@ -68,22 +66,6 @@ router.post(
   roleAuthenticateV2(["admin"]),
   getUpload().array("images", 3),
   createManualEventController
-);
-
-// GET all events
-router.get(
-  "/get-all-event",
-  requireAccessTokenV2,
-  roleAuthenticateV2(["admin", "student"]),
-  getAllEventsController
-);
-
-// GET an event and all of its attendees
-router.get(
-  "/attendees/:id",
-  requireAccessTokenV2,
-  roleAuthenticateV2(["admin"]),
-  getAllEventsAndAttendeesController
 );
 
 // UPDATE Attendee attendance per session

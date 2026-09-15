@@ -1,4 +1,5 @@
 import { Student } from "../models/student.model";
+import { IStudent } from "../models/student.interface";
 import { Orders } from "../models/orders.model";
 import { Merch } from "../models/merch.model";
 import { Event } from "../models/event.model";
@@ -23,6 +24,16 @@ import { EventV2Service } from "../services/eventV2.service";
 import { markAttendance } from "../services/attendance.service";
 import { recruitmentService } from "../services/recruitment.service";
 import { adminService } from "../services/admin.service";
+import { historyService } from "../services/history.service";
+import { nextMembershipReference } from "../util/reference.util";
+import {
+  formatReceiptReference,
+  normalizeMembershipStatus,
+} from "../util/membership.util";
+import { membershipRequestReceipt } from "../mail_template/mail.template";
+import { IMembershipRequest } from "../mail_template/mail.interface";
+import { IHistory } from "../models/history.interface";
+import { format as formatDate } from "date-fns";
 import mongoose, { Types } from "mongoose";
 import bcrypt from "bcryptjs";
 import { psits_roles } from "../enums/role.enums";
@@ -100,9 +111,35 @@ export interface ChatTool {
   execute: (
     args: unknown,
     userAccess: string,
-    userName: string
+    userName: string,
+    callerId?: string
   ) => Promise<unknown>;
 }
+
+// Execution context threaded by the controller into `runTool`. Carries the
+// caller's identity + access so the central gate and any audit can act.
+export interface ToolCtx {
+  access: string;
+  userName: string;
+  callerId: string;
+}
+
+// Single permission gate. Every tool executes through `runTool`, which is the
+// ONLY place `checkPermission` is enforced. Tool `execute` bodies are pure
+// business logic and must NOT call `checkPermission` themselves. Forgetting
+// to declare `permission` on a registry entry throws here instead of silently
+// defaulting to a permission tier.
+export const runTool = async (
+  tool: ChatTool,
+  args: unknown,
+  ctx: ToolCtx
+): Promise<unknown> => {
+  if (!tool.permission) {
+    throw new ToolPermissionError(tool.name, "read", ctx.access);
+  }
+  checkPermission(tool.permission, ctx.access);
+  return await tool.execute(args, ctx.access, ctx.userName, ctx.callerId);
+};
 
 // Noetix-contract tool payload (v3.1 B2: access + risk metadata).
 export interface NoetixTool {
@@ -177,6 +214,65 @@ const safeCount = async (
   } catch {
     return defaultValue;
   }
+};
+
+// Full membership approval flow — mirrors `approveMembershipController`
+// (active-parent check + status flip + history row linked to the parent term
+// + receipt email). Used by the Noetix membership tools so they don't diverge
+// from the admin UI. Does NOT modify the membership controller or service.
+const approveStudentMembershipFull = async (
+  student: IStudent,
+  adminLabel: string
+): Promise<{ message: string; reference_code: string } | { error: string }> => {
+  const activeParent = await membershipService.getActiveParent();
+  if (!activeParent)
+    return {
+      error: "No active membership. Create a membership term first.",
+    };
+
+  const result = await membershipService.checkApplication(student);
+  if (!result) return { error: "Did not update the student" };
+
+  const settings = await Settings.findOne();
+  const price = settings?.membership_price ?? 0;
+  const reference_code = await nextMembershipReference();
+
+  const historyQuery: IHistory = {
+    membership_id: activeParent._id,
+    id_number: student.id_number,
+    reference_code,
+    name: studentService.fullNameFormat(student),
+    year: student.year,
+    course: student.course,
+    date: new Date(),
+    admin: adminLabel,
+    total: price,
+  };
+  await historyService.record(historyQuery);
+
+  if (student.email) {
+    const data: IMembershipRequest = {
+      name: studentService.fullNameFormat(student),
+      reference_code,
+      reference_display: formatReceiptReference(
+        reference_code,
+        activeParent.term_name
+      ),
+      total: price,
+      course: student.course,
+      year: student.year,
+      admin: adminLabel,
+      date: formatDate(new Date(), "MMMM d, yyyy"),
+    };
+    await membershipRequestReceipt(
+      data,
+      student.email,
+      (student as unknown as { _id?: string })._id ?? undefined,
+      reference_code
+    );
+  }
+
+  return { message: "Membership approved successfully", reference_code };
 };
 
 const readTools: ChatTool[] = [
@@ -317,54 +413,108 @@ const readTools: ChatTool[] = [
     },
   },
   {
-    name: "find_student",
+    name: "find_student_by_name",
     description:
-      "Searches for student by name using wildcard (substring) matching on first_name, middle_name, and last_name, so incomplete names still find results. For multi-word searches, ALL words must match one of the name fields (order-independent), e.g. 'john smi' finds 'John Smith' but not 'John Doe'. Pasting a full or partial ID number also resolves the student via an id_number prefix wildcard. Returns matching students with their ID number, name, course, year, and campus. And use it to other tools add_attendee, create order, approve order, and more. Note that you need to provide the partial name of the student you want to search for, and it will return a list of matching students. Do not call this tool without a name argument, as it will throw an error. Use the returned ID number to perform other actions on the student.",
+      "Searches for student by name using wildcard (substring/contains) matching on first_name, middle_name, and last_name, so incomplete names still find results. Supports a leading '*' wildcard (e.g. '*mith' matches names containing 'mith'). For multi-word searches, ALL words must match one of the name fields (order-independent), e.g. 'john smi' finds 'John Smith' but not 'John Doe'. Pasting a full or partial ID number also resolves the student via an id_number prefix wildcard. Returns matching students with their ID number, name, course, year, and campus. And use it to other tools memberships, add_attendee, create order, approve order, and more. Note that you need to provide the partial name of the student you want to search for, and it will return a list of matching students. Do not call this tool without a name argument, as it will throw an error. Use the returned ID number to perform other actions on the student.",
     category: "Students",
     permission: "read",
     args: [
       {
         name: "name",
         description:
-          "Full or partial student name to search for. For multi-word input, every word must match the name. Partial or full ID numbers also work.",
+          "Full or partial student name to search for. Supports leading '*' wildcard (e.g. '*mith' matches names containing 'mith'). For multi-word input, every word must match the name. Partial or full ID numbers also work. Maximum 5 words.",
       },
     ],
     execute: async (args: unknown) => {
       const parsed = args as { name?: string };
-      const query = parsed.name?.trim();
-      if (!query) throw new Error("name is required");
-      const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const rawQuery = parsed.name?.trim();
+      if (!rawQuery) throw new Error("name is required");
+
       const projection =
         "id_number first_name middle_name last_name course year campus status -_id";
-      // AND-of-clauses wildcard: every word must match at least one name
-      // field (first/middle/last), order-independent — "john smi" finds
-      // "John Smith" but not "John Doe". Numeric words additionally match
-      // id_number by prefix wildcard, so pasting a (partial) ID still
-      // resolves the student.
-      const words = escaped.split(/\s+/).filter(Boolean);
-      const clauses = words.map((word) => {
+
+      // Split into words and apply the wildcard convention:
+      // - leading '*' means "contains" (e.g. *mith → matches "smith")
+      // - no prefix means "starts with" for name fields / "prefix" for ID
+      // Regex special chars are escaped so input is safe.
+      const rawWords = rawQuery.split(/\s+/).filter(Boolean);
+      if (rawWords.length > 5) throw new Error("name supports at most 5 words");
+
+      const toRegex = (
+        word: string
+      ): {
+        re: RegExp;
+        anchored: boolean;
+        literal: string;
+      } => {
+        // Strip leading '*' — it signals "contains" mode for this word
+        const isContains = word.startsWith("*");
+        const literal = word.replace(/^\*+/, "");
+        if (literal.length < 2 && !/^\d+$/.test(literal))
+          throw new Error(
+            `Word "${word}" is too short (min 2 chars, or a number)`
+          );
+        const escaped = literal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const re = isContains
+          ? new RegExp(escaped, "i") // unanchored = contains
+          : new RegExp(`^${escaped}`, "i"); // anchored = starts with
+        return { re, anchored: !isContains, literal };
+      };
+
+      const words = rawWords.map(toRegex);
+      const clauses = words.map(({ re, literal }) => {
         const or: Array<Record<string, unknown>> = [
-          { first_name: new RegExp(word, "i") },
-          { middle_name: new RegExp(word, "i") },
-          { last_name: new RegExp(word, "i") },
+          { first_name: re },
+          { middle_name: re },
+          { last_name: re },
         ];
-        if (/^\d+$/.test(word)) {
-          or.push({ id_number: new RegExp(`^${word}`, "i") });
+        if (/^\d+$/.test(literal)) {
+          or.push({ id_number: new RegExp(`^${literal}`, "i") });
         }
         return { $or: or };
       });
+
       const filter =
-        clauses.length === 1 ? clauses[0] : ({ $and: clauses } as Record<string, unknown>);
-      const students = await Student.find(
-        filter,
-        projection
-      )
-        .limit(25)
-        .lean();
-      const name = students.map((s) =>
+        clauses.length === 1
+          ? clauses[0]
+          : ({ $and: clauses } as Record<string, unknown>);
+
+      const students = await Student.find(filter, projection).limit(25).lean();
+
+      // Rank: exact-name matches (all words anchored AND matched a full
+      // field value) before partial/contains matches.
+      const isExact = (
+        s: {
+          first_name: string;
+          middle_name?: string;
+          last_name: string;
+        },
+        wordList: { re: RegExp; anchored: boolean; literal: string }[]
+      ): boolean =>
+        wordList.every(({ anchored, literal }) => {
+          if (!anchored) return true; // contains mode = never "exact"
+          const fields = [s.first_name, s.middle_name ?? "", s.last_name];
+          const escapedLit = literal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          return fields.some(
+            (f) => f && new RegExp(`^${escapedLit}$`, "i").test(f)
+          );
+        });
+
+      const exact = students.filter((s) => isExact(s, words));
+      const partial = students.filter((s) => !isExact(s, words));
+      const ordered = [...exact, ...partial];
+
+      const name = ordered.map((s) =>
         `${s.first_name} ${s.middle_name ?? ""} ${s.last_name}`.trim()
       );
-      return { count: students.length, students, name };
+      return {
+        count: ordered.length,
+        exact_first: exact.length > 0 && exact.length < ordered.length,
+        exact: exact.length,
+        partial: partial.length,
+        students: ordered,
+        name,
+      };
     },
   },
   {
@@ -411,8 +561,7 @@ const readTools: ChatTool[] = [
   // ── Memberships (4) ────────────────────────────────────────────────────────
   {
     name: "get_active_memberships",
-    description:
-      "Returns the count of students with ACTIVE membership status.",
+    description: "Returns the count of students with ACTIVE membership status.",
     category: "Memberships",
     permission: "read",
     execute: () =>
@@ -506,7 +655,9 @@ const readTools: ChatTool[] = [
       const students = await Student.find({
         membershipStatus: membership_status.PENDING,
       })
-        .select("id_number first_name middle_name last_name course year campus -_id")
+        .select(
+          "id_number first_name middle_name last_name course year campus -_id"
+        )
         .sort({ createdAt: 1 })
         .skip(skip)
         .limit(limit)
@@ -1219,9 +1370,8 @@ const readTools: ChatTool[] = [
           date: e.eventDate,
           status: e.status,
           total_revenue: e.totalRevenueAll,
-          attendees: (
-            e.attendees as unknown as Array<Record<string, unknown>>
-          ).length,
+          attendees: (e.attendees as unknown as Array<Record<string, unknown>>)
+            .length,
         })),
       };
     },
@@ -1565,7 +1715,6 @@ const readTools: ChatTool[] = [
       },
     ],
     execute: async (args: unknown, userAccess: string) => {
-      checkPermission("admin_finance", userAccess);
       const parsed = args as { order_id?: string };
       if (!parsed.order_id) throw new Error("order_id is required");
       const order = await Orders.findById(new Types.ObjectId(parsed.order_id))
@@ -1589,7 +1738,6 @@ const readTools: ChatTool[] = [
       },
     ],
     execute: async (args: unknown, userAccess: string) => {
-      checkPermission("admin_finance", userAccess);
       const parsed = args as { order_id?: string };
       if (!parsed.order_id) throw new Error("order_id is required");
       const oid = new Types.ObjectId(parsed.order_id);
@@ -1867,7 +2015,6 @@ const readTools: ChatTool[] = [
       },
     ],
     execute: async (args: unknown, userAccess: string) => {
-      checkPermission("admin_full", userAccess);
       const parsed = args as { application_id?: string };
       if (!parsed.application_id) throw new Error("application_id is required");
       const app = await Application.findById(
@@ -1939,7 +2086,6 @@ const readTools: ChatTool[] = [
     category: "Admin",
     permission: "admin_only",
     execute: async (_args: unknown, userAccess: string) => {
-      checkPermission("admin_only", userAccess);
       try {
         const admins = await Admin.find(
           { status: account_status.ACTIVE },
@@ -2003,7 +2149,6 @@ const readTools: ChatTool[] = [
       },
     ],
     execute: async (args: unknown, userAccess: string) => {
-      checkPermission("admin_only", userAccess);
       const parsed = args as { access?: string; limit?: string };
       const accessKey = parsed.access?.trim().toUpperCase();
       if (!accessKey) throw new Error("access is required");
@@ -2121,7 +2266,6 @@ const writeTools: ChatTool[] = [
       },
     ],
     execute: async (args: unknown, userAccess: string) => {
-      checkPermission("admin_finance", userAccess);
       const parsed = args as {
         id_number?: string;
         id_numbers?: string | string[];
@@ -2249,7 +2393,6 @@ const writeTools: ChatTool[] = [
       },
     ],
     execute: async (args: unknown, userAccess: string) => {
-      checkPermission("admin_finance", userAccess);
       const parsed = args as { id_number?: string };
       if (!parsed.id_number) throw new Error("id_number is required");
 
@@ -2284,7 +2427,6 @@ const writeTools: ChatTool[] = [
       },
     ],
     execute: async (args: unknown, userAccess: string) => {
-      checkPermission("admin_finance", userAccess);
       const parsed = args as { order_id?: string };
       if (!parsed.order_id) throw new Error("order_id is required");
       const oid = new Types.ObjectId(parsed.order_id);
@@ -2326,7 +2468,6 @@ const writeTools: ChatTool[] = [
       },
     ],
     execute: async (args: unknown, userAccess: string, userName: string) => {
-      checkPermission("admin_finance", userAccess);
       const parsed = args as { order_id?: string; cash?: number };
       if (!parsed.order_id) throw new Error("order_id is required");
       const oid = new Types.ObjectId(parsed.order_id);
@@ -2364,7 +2505,6 @@ const writeTools: ChatTool[] = [
       },
     ],
     execute: async (args: unknown, userAccess: string) => {
-      checkPermission("admin_finance", userAccess);
       const parsed = args as { order_id?: string };
       if (!parsed.order_id) throw new Error("order_id is required");
       const session = await mongoose.startSession();
@@ -2402,16 +2542,60 @@ const writeTools: ChatTool[] = [
         pattern: "^\\d{8}$",
       },
     ],
-    execute: async (args: unknown, userAccess: string) => {
-      checkPermission("admin_finance", userAccess);
+    execute: async (args: unknown, userAccess: string, userName: string) => {
       const parsed = args as { id_number?: string };
       if (!parsed.id_number) throw new Error("id_number is required");
       const student = await Student.findOne({
         id_number: parsed.id_number.trim(),
       });
       if (!student) throw new Error("Student not found");
-      const result = await membershipService.checkApplication(student);
-      return { message: "Membership approved", result };
+
+      const outcome = await approveStudentMembershipFull(
+        student,
+        userName ? `${userName} (NoetixAI)` : "NoetixAI"
+      );
+      if ("error" in outcome) throw new Error(outcome.error);
+      return {
+        message: outcome.message,
+        reference_code: outcome.reference_code,
+      };
+    },
+  },
+  {
+    name: "request_membership",
+    description:
+      "Requests membership for a student. Sets membership status to PENDING. Requires ADMIN or FINANCE access.",
+    category: "Membership",
+    permission: "admin_finance",
+    args: [
+      {
+        name: "id_number",
+        description:
+          "Student ID number of the member to request membership for, id number composed of 8 digits.",
+        pattern: "^\\d{8}$",
+      },
+    ],
+    execute: async (args: unknown, _userAccess: string, _userName: string) => {
+      const parsed = args as { id_number?: string };
+      if (!parsed.id_number) throw new Error("id_number is required");
+      const student = await Student.findOne({
+        id_number: parsed.id_number.trim(),
+      });
+      if (!student) throw new Error("Student not found");
+
+      const status = normalizeMembershipStatus(student.membershipStatus);
+      if (status === "active") throw new Error("Membership is already active.");
+      if (status === "pending")
+        throw new Error("Student already has a pending membership request.");
+
+      await studentService.updateOneDynamic(student.id_number, {
+        membershipStatus: membership_status.PENDING,
+      });
+      return {
+        message: "Membership requested for student",
+        id_number: student.id_number,
+        status: "pending",
+      };
     },
   },
   {
@@ -2421,7 +2605,6 @@ const writeTools: ChatTool[] = [
     category: "Membership",
     permission: "admin_only",
     execute: async (_args: unknown, userAccess: string) => {
-      checkPermission("admin_only", userAccess);
       const result = await membershipService.revokeMembership();
       return { message: "All memberships revoked", result };
     },
@@ -2447,7 +2630,6 @@ const writeTools: ChatTool[] = [
       },
     ],
     execute: async (args: unknown, userAccess: string) => {
-      checkPermission("admin_finance", userAccess);
       const parsed = args as { product_id?: string; active?: boolean };
       if (!parsed.product_id) throw new Error("product_id is required");
       if (parsed.active === undefined)
@@ -2481,7 +2663,6 @@ const writeTools: ChatTool[] = [
       },
     ],
     execute: async (args: unknown, userAccess: string) => {
-      checkPermission("admin_finance", userAccess);
       const parsed = args as { product_id?: string; stocks?: number };
       if (!parsed.product_id || parsed.stocks === undefined)
         throw new Error("product_id and stocks are required");
@@ -2502,10 +2683,10 @@ const writeTools: ChatTool[] = [
       {
         name: "product_id",
         description: "MongoDB ObjectId of the product to soft-delete.",
+        pattern: "^[a-f0-9]{24}$",
       },
     ],
     execute: async (args: unknown, userAccess: string) => {
-      checkPermission("admin_finance", userAccess);
       const parsed = args as { product_id?: string };
       if (!parsed.product_id) throw new Error("product_id is required");
       const result = await merchandiseService.toggleMerchActive(
@@ -2544,7 +2725,6 @@ const writeTools: ChatTool[] = [
       },
     ],
     execute: async (args: unknown, userAccess: string) => {
-      checkPermission("admin_only", userAccess);
       const parsed = args as {
         event_id?: string;
         event_name?: string;
@@ -2584,7 +2764,6 @@ const writeTools: ChatTool[] = [
       },
     ],
     execute: async (args: unknown, userAccess: string) => {
-      checkPermission("admin_only", userAccess);
       const parsed = args as {
         event_id?: string;
         event_name?: string;
@@ -2643,7 +2822,6 @@ const writeTools: ChatTool[] = [
       },
     ],
     execute: async (args: unknown, userAccess: string) => {
-      checkPermission("admin_only", userAccess);
       const parsed = args as {
         event_id?: string;
         event_name?: string;
@@ -2702,14 +2880,18 @@ const writeTools: ChatTool[] = [
           "^(APPROVED|REJECTED|INTERVIEW_SCHEDULED|INTERVIEWING|WITHDRAWN)$",
       },
     ],
-    execute: async (args: unknown, userAccess: string) => {
-      checkPermission("admin_full", userAccess);
+    execute: async (
+      args: unknown,
+      userAccess: string,
+      _userName: string,
+      callerId?: string
+    ) => {
       const parsed = args as { application_id?: string; status?: string };
       if (!parsed.application_id || !parsed.status)
         throw new Error("application_id and status are required");
       const result = await recruitmentService.updateApplicationStatus(
         parsed.application_id,
-        {} as any
+        { body: { status: parsed.status }, admin: { _id: callerId } }
       );
       return { message: "Application status updated", application: result };
     },
@@ -2727,13 +2909,26 @@ const writeTools: ChatTool[] = [
         pattern: "^[a-f0-9]{24}$",
       },
     ],
-    execute: async (args: unknown, userAccess: string) => {
-      checkPermission("admin_full", userAccess);
+    execute: async (
+      args: unknown,
+      userAccess: string,
+      _userName: string,
+      callerId?: string
+    ) => {
       const parsed = args as { position_id?: string };
       if (!parsed.position_id) throw new Error("position_id is required");
+      // Look up current status to decide the flip target
+      const position = await RecruitmentPosition.findById(
+        parsed.position_id
+      ).lean();
+      if (!position) throw new Error("Position not found");
+      const { hiringStatus: positionStatus } = position as {
+        hiringStatus?: string;
+      };
+      const target = positionStatus === "OPEN" ? "CLOSED" : "OPEN";
       const result = await recruitmentService.toggleHiringStatus(
         parsed.position_id,
-        {} as any
+        { body: { status: target }, admin: { _id: callerId } }
       );
       return {
         message: `Position ${result.hiringStatus.toLowerCase()}`,
@@ -2759,7 +2954,6 @@ const writeTools: ChatTool[] = [
       },
     ],
     execute: async (args: unknown, userAccess: string) => {
-      checkPermission("admin_only", userAccess);
       const parsed = args as { id_number?: string };
       if (!parsed.id_number) throw new Error("id_number is required");
       return adminService.suspendByIdNumber(parsed.id_number);
@@ -2792,7 +2986,6 @@ const writeTools: ChatTool[] = [
       },
     ],
     execute: async (args: unknown, userAccess: string) => {
-      checkPermission("admin_only", userAccess);
       const parsed = args as {
         id_number?: string;
         name?: string;
@@ -2844,7 +3037,6 @@ const writeTools: ChatTool[] = [
       },
     ],
     execute: async (args: unknown, userAccess: string, userName: string) => {
-      checkPermission("admin_finance", userAccess);
       const parsed = args as { order_ids?: string[] };
       if (
         !parsed.order_ids ||
@@ -2926,7 +3118,6 @@ const writeTools: ChatTool[] = [
       },
     ],
     execute: async (args: unknown, userAccess: string) => {
-      checkPermission("admin_finance", userAccess);
       const parsed = args as {
         name?: string;
         price?: number | string;
@@ -3004,7 +3195,6 @@ const writeTools: ChatTool[] = [
       { name: "category", description: "New category.", required: false },
     ],
     execute: async (args: unknown, userAccess: string) => {
-      checkPermission("admin_finance", userAccess);
       const parsed = args as {
         product_id?: string;
         name?: string;
@@ -3059,7 +3249,6 @@ const writeTools: ChatTool[] = [
       },
     ],
     execute: async (args: unknown, userAccess: string) => {
-      checkPermission("admin_only", userAccess);
       const parsed = args as { product_id?: string };
       if (!parsed.product_id) throw new Error("product_id is required");
       const result = await Merch.findByIdAndDelete(
@@ -3084,7 +3273,11 @@ const writeTools: ChatTool[] = [
         name: "event_date",
         description: "Event date as ISO date string (e.g. 2026-12-31).",
       },
-      { name: "event_venue", description: "Event venue location.", required: false },
+      {
+        name: "event_venue",
+        description: "Event venue location.",
+        required: false,
+      },
       {
         name: "event_theme",
         description: "Event theme.",
@@ -3092,7 +3285,6 @@ const writeTools: ChatTool[] = [
       },
     ],
     execute: async (args: unknown, userAccess: string) => {
-      checkPermission("admin_only", userAccess);
       const parsed = args as {
         event_name?: string;
         event_description?: string;
@@ -3151,7 +3343,6 @@ const writeTools: ChatTool[] = [
       },
     ],
     execute: async (args: unknown, userAccess: string) => {
-      checkPermission("admin_only", userAccess);
       const parsed = args as { event_id?: string; id_number?: string };
       if (!parsed.event_id || !parsed.id_number)
         throw new Error("event_id and id_number are required");
@@ -3177,10 +3368,13 @@ const writeTools: ChatTool[] = [
         description: "Interview date/time as ISO date string.",
       },
       { name: "location", description: "Interview location.", required: false },
-      { name: "notes", description: "Optional interview notes.", required: false },
+      {
+        name: "notes",
+        description: "Optional interview notes.",
+        required: false,
+      },
     ],
     execute: async (args: unknown, userAccess: string) => {
-      checkPermission("admin_full", userAccess);
       const parsed = args as {
         application_id?: string;
         scheduled_at?: string;
@@ -3220,7 +3414,6 @@ const writeTools: ChatTool[] = [
       { name: "note", description: "Internal note to add." },
     ],
     execute: async (args: unknown, userAccess: string) => {
-      checkPermission("admin_full", userAccess);
       const parsed = args as { application_id?: string; note?: string };
       if (!parsed.application_id || !parsed.note)
         throw new Error("application_id and note are required");
@@ -3249,7 +3442,6 @@ const writeTools: ChatTool[] = [
       },
     ],
     execute: async (args: unknown, userAccess: string) => {
-      checkPermission("admin_only", userAccess);
       const parsed = args as { id_number?: string };
       if (!parsed.id_number) throw new Error("id_number is required");
       return studentService.suspendByIdNumber(parsed.id_number.trim());
@@ -3269,7 +3461,6 @@ const writeTools: ChatTool[] = [
       },
     ],
     execute: async (args: unknown, userAccess: string) => {
-      checkPermission("admin_only", userAccess);
       const parsed = args as { id_numbers?: string };
       if (!parsed.id_numbers) throw new Error("id_numbers is required");
       const idList = parsed.id_numbers
@@ -3311,8 +3502,7 @@ const writeTools: ChatTool[] = [
           'Comma-separated list of student ID numbers (e.g. "20230001, 20230002").',
       },
     ],
-    execute: async (args: unknown, userAccess: string) => {
-      checkPermission("admin_finance", userAccess);
+    execute: async (args: unknown, userAccess: string, userName: string) => {
       const parsed = args as { id_numbers?: string };
       if (!parsed.id_numbers) throw new Error("id_numbers is required");
       const idList = parsed.id_numbers
@@ -3328,8 +3518,15 @@ const writeTools: ChatTool[] = [
           continue;
         }
         try {
-          await membershipService.checkApplication(student);
-          results.push({ id_number: idNumber, status: "approved" });
+          const outcome = await approveStudentMembershipFull(
+            student,
+            userName ? `${userName} (NoetixAI)` : "NoetixAI"
+          );
+          if ("error" in outcome) {
+            results.push({ id_number: idNumber, status: outcome.error });
+          } else {
+            results.push({ id_number: idNumber, status: "approved" });
+          }
         } catch {
           results.push({ id_number: idNumber, status: "error" });
         }
@@ -3368,7 +3565,6 @@ const writeTools: ChatTool[] = [
       },
     ],
     execute: async (args: unknown, userAccess: string) => {
-      checkPermission("admin_full", userAccess);
       const parsed = args as {
         position_id?: string;
         title?: string;
@@ -3407,15 +3603,43 @@ const writeTools: ChatTool[] = [
     args: [
       {
         name: "key",
-        description: "Setting key (e.g. chatbotEnabled, membership_price).",
+        description:
+          "Setting key. Allowed values: membership_price, chatbotEnabled.",
+        pattern: "^(membership_price|chatbotEnabled)$",
       },
-      { name: "value", description: "Setting value (string or number)." },
+      {
+        name: "value",
+        description:
+          "Setting value (number for membership_price, boolean for chatbotEnabled).",
+      },
     ],
     execute: async (args: unknown, userAccess: string) => {
-      checkPermission("admin_only", userAccess);
       const parsed = args as { key?: string; value?: unknown };
       if (!parsed.key) throw new Error("key is required");
       if (parsed.value === undefined) throw new Error("value is required");
+      const ALLOWED_SETTING_KEYS = new Set([
+        "membership_price",
+        "chatbotEnabled",
+      ]);
+      if (!ALLOWED_SETTING_KEYS.has(parsed.key)) {
+        throw new Error(
+          `Setting key "${parsed.key}" is not allowed. Allowed keys: membership_price, chatbotEnabled.`
+        );
+      }
+      // Type enforcement
+      if (parsed.key === "membership_price") {
+        const num =
+          typeof parsed.value === "number"
+            ? parsed.value
+            : parseFloat(String(parsed.value));
+        if (isNaN(num) || num < 0)
+          throw new Error("membership_price must be a non-negative number");
+        parsed.value = num;
+      }
+      if (parsed.key === "chatbotEnabled") {
+        if (typeof parsed.value !== "boolean")
+          throw new Error("chatbotEnabled must be a boolean (true or false)");
+      }
       const setting = await Settings.findOne();
       if (!setting) {
         const newSetting = new Settings({ [parsed.key]: parsed.value });
