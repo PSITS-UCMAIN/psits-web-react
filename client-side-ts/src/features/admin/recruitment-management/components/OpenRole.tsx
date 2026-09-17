@@ -185,11 +185,6 @@ export default function OpenRole({
     null
   );
 
-  // Track whether the dialog was open on the previous render so we can
-  // reset to page 1 exactly when it transitions closed -> open. Doing this
-  // during render (rather than in a useEffect) avoids the extra "commit,
-  // then re-render" pass that react-hooks/set-state-in-effect warns about —
-  // see https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
   const [wasOpen, setWasOpen] = useState(open);
   if (open !== wasOpen) {
     setWasOpen(open);

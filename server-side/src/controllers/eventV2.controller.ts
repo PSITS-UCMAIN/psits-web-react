@@ -488,9 +488,7 @@ export const getAllEventsV2Controller = async (req: Request, res: Response) => {
       ? {}
       : { eventDate: { $gte: getSevenDayWindowCutoffDate() } };
 
-    const events: IEvent[] = await Event.find(dateFilter).select(
-      "-attendees"
-    );
+    const events: IEvent[] = await Event.find(dateFilter).select("-attendees");
 
     if (!events || events.length === 0) {
       return res.status(404).json({ message: "No events found" });
@@ -1771,7 +1769,8 @@ export const applyToEventV2Controller = async (req: Request, res: Response) => {
       .trim()
       .toLowerCase();
     const isRegistrationManuallyClosed =
-      normalizedEventStatus === "ended" || normalizedEventStatus === "cancelled";
+      normalizedEventStatus === "ended" ||
+      normalizedEventStatus === "cancelled";
 
     if (
       isRegistrationManuallyClosed ||
@@ -3055,9 +3054,7 @@ const buildManilaDateTime = (
 
   const dateKey = formatManilaDateKey(date);
   const time = timeValue ?? fallbackTime;
-  const parsedDateTime = new Date(
-    `${dateKey}T${time}:00${MANILA_UTC_OFFSET}`
-  );
+  const parsedDateTime = new Date(`${dateKey}T${time}:00${MANILA_UTC_OFFSET}`);
 
   return Number.isNaN(parsedDateTime.getTime()) ? null : parsedDateTime;
 };
