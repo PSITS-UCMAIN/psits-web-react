@@ -111,8 +111,8 @@ const PaginationFooter = ({
   return (
     <div className="mt-7 flex flex-col items-center justify-between gap-3 text-xs text-[#8a8a8a] sm:flex-row">
       <span>
-        Showing {total > 0 ? (page - 1) * 10 + 1 : 0} to{" "}
-        {Math.min(page * 10, total)} of {total} orders
+        Showing {total > 0 ? (page - 1) * ROWS_PER_PAGE + 1 : 0} to{" "}
+        {Math.min(page * ROWS_PER_PAGE, total)} of {total} orders
       </span>
       <div className="flex items-center gap-1">
         <button
@@ -479,7 +479,7 @@ export const OrdersView = () => {
                   Array.from({ length: 8 }, (_, index) => (
                     <tr key={index} className="border-b border-[#ededed]">
                       {Array.from(
-                        { length: activeTab === "paid" ? 9 : 9 },
+                        { length: activeTab === "paid" ? 8 : 7 },
                         (_, cell) => (
                           <td key={cell} className="px-2 py-3">
                             <Skeleton className="h-4 w-full rounded-full" />
@@ -624,7 +624,7 @@ export const OrdersView = () => {
                 ) : (
                   <tr>
                     <td
-                      colSpan={9}
+                      colSpan={activeTab === "paid" ? 8 : 7}
                       className="px-3 py-16 text-center text-sm text-[#777]"
                     >
                       No {activeTab} orders found.
