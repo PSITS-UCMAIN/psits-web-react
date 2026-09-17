@@ -360,7 +360,7 @@ export const Cart: React.FC = () => {
                     <p className="text-xs text-gray-400">No promo codes available for selected items</p>
                   ) : (
                     <select
-                      value=""
+                      value={selectedPromo?._id ?? ""}
                       onChange={(e) => {
                         const found = eligiblePromos.find((p) => p._id === e.target.value);
                         setSelectedPromo(found || null);

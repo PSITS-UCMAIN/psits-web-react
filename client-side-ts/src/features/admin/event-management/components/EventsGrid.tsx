@@ -93,6 +93,12 @@ export const EventsGrid: React.FC<EventsGridProps> = ({
     );
   }
 
+  const sortedEvents = [...events].sort(
+    (a, b) =>
+      new Date(b.eventDate ?? 0).getTime() -
+      new Date(a.eventDate ?? 0).getTime()
+  );
+
   const getEventId = (event: ApiEvent): string =>
     String(event.eventId ?? event._id ?? "unknown-id");
 
@@ -114,7 +120,7 @@ export const EventsGrid: React.FC<EventsGridProps> = ({
   if (viewMode === "list") {
     return (
       <div className="flex flex-col gap-3 px-4 pb-8 sm:px-6 lg:px-8">
-        {events.map((event) => {
+        {sortedEvents.map((event) => {
           const eventId = getEventId(event);
           const eventTitle = getEventTitle(event);
           const eventDate = getEventDate(event);
@@ -194,7 +200,7 @@ export const EventsGrid: React.FC<EventsGridProps> = ({
   return (
     <div className="px-4 pb-8 sm:px-6 lg:px-8">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
-        {events.map((event) => (
+        {sortedEvents.map((event) => (
           <EventCard
             key={getEventId(event)}
             event={event}

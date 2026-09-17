@@ -26,18 +26,17 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/logo_forms_100x100.png";
+import {
+  STUDENT_ID_LENGTH,
+  STUDENT_ID_MESSAGE,
+  validateId,
+} from "@/utils/studentId";
 
 const TEST_WORD_PATTERN =
   /(^|\b)(test|asdf|qwerty|sample|dummy|foobar|admin|demo|example|placeholder|lorem|ipsum|temp|fake|junk|noreply|nobody|whatever|asdasd|zzz|aaa|hello|hehe|haha|wala)(\b|$)/i;
 
 function isSuspiciousName(value: string) {
   return TEST_WORD_PATTERN.test(value.trim());
-}
-
-function isSuspiciousId(value: string) {
-  const isRepeating = /^(\d)\1+$/.test(value);
-  const isSequential = /^(0123456789|1234567890|12345678)$/.test(value);
-  return isRepeating || isSequential;
 }
 
 function isSuspiciousEmail(email: string): boolean {
@@ -58,9 +57,15 @@ function isSuspiciousEmail(email: string): boolean {
 const baseSchema = z.object({
   id: z
     .string()
-    .min(8, "ID Number must at least be 8 digits.")
-    .refine((val) => !isSuspiciousId(val), {
-      message: "Please enter a valid student ID number",
+    .trim()
+    .superRefine((val, ctx) => {
+      const result = validateId(val, { rejectSuspicious: true });
+      if (!result.valid) {
+        ctx.addIssue({
+          code: "custom",
+          message: result.message ?? STUDENT_ID_MESSAGE,
+        });
+      }
     }),
   lname: z
     .string()
@@ -374,6 +379,8 @@ export default function SignupForm({
                               aria-invalid={isInvalid}
                               placeholder=" "
                               autoComplete="off"
+                              inputMode="numeric"
+                              maxLength={STUDENT_ID_LENGTH}
                               className={inputClasses}
                             />
                             <label

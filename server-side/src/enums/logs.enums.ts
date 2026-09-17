@@ -70,6 +70,7 @@ export const logs_action = Object.freeze({
   BACKFILL_CREATED_AT: "Backfilled Created At (Migration)",
   UPDATE_STUDENT_YEAR: "Updated Student Years",
   DECREMENT_STUDENT_YEAR: "Decrement Student Years",
+  SUSPEND_OLD_STUDENTS: "Suspended Old Students",
   // Membership
   CREATE_MEMBERSHIP: "Created Membership",
   ACTIVATE_MEMBERSHIP: "Activated Membership",

@@ -6,10 +6,14 @@ import { IPromo } from "../models/promo.interface";
 import { Merch } from "../models/merch.model";
 import { PromoUsage } from "../models/promo.usage.model";
 import { PromoLog } from "../models/promo.log.model";
-import { membership_status } from "../enums/status.enums";
+import { hasActiveMembership } from "../util/membership.util";
+import { audienceIncludesRole } from "../util/role.util";
 import { promoCodeGenerator } from "../custom_function/code_generator";
 import { IUserItems } from "./order.service.inteface";
-import { IOrderPromoEligibility, ICheckPromoEligibityResult } from "./promo.service.interface";
+import {
+  IOrderPromoEligibility,
+  ICheckPromoEligibityResult,
+} from "./promo.service.interface";
 import { IStudent } from "../models/student.interface";
 
 class PromoService {
@@ -148,16 +152,14 @@ class PromoService {
     switch (promo.type) {
       case "All Students":
         return { discount: promo.discount, verfied: true };
-
       case "Members":
         if (
-          Array.isArray(promo.selected_audience) &&
-          promo.selected_audience.length > 0
+          audienceIncludesRole(
+            promo.selected_audience,
+            (requestor as any).orgRole
+          )
         ) {
-          const userRole = (requestor as any).orgRole;
-          if (userRole && promo.selected_audience.includes(userRole)) {
-            return { discount: promo.discount, verfied: true };
-          }
+          return { discount: promo.discount, verfied: true };
         }
         break;
 
@@ -169,12 +171,8 @@ class PromoService {
           return { discount: promo.discount, verfied: true };
         }
         break;
-
       case "Membership":
-        const membershipStatus = (requestor as any).membershipStatus;
-        if (
-          membershipStatus === membership_status.ACTIVE
-        ) {
+        if (hasActiveMembership((requestor as any).membershipStatus)) {
           return { discount: promo.discount, verfied: true };
         }
         break;
@@ -195,10 +193,7 @@ class PromoService {
     );
 
     if (this.validatePromoData(data).errors.length > 0) {
-      throw new AppError(
-        this.validatePromoData(data).errors.join("; "),
-        400
-      );
+      throw new AppError(this.validatePromoData(data).errors.join("; "), 400);
     }
     const uniqueMerchandise = this.filterUniqueMerchandise(parsedMerchandise);
     const uniqueCategories = Array.from(
@@ -228,8 +223,7 @@ class PromoService {
       selected_merchandise: uniqueMerchandise,
       selected_categories: uniqueCategories,
       promo_scope: promoScope,
-      selected_audience:
-        data.type === "Members" ? parsedAudience : [],
+      selected_audience: data.type === "Members" ? parsedAudience : [],
       selected_specific_students:
         data.type === "Students" ? parsedAudience : [],
       quantity: data.quantity,
@@ -274,9 +268,7 @@ class PromoService {
         .length > 0;
 
     if (!hasMerchandise && !hasCategories) {
-      errors.push(
-        "At least one merchandise or category must be selected"
-      );
+      errors.push("At least one merchandise or category must be selected");
     }
 
     if (data.limitType === "Limited") {
@@ -314,10 +306,7 @@ class PromoService {
       data.selectedCategories ?? data.selectedCategory
     );
     if (this.validatePromoData(data).errors.length > 0) {
-      throw new AppError(
-        this.validatePromoData(data).errors.join("; "),
-        400
-      );
+      throw new AppError(this.validatePromoData(data).errors.join("; "), 400);
     }
     const uniqueMerchandise = this.filterUniqueMerchandise(parsedMerchandise);
     const uniqueCategories = this.filterUniqueCategories(parsedCategories);
@@ -341,8 +330,7 @@ class PromoService {
     promo.selected_merchandise = uniqueMerchandise;
     promo.selected_categories = uniqueCategories;
     promo.promo_scope = promoScope;
-    promo.selected_audience =
-      data.type === "Members" ? parsedAudience : [];
+    promo.selected_audience = data.type === "Members" ? parsedAudience : [];
     promo.selected_specific_students =
       data.type === "Students" || data.type === "Specific"
         ? parsedAudience
@@ -384,9 +372,15 @@ class PromoService {
     }
 
     const eligibleItems = items.filter((item) => {
-      const matchesMerch = this.verifyMerchPromo(promo, String(item.product_id));
+      const matchesMerch = this.verifyMerchPromo(
+        promo,
+        String(item.product_id)
+      );
       if (matchesMerch) return true;
-      if (promo.promo_scope !== "merchandise" && Array.isArray(promo.selected_categories)) {
+      if (
+        promo.promo_scope !== "merchandise" &&
+        Array.isArray(promo.selected_categories)
+      ) {
         const itemCategory = (item as any).category;
         if (itemCategory) {
           return promo.selected_categories.some(

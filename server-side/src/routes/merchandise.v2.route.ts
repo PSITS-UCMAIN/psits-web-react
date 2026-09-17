@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from "express";
 import multer from "multer";
 import multerS3 from "multer-s3";
-import { S3Client } from "@aws-sdk/client-s3";
+import { r2Client } from "../lib/r2Client";
 import path from "path";
 import { merchandiseController } from "../controllers/merchandise.v2.controller";
 import dotenv from "dotenv";
@@ -15,15 +15,6 @@ import { psits_roles } from "../enums/role.enums";
 dotenv.config();
 
 const router = Router();
-
-const r2Client = new S3Client({
-  region: "auto",
-  endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-  credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY_ID || "",
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || "",
-  },
-});
 
 const getUpload = () => {
   const bucket = process.env.R2_BUCKET_NAME;
@@ -113,6 +104,8 @@ router.get(
   roleAuthenticateV2(["admin", "student"]),
   merchandiseController.retrievePublished
 );
+
+router.get("/image/*", merchandiseController.getImage);
 
 router.get(
   "/:id",

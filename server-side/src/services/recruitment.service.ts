@@ -15,7 +15,8 @@ import { account_status, membership_status } from "../enums/status.enums";
 import { verifyAccessToken } from "../util/jwt.util";
 import bcrypt from "bcryptjs";
 import { randomInt } from "crypto";
-import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { GetObjectCommand } from "@aws-sdk/client-s3";
+import { r2Client } from "../lib/r2Client";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import {
   recruitmentApprovedMail,
@@ -26,15 +27,6 @@ import {
 } from "../mail_template/mail.template";
 import { adminService } from "./admin.service";
 import { campus_type } from "../enums/campus.enums";
-
-const r2Client = new S3Client({
-  region: "auto",
-  endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-  credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY_ID || "",
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || "",
-  },
-});
 
 const OPENING_CONFLICT_STRATEGIES = {
   updateExisting: "update_existing",

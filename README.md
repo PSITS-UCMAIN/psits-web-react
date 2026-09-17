@@ -55,7 +55,7 @@ A comprehensive web platform for the Philippine Society of Information Technolog
 2. **Install Frontend Dependencies**
 
    ```bash
-   cd client-side
+   cd client-side-ts
    npm install
    ```
 
@@ -77,7 +77,7 @@ The project consists of two parts that run independently:
 **Frontend Development Server:**
 
 ```bash
-cd client-side
+cd client-side-ts
 npm run dev
 ```
 

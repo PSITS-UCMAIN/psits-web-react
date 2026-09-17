@@ -112,7 +112,7 @@ const PaginationFooter = ({
     <div className="mt-7 flex flex-col items-center justify-between gap-3 text-xs text-[#8a8a8a] sm:flex-row">
       <span>
         Showing {total > 0 ? (page - 1) * ROWS_PER_PAGE + 1 : 0} to{" "}
-        {Math.min(page * ROWS_PER_PAGE, total)} of {total}
+        {Math.min(page * ROWS_PER_PAGE, total)} of {total} orders
       </span>
       <div className="flex items-center gap-1">
         <button
@@ -308,7 +308,7 @@ export const OrdersView = () => {
   const status = activeTab === "pending" ? pendingStatus : paidStatus;
   const rowCount =
     activeTab === "pending" ? pendingData.length : paidData.length;
-
+  const total = activeTab === "pending" ? pendingTotal : paidTotal;
   const tabs = [
     {
       key: "pending" as const,
@@ -479,7 +479,7 @@ export const OrdersView = () => {
                   Array.from({ length: 8 }, (_, index) => (
                     <tr key={index} className="border-b border-[#ededed]">
                       {Array.from(
-                        { length: activeTab === "paid" ? 9 : 9 },
+                        { length: activeTab === "paid" ? 8 : 7 },
                         (_, cell) => (
                           <td key={cell} className="px-2 py-3">
                             <Skeleton className="h-4 w-full rounded-full" />
@@ -624,7 +624,7 @@ export const OrdersView = () => {
                 ) : (
                   <tr>
                     <td
-                      colSpan={9}
+                      colSpan={activeTab === "paid" ? 8 : 7}
                       className="px-3 py-16 text-center text-sm text-[#777]"
                     >
                       No {activeTab} orders found.
@@ -639,7 +639,7 @@ export const OrdersView = () => {
           <PaginationFooter
             page={currentPage}
             totalPages={totalPagesNum}
-            total={rowCount}
+            total={total}
             onPageChange={setPage}
           />
         </section>
@@ -830,6 +830,17 @@ export const OrdersView = () => {
                     Transaction Date: {formatDate(detailOrder.transaction_date)}
                   </p>
                 )}
+              <p className="mt-1 text-xs text-[#8a8a8a]">
+                {detailOrder?.membership_discount
+                  ? "Discount: Member"
+                  : detailOrder?.promo?.promo_discount
+                    ? `Discount: Promo${
+                        detailOrder.promo.promo_name
+                          ? ` — ${detailOrder.promo.promo_name}`
+                          : ""
+                      }`
+                    : "No Discount"}
+              </p>
             </div>
 
             <table className="w-full text-sm">

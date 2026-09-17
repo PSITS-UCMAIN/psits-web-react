@@ -4,7 +4,7 @@ import type { AutomationJob } from "../types/automation.types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { showToast } from "@/utils/alertHelper";
-import { Plus, Play, Trash2, ToggleLeft, ToggleRight } from "lucide-react";
+import { Plus, Play, Pencil, Trash2, ToggleLeft, ToggleRight } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -15,9 +15,10 @@ import {
 
 interface AutomationPanelProps {
   onCreateJob: () => void;
+  onEditJob: (job: AutomationJob) => void;
 }
 
-export const AutomationPanel = ({ onCreateJob }: AutomationPanelProps) => {
+export const AutomationPanel = ({ onCreateJob, onEditJob }: AutomationPanelProps) => {
   const [jobs, setJobs] = useState<AutomationJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -67,8 +68,14 @@ export const AutomationPanel = ({ onCreateJob }: AutomationPanelProps) => {
   const handleRun = async (job: AutomationJob) => {
     setTriggering(job._id);
     try {
-      await runJob(job._id);
-      showToast("success", `Job "${job.name}" triggered`);
+      const result = await runJob(job._id);
+      if (result.data.webhookSent) {
+        showToast("success", `Job "${job.name}" executed — webhook sent to Make.com`);
+      } else if (job.emailConfig.enabled) {
+        showToast("error", `Job "${job.name}" executed but webhook delivery failed`);
+      } else {
+        showToast("success", `Job "${job.name}" executed`);
+      }
       fetchJobs();
     } catch {
       showToast("error", "Failed to trigger job");
@@ -169,15 +176,25 @@ export const AutomationPanel = ({ onCreateJob }: AutomationPanelProps) => {
                   >
                     {job.isActive ? <ToggleRight className="h-3 w-3" /> : <ToggleLeft className="h-3 w-3" />}
                   </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 w-7 rounded-full p-0 text-red-500"
-                    disabled={deleting === job._id}
-                    onClick={() => setConfirmDelete(job._id)}
-                    title="Delete"
-                  >
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 w-7 rounded-full p-0"
+                      onClick={() => onEditJob(job)}
+                      title="Edit"
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 w-7 rounded-full p-0 text-red-500"
+                      disabled={deleting === job._id}
+                      onClick={() => setConfirmDelete(job._id)}
+                      title="Delete"
+                    >
                     <Trash2 className="h-3 w-3" />
                   </Button>
                 </div>

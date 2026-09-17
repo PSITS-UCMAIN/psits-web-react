@@ -807,7 +807,7 @@ const AccountFormDialog = ({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-[520px] rounded-[20px] p-0"
+        className="max-h-[90dvh] w-[95vw] max-w-[520px] overflow-y-auto rounded-[20px] p-0 sm:w-full"
         showCloseButton={false}
       >
         <form onSubmit={handleSubmit} className="p-6">
@@ -1079,7 +1079,7 @@ const PasswordDialog = ({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-[420px] rounded-[20px] p-0"
+        className="w-[420px] rounded-[20px] p-0"
         showCloseButton={false}
       >
         <form onSubmit={handleSubmit} className="p-6">
@@ -1328,7 +1328,7 @@ const ConfirmActionDialog = ({
 
   return (
     <Dialog open={Boolean(state)} onOpenChange={(open) => !open && onCancel()}>
-      <DialogContent className="max-w-sm rounded-[20px]">
+      <DialogContent className="w-[95vw] rounded-[20px]">
         <DialogHeader>
           <DialogTitle>{actionLabel} account?</DialogTitle>
         </DialogHeader>

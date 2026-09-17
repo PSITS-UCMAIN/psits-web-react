@@ -18,6 +18,7 @@ import {
   ToolPermissionError,
   summarizeToolResult,
   buildNoetixTools,
+  runTool,
 } from "../types/chat-tool.types";
 import { createNoetixUsageLog } from "../services/noetix-usage.service";
 
@@ -349,11 +350,11 @@ export const aiAgentController = catchAsync(
 
       let toolResult: unknown;
       try {
-        toolResult = await tool.execute(
-          noetixArgs,
-          resolvedUserAccess,
-          userName
-        );
+        toolResult = await runTool(tool, noetixArgs, {
+          access: resolvedUserAccess,
+          userName,
+          callerId: req.admin._id.toString(),
+        });
         const resultSummary = summarizeToolResult(toolResult) || "null";
         toolLog.push({
           tool: finalToolName,

@@ -77,7 +77,7 @@ export const getAllDeleteStudentController = async (
 ) => {
   try {
     const students: IStudent[] = await Student.find({
-      status: { $in: ["False", account_status.DELETED] },
+      status: { $in: ["False", account_status.DELETED, account_status.SUSPENDED] },
     });
     if (!students) {
       res.status(400).json({ message: "No Deleted Students" });

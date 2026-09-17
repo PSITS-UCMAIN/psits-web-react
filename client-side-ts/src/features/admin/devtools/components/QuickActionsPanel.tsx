@@ -5,6 +5,7 @@ import {
   backfillCreatedAt,
   updateStudentYears,
   decrementStudentYears,
+  suspendOldStudents,
   getSystemSettings,
   toggleChatbot,
 } from "../api/devtools.api";
@@ -25,6 +26,7 @@ import type {
   BackfillResult,
   StudentYearUpdateResult,
   StudentYearDecrementResult,
+  SuspendOldStudentsResult,
 } from "../types/devtools.types";
 
 interface ActionButton {
@@ -170,6 +172,28 @@ const actions: ActionButton[] = [
       </svg>
     ),
   },
+  {
+    key: "student-year4-suspend",
+    label: "Suspend Old Students",
+    description:
+      "Suspend active students who meet the account-age and student-year rule (daily cron)",
+    icon: (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+      </svg>
+    ),
+  },
 ];
 
 export const QuickActionsPanel = () => {
@@ -178,7 +202,11 @@ export const QuickActionsPanel = () => {
   const [loading, setLoading] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<string | null>(null);
   const [result, setResult] = useState<
-    BackfillResult | StudentYearUpdateResult | StudentYearDecrementResult | null
+    | BackfillResult
+    | StudentYearUpdateResult
+    | StudentYearDecrementResult
+    | SuspendOldStudentsResult
+    | null
   >(null);
   const [settings, setSettings] = useState<{
     studentCreatedAtBackfilled?: boolean;
@@ -208,6 +236,7 @@ export const QuickActionsPanel = () => {
     if (key === "backfill-created-at") return "Migrating...";
     if (key === "update-student-years") return "Updating...";
     if (key === "decrement-student-years") return "Decreasing...";
+    if (key === "student-year4-suspend") return "Suspending...";
     return "Running...";
   };
 
@@ -258,6 +287,13 @@ export const QuickActionsPanel = () => {
         showToast(
           "success",
           `Decremented year for ${result.updated} student(s)`
+        );
+      } else if (key === "student-year4-suspend") {
+        const data = await suspendOldStudents();
+        setResult(data.data);
+        showToast(
+          "success",
+          `Suspended ${data.data.suspended} student(s) meeting the age/year rule`
         );
       } else {
         await triggerCron(key);

@@ -1,4 +1,3 @@
-
 export const psits_roles = Object.freeze({
   ADMIN: "PSITS_ADMIN",
   DEVELOPER: "PSITS_DEV",
@@ -7,7 +6,6 @@ export const psits_roles = Object.freeze({
   EXECUTIVE: "PSITS_EXEC",
   STANDARD: "PSITS_STANDARD",
   NO_ACCESS: "PSITS_NO_ACCESS",
-  
 });
 export const student_roles = Object.freeze({
   GENERAL: "PSITS_GENERAL",
@@ -17,8 +15,14 @@ export const student_roles = Object.freeze({
   OFFICER: "PSITS_OFFICER",
 });
 
-export const general_roles=  Object.freeze({
+export const general_roles = Object.freeze({
   STUDENT: "STUDENT",
   ADMIN: "ADMIN",
- 
 });
+
+export const promo_audience_roles = Object.freeze({
+  officers: student_roles.OFFICER,
+  media: student_roles.MEDIA,
+  developer: student_roles.DEVELOPER,
+  volunteer: student_roles.VOLUNTEER,
+} as Record<string, string>);

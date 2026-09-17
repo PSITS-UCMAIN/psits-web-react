@@ -2,7 +2,7 @@ import axios from "axios";
 import type { AxiosError, AxiosResponse } from "axios";
 import backendConnection from "@/api/backendApi";
 import { showToast } from "@/utils/alertHelper";
-import type { PromoLogEntry } from "../types/promo.types";
+import type { PromoLogEntry, PromoListRow } from "../types/promo.types";
 
 interface ApiErrorResponse {
   message?: string;
@@ -89,17 +89,17 @@ export const updatePromoCode = async (data: UpdatePromoPayload): Promise<boolean
   }
 };
 
-export const getAllPromoCodes = async () => {
+export const getAllPromoCodes = async (): Promise<PromoListRow[] | undefined> => {
   try {
-    const response: AxiosResponse = await axios.get(
+    const response: AxiosResponse<{ promo?: PromoListRow[] }> = await axios.get(
       `${backendConnection()}/api/promo/fetch`,
       { headers: createHeaders() }
     );
-    if (response.status === 200) {
-      return response.data.promo;
-    }
-    return response.data.promo;
+    return response.data?.promo ?? [];
   } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 404) {
+      return [];
+    }
     handleApiError(error);
   }
 };
@@ -134,6 +134,9 @@ export const getPromoLogs = async (): Promise<PromoLogEntry[] | undefined> => {
     }
     return undefined;
   } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 404) {
+      return [];
+    }
     handleApiError(error);
     return undefined;
   }

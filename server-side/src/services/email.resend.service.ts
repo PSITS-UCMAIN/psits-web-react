@@ -11,7 +11,6 @@ import { format } from "date-fns";
 import { formatReceiptDateTime } from "../mail_template/mail.template";
 import { Resend } from "resend";
 import { EmailQueue } from "../models/email.model";
-import { AutomationJob } from "../models/automationJob.model";
 
 const MAX_RETRIES = 3;
 
@@ -160,77 +159,19 @@ export const resendPendingEmails = async () => {
 };
 
 const resendAutomationReport = async (entry: PendingEntry) => {
-  let reportPayload: {
-    jobName: string;
-    executionTime: string;
-    results: Array<{
-      success: boolean;
-      data?: unknown;
-      recordCount: number;
-      durationMs: number;
-      error?: string;
-    }>;
-    includeSummary: boolean;
-    includeRawData: boolean;
-    subject: string;
-  };
-
+  let payload: unknown;
   try {
-    reportPayload = JSON.parse(entry.payload || "{}");
+    payload = JSON.parse(entry.payload || "{}");
   } catch {
     throw new Error("Invalid automation report payload");
   }
 
-  const templatePath = path.join(
-    __dirname,
-    "../templates/automation-report.ejs"
+  const { sendAutomationWebhookPayload } = await import(
+    "./automation.service"
   );
-  let html: string;
-
-  if (entry.htmlBody) {
-    html = entry.htmlBody;
-  } else {
-    html = await ejs.renderFile(templatePath, {
-      jobName: reportPayload.jobName,
-      executionTime: new Date(reportPayload.executionTime).toLocaleString(
-        "en-US",
-        {
-          weekday: "long",
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-          timeZone: "Asia/Manila",
-        }
-      ),
-      results: reportPayload.results,
-      includeSummary: reportPayload.includeSummary,
-      includeRawData: reportPayload.includeRawData,
-      targetCount: 1,
-      subject: reportPayload.subject,
-    });
-  }
-
-  const logoPath = path.join(__dirname, "../assets/psits.jpg");
-  const logoBuffer = await fs.readFile(logoPath);
-
-  const emailId = await sendWithResend({
-    to: entry.email,
-    subject: reportPayload.subject,
-    html,
-    attachments: [
-      {
-        filename: "psits.jpg",
-        content: logoBuffer,
-        contentType: "image/jpeg",
-        contentId: "logo",
-      },
-    ],
-  });
-  if (emailId) {
-    await emailService.updateEmailIdById(entry._id, emailId);
-  }
+  await sendAutomationWebhookPayload(
+    payload as Parameters<typeof sendAutomationWebhookPayload>[0]
+  );
 };
 
 const resendMembership = async (entry: PendingEntry) => {

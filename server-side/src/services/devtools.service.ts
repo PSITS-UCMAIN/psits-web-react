@@ -6,7 +6,6 @@ import { Student } from "../models/student.model";
 import { Merch } from "../models/merch.model";
 import { Event } from "../models/event.model";
 import { Settings } from "../models/settings.model";
-import ejs from "ejs";
 import path from "path";
 import fs from "fs/promises";
 import os from "os";
@@ -62,59 +61,31 @@ export const resendSingleEmail = async (id: string) => {
     throw new Error("Only receipt and automation report emails can be resent");
   }
 
-  let html: string;
-  let subject: string;
-
   if (entry.type === "automation-report") {
-    let reportPayload: {
-      jobName: string;
-      executionTime: string;
-      results: Array<{
-        success: boolean;
-        data?: unknown;
-        recordCount: number;
-        durationMs: number;
-        error?: string;
-      }>;
-      includeSummary: boolean;
-      includeRawData: boolean;
-      subject: string;
-    };
-
+    let payload: unknown;
     try {
-      reportPayload = JSON.parse(entry.payload || "{}");
+      payload = JSON.parse(entry.payload || "{}");
     } catch {
       throw new Error("Invalid automation report payload");
     }
 
-    const templatePath = path.join(
-      __dirname,
-      "../templates/automation-report.ejs"
+    const { sendAutomationWebhookPayload } =
+      await import("./automation.service");
+    await sendAutomationWebhookPayload(
+      payload as Parameters<typeof sendAutomationWebhookPayload>[0]
     );
-    html = await ejs.renderFile(templatePath, {
-      jobName: reportPayload.jobName,
-      executionTime: new Date(reportPayload.executionTime).toLocaleString(
-        "en-US",
-        {
-          weekday: "long",
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-          timeZone: "Asia/Manila",
-        }
-      ),
-      results: reportPayload.results,
-      includeSummary: reportPayload.includeSummary,
-      includeRawData: reportPayload.includeRawData,
-      targetCount: 1,
-      subject: reportPayload.subject,
-    });
-    subject = reportPayload.subject;
-  } else if (!entry.subtype) {
+    await emailService.updateStatusById(String(entry._id), "sent");
+    return { success: true };
+  }
+
+  if (!entry.subtype) {
     throw new Error("Entry has no subtype");
-  } else if (entry.subtype === "membership") {
+  }
+
+  let html: string;
+  let subject: string;
+
+  if (entry.subtype === "membership") {
     html = await renderMembershipReceiptHtml(String(entry.referenceCode));
     subject = "Your Receipt from PSITS - UC Main";
   } else if (entry.subtype === "order") {
@@ -240,6 +211,8 @@ export const getEnvStatus = () => {
   const vars: Array<{ key: string; required: boolean }> = [
     { key: "EMAIL", required: true },
     { key: "RESEND_API_KEY", required: true },
+    { key: "MAKE_AUTOMATION_WEBHOOK_URL", required: false },
+    { key: "MAKE_AUTOMATION_WEBHOOK_API_KEY", required: false },
     { key: "BASE_URL", required: false },
     { key: "MONGODB_URI", required: true },
     { key: "R2_BUCKET_NAME", required: false },
@@ -1239,5 +1212,43 @@ export const decrementStudentYears = async (): Promise<{
     eligible: eligibleIds.length,
     updated: result.modifiedCount,
     skippedYear1: students.length - result.modifiedCount,
+  };
+};
+
+export const suspendOldStudents = async (): Promise<{
+  totalChecked: number;
+  suspended: number;
+}> => {
+  const now = new Date();
+  const oneYearAgo = new Date(now);
+  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+  const twoYearsAgo = new Date(now);
+  twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+  const threeYearsAgo = new Date(now);
+  threeYearsAgo.setFullYear(threeYearsAgo.getFullYear() - 3);
+  const fourYearsAgo = new Date(now);
+  fourYearsAgo.setFullYear(fourYearsAgo.getFullYear() - 4);
+
+  const activeStatuses = [account_status.ACTIVE, "True"];
+
+  const students = await Student.find({
+    status: { $in: activeStatuses },
+    $or: [
+      { createdAt: { $lte: fourYearsAgo } },
+      { year: { $gte: 4 }, createdAt: { $lte: oneYearAgo } },
+      { year: { $gte: 3 }, createdAt: { $lte: twoYearsAgo } },
+      { year: { $gte: 2 }, createdAt: { $lte: threeYearsAgo } },
+    ],
+  }).lean();
+
+  const eligibleIds = students.map((s) => s._id);
+  const result = await Student.updateMany(
+    { _id: { $in: eligibleIds }, status: { $in: activeStatuses } },
+    { $set: { status: account_status.SUSPENDED } }
+  );
+
+  return {
+    totalChecked: students.length,
+    suspended: result.modifiedCount,
   };
 };

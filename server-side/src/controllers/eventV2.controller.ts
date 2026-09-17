@@ -21,6 +21,7 @@ import {
   markAttendance,
   syncAttendanceForAttendee,
 } from "../services/attendance.service";
+import { validateId } from "../util/studentId.util";
 import { EventV2Service } from "../services/eventV2.service";
 import { computeEventStatistics } from "../services/eventStatistics.service";
 import { logService } from "../services/log.service";
@@ -487,9 +488,7 @@ export const getAllEventsV2Controller = async (req: Request, res: Response) => {
       ? {}
       : { eventDate: { $gte: getSevenDayWindowCutoffDate() } };
 
-    const events: IEvent[] = await Event.find(dateFilter).select(
-      "-attendees"
-    );
+    const events: IEvent[] = await Event.find(dateFilter).select("-attendees");
 
     if (!events || events.length === 0) {
       return res.status(404).json({ message: "No events found" });
@@ -965,7 +964,6 @@ const V_NAME_MAX = 50;
 const V_EMAIL_REGEX =
   /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$/;
 const V_PWD_MIN = 8;
-const V_STUDENT_ID_REGEX = /^\d{8}$/;
 const V_VALID_COURSES = ["BSIT", "BSCS", "ACT"];
 const V_VALID_CAMPUSES = ["UC_BANILAD", "UC_LM", "UC_PT"];
 const V_DISABLED_ADD_ATTENDEE_CAMPUSES = ["UC_MAIN", "UC_CS"];
@@ -1095,7 +1093,7 @@ export const addAttendeeV2Controller = async (req: Request, res: Response) => {
         .json({ error: "VALIDATION", message: "Student ID is required" });
     }
 
-    if (!V_STUDENT_ID_REGEX.test(studentId.trim())) {
+    if (!validateId(studentId).valid) {
       return res.status(400).json({
         error: "VALIDATION",
         message: "Student ID must be exactly 8 digits",
@@ -1473,7 +1471,7 @@ export const addWalkInAttendeeV2Controller = async (
         .json({ error: "VALIDATION", message: "Student ID is required" });
     }
 
-    if (!V_STUDENT_ID_REGEX.test(studentId.trim())) {
+    if (!validateId(studentId).valid) {
       return res.status(400).json({
         error: "VALIDATION",
         message: "Student ID must be exactly 8 digits",
@@ -1771,7 +1769,8 @@ export const applyToEventV2Controller = async (req: Request, res: Response) => {
       .trim()
       .toLowerCase();
     const isRegistrationManuallyClosed =
-      normalizedEventStatus === "ended" || normalizedEventStatus === "cancelled";
+      normalizedEventStatus === "ended" ||
+      normalizedEventStatus === "cancelled";
 
     if (
       isRegistrationManuallyClosed ||
@@ -2248,7 +2247,7 @@ export const editAttendeeV2Controller = async (req: Request, res: Response) => {
           message: "Student ID is required",
         });
       }
-      if (!V_STUDENT_ID_REGEX.test(changes.studentId.trim())) {
+      if (!validateId(changes.studentId).valid) {
         return res.status(400).json({
           error: "VALIDATION",
           message: "Student ID must be exactly 8 digits",
@@ -3055,9 +3054,7 @@ const buildManilaDateTime = (
 
   const dateKey = formatManilaDateKey(date);
   const time = timeValue ?? fallbackTime;
-  const parsedDateTime = new Date(
-    `${dateKey}T${time}:00${MANILA_UTC_OFFSET}`
-  );
+  const parsedDateTime = new Date(`${dateKey}T${time}:00${MANILA_UTC_OFFSET}`);
 
   return Number.isNaN(parsedDateTime.getTime()) ? null : parsedDateTime;
 };

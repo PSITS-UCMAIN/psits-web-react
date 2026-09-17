@@ -579,20 +579,29 @@ class OrderService {
     const expired = await this.getExpiredPendingOrders();
     let cancelledCount = 0;
     let restoredItems = 0;
+    const failedRestores: { orderId: unknown; product_id: unknown; error: string }[] = [];
 
     for (const order of expired) {
       for (const item of order.items) {
-        await Merch.updateOne(
-          { _id: item.product_id },
-          { $inc: { stocks: item.quantity } }
-        );
-        restoredItems += item.quantity;
+        try {
+          await Merch.updateOne(
+            { _id: item.product_id },
+            { $inc: { stocks: item.quantity } }
+          );
+          restoredItems += item.quantity;
+        } catch (error) {
+          failedRestores.push({
+            orderId: order._id,
+            product_id: item.product_id,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
       }
       await Orders.findByIdAndDelete(order._id);
       cancelledCount++;
     }
 
-    return { cancelledCount, restoredItems };
+    return { cancelledCount, restoredItems, failedRestores };
   };
 }
 

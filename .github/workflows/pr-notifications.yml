@@ -65,10 +65,10 @@ jobs:
                 .join(', ') || 'N/A';
               
               // Detect changed services
-              const hasClientSide = changedFiles.some(f => f.startsWith('client-side/') || f.startsWith('client-side-ts/'));
+              const hasClientSide = changedFiles.some(f => f.startsWith('client-side-ts/'));
               const hasServerSide = changedFiles.some(f => f.startsWith('server-side/'));
               const hasWorkflows = changedFiles.some(f => f.startsWith('.github/workflows/'));
-              const hasDocs = changedFiles.some(f => /\.(md|txt)$/.test(f) && !f.startsWith('server-side/') && !f.startsWith('client-side/'));
+              const hasDocs = changedFiles.some(f => /\.(md|txt)$/.test(f) && !f.startsWith('server-side/') && !f.startsWith('client-side-ts/'));
               
               if (hasClientSide) {
                 changedServices += '• **Client-side** (React Frontend)\n';

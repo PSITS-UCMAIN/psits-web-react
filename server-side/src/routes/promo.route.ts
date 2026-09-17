@@ -31,9 +31,11 @@ router.delete(
 );
 
 // Verify promo (student-facing) — admin or student
+// DB check required: "Members"/"Membership" eligibility reads orgRole and
+// membershipStatus, which the access token does not carry.
 router.get(
   "/verify/:promo_id/:merchId",
-  requireAccessTokenV2,
+  requireAccessTokenWithDBCheck,
   roleAuthenticateV2(["admin", "student"]),
   promoController.verifyPromo
 );
@@ -56,9 +58,10 @@ router.post(
 );
 
 // Get eligible promos for cart items — admin or student
+// DB check required: same eligibility fields as /verify above.
 router.get(
   "/eligible",
-  requireAccessTokenV2,
+  requireAccessTokenWithDBCheck,
   roleAuthenticateV2(["admin", "student"]),
   promoController.getEligiblePromos
 );
