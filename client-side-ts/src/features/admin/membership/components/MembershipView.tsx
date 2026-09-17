@@ -166,7 +166,7 @@ export const MembershipView = () => {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button type="button" onClick={openCreateDialog} className="w-[90vw]">
+          <Button onClick={openCreateDialog} className="w-full gap-2 sm:w-auto">
             <Plus className="h-4 w-4" />
             Create Membership
           </Button>

@@ -10,7 +10,7 @@ import { showToast } from "@/utils/alertHelper";
 import type { OrdersTab, OrdersStatus } from "../types/orders.types";
 import type { OrderRow, ApprovePayload } from "../types/orders.types";
 
-export const ROWS_PER_PAGE = 8;
+export const ROWS_PER_PAGE = 10;
 const SEARCH_DEBOUNCE_MS = 250;
 
 export const useOrdersData = () => {
