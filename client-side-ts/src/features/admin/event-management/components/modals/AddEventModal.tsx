@@ -110,9 +110,38 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
   onOpenChange,
   onSuccess,
 }) => {
-  const [activeTab, setActiveTab] = useState("event-info");
+  const [step, setStep] = useState<1 | 2>(1);
   const [formData, setFormData] = useState<EventFormData>(emptyFormData);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const activeTab = step === 1 ? "event-info" : "session-setup";
+
+  // Reset to step 1 whenever the modal opens
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setStep(1);
+      setFormData(emptyFormData());
+    }
+  }
+
+  const validateEventInfo = (): string | null => {
+    if (!formData.eventName.trim()) return "Event name is required";
+    if (!formData.eventSchedule?.from) return "Event schedule is required";
+    return null;
+  };
+
+  const handleNext = () => {
+    const error = validateEventInfo();
+    if (error) {
+      showToast("error", error);
+      return;
+    }
+    setStep(2);
+  };
+
+  const handleBack = () => setStep(1);
 
   const handleSubmit = async () => {
     const dateError = validateSessions(formData.sessionConfig);
@@ -121,13 +150,10 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
       return;
     }
 
-    if (!formData.eventName.trim()) {
-      showToast("error", "Event name is required");
-      return;
-    }
-
-    if (!formData.eventSchedule?.from) {
-      showToast("error", "Event schedule is required");
+    const infoError = validateEventInfo();
+    if (infoError) {
+      showToast("error", infoError);
+      setStep(1);
       return;
     }
 
@@ -143,7 +169,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
       const result = await createEventV2({
         eventName: formData.eventName,
         eventDescription: formData.eventDescription,
-        eventDate: formatDateKey(formData.eventSchedule.from),
+        eventDate: formatDateKey(formData.eventSchedule!.from!),
         eventEndDate: formData.eventSchedule?.to
           ? formatDateKey(formData.eventSchedule.to)
           : undefined,
@@ -161,7 +187,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
       if (result) {
         showToast("success", "Event created successfully");
         onOpenChange(false);
-        setActiveTab("event-info");
+        setStep(1);
         setFormData(emptyFormData());
         onSuccess?.();
       }
@@ -172,7 +198,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
 
   const handleCancel = () => {
     onOpenChange(false);
-    setActiveTab("event-info");
+    setStep(1);
     setFormData(emptyFormData());
   };
 
@@ -199,21 +225,19 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
           </div>
         </DialogHeader>
 
-        <Tabs
-          value={activeTab}
-          onValueChange={setActiveTab}
-          className="flex min-h-0 flex-1 flex-col"
-        >
+        <Tabs value={activeTab} className="flex min-h-0 flex-1 flex-col">
           <TabsList className="h-auto w-full justify-start gap-6 rounded-none border-b bg-transparent px-6 py-0">
             <TabsTrigger
               value="event-info"
-              className="cursor-pointer rounded-none border-b-2 border-transparent px-0 pb-3 text-sm text-gray-500 data-[state=active]:border-b-[#1C9DDE] data-[state=active]:bg-transparent data-[state=active]:text-[#1C9DDE] data-[state=active]:shadow-none"
+              disabled
+              className="cursor-default rounded-none border-b-2 border-transparent px-0 pb-3 text-sm text-gray-500 disabled:opacity-100 data-[state=active]:border-b-[#1C9DDE] data-[state=active]:bg-transparent data-[state=active]:text-[#1C9DDE] data-[state=active]:shadow-none"
             >
               Event Info
             </TabsTrigger>
             <TabsTrigger
               value="session-setup"
-              className="cursor-pointer rounded-none border-b-2 border-transparent px-0 pb-3 text-sm text-gray-500 data-[state=active]:border-b-[#1C9DDE] data-[state=active]:bg-transparent data-[state=active]:text-[#1C9DDE] data-[state=active]:shadow-none"
+              disabled
+              className="cursor-default rounded-none border-b-2 border-transparent px-0 pb-3 text-sm text-gray-500 disabled:opacity-100 data-[state=active]:border-b-[#1C9DDE] data-[state=active]:bg-transparent data-[state=active]:text-[#1C9DDE] data-[state=active]:shadow-none"
             >
               Session Setup
             </TabsTrigger>
@@ -229,22 +253,43 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
           </div>
 
           <div className="bg-background flex items-center justify-end gap-3 border-t px-6 py-4">
-            <Button
-              variant="outline"
-              onClick={handleCancel}
-              disabled={isSubmitting}
-              className="cursor-pointer"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSubmit}
-              disabled={isSubmitting}
-              className="cursor-pointer bg-[#1C9DDE] hover:bg-[#1C9DDE]"
-            >
-              {isSubmitting ? <Spinner className="mr-2 h-4 w-4" /> : null}
-              Create Event
-            </Button>
+            {step === 1 ? (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={handleCancel}
+                  disabled={isSubmitting}
+                  className="cursor-pointer"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleNext}
+                  className="w-22 cursor-pointer bg-[#1C9DDE] hover:bg-[#1C9DDE]"
+                >
+                  Next
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={handleBack}
+                  disabled={isSubmitting}
+                  className="cursor-pointer"
+                >
+                  Back
+                </Button>
+                <Button
+                  onClick={handleSubmit}
+                  disabled={isSubmitting}
+                  className="cursor-pointer bg-[#1C9DDE] hover:bg-[#1C9DDE]"
+                >
+                  {isSubmitting ? <Spinner className="mr-2 h-4 w-4" /> : null}
+                  Create Event
+                </Button>
+              </>
+            )}
           </div>
         </Tabs>
       </DialogContent>

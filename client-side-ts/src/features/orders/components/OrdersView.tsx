@@ -111,8 +111,8 @@ const PaginationFooter = ({
   return (
     <div className="mt-7 flex flex-col items-center justify-between gap-3 text-xs text-[#8a8a8a] sm:flex-row">
       <span>
-        Showing {total > 0 ? (page - 1) * ROWS_PER_PAGE + 1 : 0} to{" "}
-        {Math.min(page * ROWS_PER_PAGE, total)} of {total}
+        Showing {total > 0 ? (page - 1) * 10 + 1 : 0} to{" "}
+        {Math.min(page * 10, total)} of {total} orders
       </span>
       <div className="flex items-center gap-1">
         <button
@@ -308,7 +308,7 @@ export const OrdersView = () => {
   const status = activeTab === "pending" ? pendingStatus : paidStatus;
   const rowCount =
     activeTab === "pending" ? pendingData.length : paidData.length;
-
+  const total = activeTab === "pending" ? pendingTotal : paidTotal;
   const tabs = [
     {
       key: "pending" as const,
@@ -639,7 +639,7 @@ export const OrdersView = () => {
           <PaginationFooter
             page={currentPage}
             totalPages={totalPagesNum}
-            total={rowCount}
+            total={total}
             onPageChange={setPage}
           />
         </section>
