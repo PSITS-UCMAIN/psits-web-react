@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -15,7 +15,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { configureEventCertificate, getActiveTemplates } from "../../../certificate/api/certificate.api";
+import {
+  configureEventCertificate,
+  getActiveTemplates,
+} from "../../../certificate/api/certificate.api";
 import { showToast } from "@/utils/alertHelper";
 import type { Event } from "../../../events/types/event.types";
 import type { ICertificateTemplate } from "../../../certificate/types/certificate.types";
@@ -51,12 +54,17 @@ export const ConfigureEventDialog: React.FC<ConfigureEventDialogProps> = ({
         }
       };
       fetchTemplates();
-      
-      // Reset selections when opened
+
       setSelectedEventId("");
       setSelectedTemplateId("");
     }
   }, [isOpen]);
+
+  const sortedEvents = useMemo(() => {
+    return [...availableEvents].sort((a, b) =>
+      String(a.eventName ?? "").localeCompare(String(b.eventName ?? ""))
+    );
+  }, [availableEvents]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,7 +75,10 @@ export const ConfigureEventDialog: React.FC<ConfigureEventDialogProps> = ({
 
     try {
       setLoading(true);
-      const res = await configureEventCertificate(selectedEventId, selectedTemplateId);
+      const res = await configureEventCertificate(
+        selectedEventId,
+        selectedTemplateId
+      );
       if (res.success) {
         showToast("success", "Certificates enabled for event successfully!");
         onConfigured();
@@ -76,7 +87,10 @@ export const ConfigureEventDialog: React.FC<ConfigureEventDialogProps> = ({
         showToast("error", res.message || "Failed to configure event.");
       }
     } catch (error: any) {
-      showToast("error", error?.response?.data?.message || "Something went wrong.");
+      showToast(
+        "error",
+        error?.response?.data?.message || "Something went wrong."
+      );
     } finally {
       setLoading(false);
     }
@@ -84,48 +98,65 @@ export const ConfigureEventDialog: React.FC<ConfigureEventDialogProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="w-md rounded-2xl sm:w-auto">
         <DialogHeader>
           <DialogTitle>Add Certificate Generation for Event</DialogTitle>
           <DialogDescription>
-            Select an event and assign a certificate template to it. Once assigned, you can manage eligible students for the event.
+            Select an event and assign a certificate template to it. Once
+            assigned, you can manage eligible students for the event.
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6 mt-4">
-          <div className="space-y-4">
-            <div className="space-y-2">
+        <form onSubmit={handleSubmit} className="mt-4 space-y-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:gap-4">
+            <div className="min-w-0 flex-1 space-y-2">
               <Label>Select Event</Label>
-              <Select value={selectedEventId} onValueChange={setSelectedEventId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose an event..." />
+              <Select
+                value={selectedEventId}
+                onValueChange={setSelectedEventId}
+              >
+                <SelectTrigger className="w-full">
+                  <span className="block truncate text-left">
+                    <SelectValue placeholder="Choose an event..." />
+                  </span>
                 </SelectTrigger>
                 <SelectContent>
-                  {availableEvents.length === 0 ? (
-                    <div className="p-2 text-sm text-muted-foreground">No events available</div>
-                  ) : (
-                    availableEvents.map((event) => {
-                      const id = String(event.eventId || event._id || "");
-                      return (
-                        <SelectItem key={id} value={id}>
-                          {event.eventName}
-                        </SelectItem>
-                      );
-                    })
-                  )}
+                  <div className="max-h-80 overflow-y-auto">
+                    {sortedEvents.length === 0 ? (
+                      <div className="text-muted-foreground p-2 text-sm">
+                        No events available
+                      </div>
+                    ) : (
+                      sortedEvents.map((event) => {
+                        const id = String(event.eventId || event._id || "");
+                        return (
+                          <SelectItem key={id} value={id}>
+                            {event.eventName}
+                          </SelectItem>
+                        );
+                      })
+                    )}
+                  </div>
                 </SelectContent>
               </Select>
             </div>
 
-            <div className="space-y-2">
+            <div className="-ml-1 min-w-0 flex-1 space-y-2">
               <Label>Select Certificate Template</Label>
-              <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a template..." />
+              <Select
+                value={selectedTemplateId}
+                onValueChange={setSelectedTemplateId}
+              >
+                <SelectTrigger className="w-full">
+                  <span className="block truncate text-left">
+                    <SelectValue placeholder="Choose a template..." />
+                  </span>
                 </SelectTrigger>
                 <SelectContent>
                   {templates.length === 0 ? (
-                    <div className="p-2 text-sm text-muted-foreground">No active templates found</div>
+                    <div className="text-muted-foreground p-2 text-sm">
+                      No active templates found
+                    </div>
                   ) : (
                     templates.map((template) => (
                       <SelectItem key={template._id} value={template._id}>
@@ -139,7 +170,12 @@ export const ConfigureEventDialog: React.FC<ConfigureEventDialogProps> = ({
           </div>
 
           <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={loading}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
