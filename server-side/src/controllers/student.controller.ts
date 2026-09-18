@@ -77,7 +77,9 @@ export const getAllDeleteStudentController = async (
 ) => {
   try {
     const students: IStudent[] = await Student.find({
-      status: { $in: ["False", account_status.DELETED, account_status.SUSPENDED] },
+      status: {
+        $in: ["False", account_status.DELETED, account_status.SUSPENDED],
+      },
     });
     if (!students) {
       res.status(400).json({ message: "No Deleted Students" });
@@ -151,7 +153,7 @@ export const restoreDeletedStudentController = async (
       { id_number: id_number },
       {
         $set: {
-          status: "True",
+          status: account_status.ACTIVE,
         },
       }
     );
@@ -160,9 +162,9 @@ export const restoreDeletedStudentController = async (
       return res.status(404).json({ message: "Student not found" });
     }
 
-    res.status(200).json({ message: "Student retore successfully" });
+    res.status(200).json({ message: "Student restored successfully" });
   } catch (error) {
-    console.error("Error deleting student:", error);
+    console.error("Error restoring student:", error);
     res.status(500).json("Internal Server Error");
   }
 };
@@ -301,7 +303,6 @@ export const changeStudentPassword = async (req: Request, res: Response) => {
     });
 
     await log.save();
-  
 
     res.status(200).json({ message: "Password changed successfully" });
   } catch (error) {

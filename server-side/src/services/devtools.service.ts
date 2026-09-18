@@ -644,6 +644,7 @@ export const getStockAlerts = async (threshold = 5): Promise<StockAlert[]> => {
 export interface SystemSettings {
   membership_price: number;
   chatbotEnabled?: boolean;
+  studentSuspendCronEnabled?: boolean;
   noetixDisabledAdmins?: string[];
 }
 
@@ -668,6 +669,25 @@ export const setChatbotEnabled = async (enabled: boolean): Promise<void> => {
   }
 
   await Settings.updateOne({}, { $set: { chatbotEnabled: enabled } });
+};
+
+export const isStudentSuspendCronEnabled = async (): Promise<boolean> => {
+  const settings = await getSystemSettings();
+  return settings?.studentSuspendCronEnabled ?? true;
+};
+
+export const setStudentSuspendCronEnabled = async (
+  enabled: boolean
+): Promise<void> => {
+  const { Settings } = await import("../models/settings.model");
+  const existing = await Settings.find();
+
+  if (existing.length === 0) {
+    await new Settings({ studentSuspendCronEnabled: enabled }).save();
+    return;
+  }
+
+  await Settings.updateOne({}, { $set: { studentSuspendCronEnabled: enabled } });
 };
 
 export const getNoetixDisabledAdmins = async (): Promise<string[]> => {
@@ -1228,16 +1248,18 @@ export const suspendOldStudents = async (): Promise<{
   threeYearsAgo.setFullYear(threeYearsAgo.getFullYear() - 3);
   const fourYearsAgo = new Date(now);
   fourYearsAgo.setFullYear(fourYearsAgo.getFullYear() - 4);
+  const fiveYearsAgo = new Date(now);
+  fiveYearsAgo.setFullYear(fiveYearsAgo.getFullYear() - 5);
 
   const activeStatuses = [account_status.ACTIVE, "True"];
 
   const students = await Student.find({
     status: { $in: activeStatuses },
     $or: [
-      { createdAt: { $lte: fourYearsAgo } },
-      { year: { $gte: 4 }, createdAt: { $lte: oneYearAgo } },
-      { year: { $gte: 3 }, createdAt: { $lte: twoYearsAgo } },
-      { year: { $gte: 2 }, createdAt: { $lte: threeYearsAgo } },
+      { createdAt: { $lte: fiveYearsAgo } },
+      { year: { $gte: 4 }, createdAt: { $lte: twoYearsAgo } },
+      { year: { $gte: 3 }, createdAt: { $lte: threeYearsAgo } },
+      { year: { $gte: 2 }, createdAt: { $lte: fourYearsAgo } },
     ],
   }).lean();
 

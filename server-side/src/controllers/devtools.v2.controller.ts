@@ -23,6 +23,8 @@ import {
   getSystemSettings,
   isChatbotEnabled,
   setChatbotEnabled,
+  isStudentSuspendCronEnabled,
+  setStudentSuspendCronEnabled,
   getEmailQueueStats,
   getFailedEmailDetails,
   bulkUpdateEmailStatus,
@@ -331,6 +333,11 @@ class DevToolsController {
       });
       res.status(200).json({ message: "Promo check triggered" });
     } else if (type === "student-year4-suspend") {
+      if (!(await isStudentSuspendCronEnabled())) {
+        return res.status(403).json({
+          message: "Student suspend cron is disabled",
+        });
+      }
       const result = await suspendOldStudents();
       await logService.create({
         admin: req.admin.name,
@@ -595,6 +602,35 @@ class DevToolsController {
 
     res.status(200).json({ enabled });
   });
+
+  getStudentSuspendCron = catchAsync(async (req: Request, res: Response) => {
+    const enabled = await isStudentSuspendCronEnabled();
+    res.status(200).json({ enabled });
+  });
+
+  toggleStudentSuspendCron = catchAsync(
+    async (req: Request, res: Response) => {
+      if (!ALLOWED_CAMPUS.includes(req.userV2.campus)) {
+        return res.status(403).json({ message: "Campus not authorized" });
+      }
+      const { enabled } = req.body as { enabled?: boolean };
+      if (typeof enabled !== "boolean") {
+        return res.status(400).json({ message: "enabled must be a boolean" });
+      }
+
+      await setStudentSuspendCronEnabled(enabled);
+
+      await logService.create({
+        admin: req.admin.name,
+        admin_id: req.admin._id,
+        action: logs_action.TOGGLE_STUDENT_SUSPEND_CRON,
+        target: `Student suspend cron ${enabled ? "enabled" : "disabled"}`,
+        target_model: "Settings",
+      });
+
+      res.status(200).json({ enabled });
+    }
+  );
 
   getRateLimitViolations = catchAsync(async (req: Request, res: Response) => {
     if (!ALLOWED_CAMPUS.includes(req.userV2.campus)) {
