@@ -8,6 +8,8 @@ import {
   suspendOldStudents,
   getSystemSettings,
   toggleChatbot,
+  getStudentSuspendCron,
+  toggleStudentSuspendCron,
 } from "../api/devtools.api";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -176,7 +178,7 @@ const actions: ActionButton[] = [
     key: "student-year4-suspend",
     label: "Suspend Old Students",
     description:
-      "Suspend active students who meet the account-age and student-year rule (daily cron)",
+      "Suspend active students who meet the account-age and student-year rule (monthly cron)",
     icon: (
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -215,12 +217,17 @@ export const QuickActionsPanel = () => {
   } | null>(null);
   const [settingsLoading, setSettingsLoading] = useState(true);
   const [isTogglingChatbot, setIsTogglingChatbot] = useState(false);
+  const [suspendCronEnabled, setSuspendCronEnabled] = useState(true);
+  const [isTogglingSuspendCron, setIsTogglingSuspendCron] = useState(false);
 
   useEffect(() => {
     getSystemSettings()
       .then(setSettings)
       .catch(() => {})
       .finally(() => setSettingsLoading(false));
+    getStudentSuspendCron()
+      .then(setSuspendCronEnabled)
+      .catch(() => {});
   }, []);
 
   const isBackfillDisabled =
@@ -230,6 +237,7 @@ export const QuickActionsPanel = () => {
       5 * 30 * 24 * 60 * 60 * 1000
     : loading !== null;
   const isDecrementDisabled = loading !== null;
+  const isSuspendCronDisabled = !suspendCronEnabled || loading !== null;
 
   const getLoadingText = (key: string) => {
     if (key === "cancel-expired") return "Cancelling...";
@@ -328,6 +336,32 @@ export const QuickActionsPanel = () => {
     }
   };
 
+  const handleToggleSuspendCron = async (next: boolean) => {
+    if (!canToggleChatbot) {
+      showToast("error", "Only Admins can toggle the cron");
+      return;
+    }
+    setIsTogglingSuspendCron(true);
+    try {
+      const enabled = await toggleStudentSuspendCron(next);
+      setSuspendCronEnabled(enabled);
+      showToast(
+        "success",
+        `Student suspend cron ${enabled ? "enabled" : "disabled"}`
+      );
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { status?: number; data?: { message?: string } } })
+          ?.response?.status === 403
+          ? "Only Admins can toggle the cron"
+          : (err as { response?: { data?: { message?: string } } })?.response
+              ?.data?.message || "Failed to update cron setting";
+      showToast("error", message);
+    } finally {
+      setIsTogglingSuspendCron(false);
+    }
+  };
+
   if (settingsLoading) {
     return (
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -348,7 +382,9 @@ export const QuickActionsPanel = () => {
               ? isYearUpdateDisabled
               : action.key === "decrement-student-years"
                 ? isDecrementDisabled
-                : loading !== null;
+                : action.key === "student-year4-suspend"
+                  ? isSuspendCronDisabled
+                  : loading !== null;
 
         return (
           <div
@@ -380,6 +416,11 @@ export const QuickActionsPanel = () => {
             >
               {getButtonLabel(action.key)}
             </Button>
+            {action.key === "student-year4-suspend" && !suspendCronEnabled && (
+              <p className="text-xs text-[#c0392b]">
+                Action disabled: cron is currently off.
+              </p>
+            )}
           </div>
         );
       })}
@@ -416,6 +457,50 @@ export const QuickActionsPanel = () => {
             checked={settings?.chatbotEnabled ?? true}
             disabled={isTogglingChatbot || !canToggleChatbot}
             onCheckedChange={handleToggleChatbot}
+          />
+        </div>
+        {!canToggleChatbot && (
+          <p className="text-xs text-[#c0392b]">
+            Only Admin can enable/disable this.
+          </p>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-xl border bg-white p-5">
+        <div className="flex items-center gap-3">
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[#e9f4fb] text-[#1c9dde]">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-[#2b2b2b]">
+              Student Suspend Cron
+            </p>
+            <p className="text-xs text-[#8a8a8a]">
+              Enable or disable the monthly old-student auto-suspend job
+            </p>
+          </div>
+        </div>
+        <div className="mt-2 flex h-9 items-center justify-between rounded-full border border-[#e5e5e5] px-4">
+          <span className="text-sm text-[#2b2b2b]">
+            {suspendCronEnabled ? "Enabled" : "Disabled"}
+          </span>
+          <Switch
+            checked={suspendCronEnabled}
+            disabled={isTogglingSuspendCron || !canToggleChatbot}
+            onCheckedChange={handleToggleSuspendCron}
           />
         </div>
         {!canToggleChatbot && (

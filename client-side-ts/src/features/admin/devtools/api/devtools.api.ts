@@ -205,6 +205,22 @@ export const toggleChatbot = async (enabled: boolean) => {
   return data.enabled;
 };
 
+export const getStudentSuspendCron = async () => {
+  const { data } = await api.get<{ enabled: boolean }>("/api/v2/dev/settings/student-suspend-cron", {
+    headers: getAuthToken() ? { Authorization: `Bearer ${getAuthToken()}` } : {},
+  });
+  return data.enabled;
+};
+
+export const toggleStudentSuspendCron = async (enabled: boolean) => {
+  const { data } = await api.patch<{ enabled: boolean }>(
+    "/api/v2/dev/settings/student-suspend-cron",
+    { enabled },
+    { headers: getAuthToken() ? { Authorization: `Bearer ${getAuthToken()}` } : {} }
+  );
+  return data.enabled;
+};
+
 export const getRateLimitViolations = async (limit = 50) => {
   const { data } = await api.get<{ data: { ip: string; path: string; timestamp: string }[] }>("/api/v2/dev/rate-limit-violations", {
     params: { limit },

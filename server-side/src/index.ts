@@ -332,13 +332,30 @@ async function startServer() {
 
     // Daily: suspend active students who meet the account-age/year rule
     const studentYear4SuspendJob = cron.schedule(
-      "0 0 * * *",
+      "0 0 1 * *",
       async () => {
-        console.log("[Midnight PH] Running old-student suspend check...");
+        console.log(
+          "[Monthly Midnight PH] Running old-student suspend check..."
+        );
         const startedAt = new Date();
         try {
-          const { suspendOldStudents } =
+          const { isStudentSuspendCronEnabled, suspendOldStudents } =
             await import("./services/devtools.service");
+          if (!(await isStudentSuspendCronEnabled())) {
+            console.log(
+              "[Monthly Midnight PH] Student suspend cron disabled, skipping"
+            );
+            await logCronExecution({
+              jobName: "student-year4-suspend",
+              scheduledAt: startedAt,
+              startedAt,
+              completedAt: new Date(),
+              durationMs: Date.now() - startedAt.getTime(),
+              success: true,
+              metadata: { skipped: true, reason: "disabled" },
+            });
+            return;
+          }
           const result = await suspendOldStudents();
           if (result.suspended > 0) {
             console.log(
