@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import { Student } from "../models/student.model";
+import { IStudentDocument } from "../models/student.interface";
 import { Admin } from "../models/admin.model";
 import { Merch } from "../models/merch.model";
 import { Orders } from "../models/orders.model";
@@ -16,6 +17,7 @@ import {
   manilaYear,
   membershipCounterKey,
 } from "../util/reference.util";
+import { isOrganizationalMemberRecord } from "../util/role.util";
 import { format, startOfDay, endOfDay } from "date-fns";
 import { admin_model, role_model } from "../model_template/model_data";
 import { membershipRequestReceipt } from "../mail_template/mail.template";
@@ -35,9 +37,7 @@ const parseSequential = (
   code?: string | null
 ): { year: number; seq: number } | null => {
   const match = SEQUENTIAL_CODE.exec(String(code ?? "").trim());
-  return match
-    ? { year: Number(match[1]), seq: Number(match[2]) }
-    : null;
+  return match ? { year: Number(match[1]), seq: Number(match[2]) } : null;
 };
 
 /** Accepts a real Date or the ISO strings some legacy rows stored instead. */
@@ -47,13 +47,65 @@ const toDate = (value: unknown): Date | null => {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
+export type MembershipHistoryType = "members" | "non-members";
+
+/**
+ * Batch-fetches the Student documents referenced by a set of history records'
+ * `student` FKs and builds a Map keyed by ObjectId string.
+ *
+ * Used to project the denormalized `id_number`/`name`/`year`/`course`/`rfid`
+ * fields back into the response shape so the frontend API contract is
+ * unchanged even though the schema no longer stores them.
+ */
+const buildStudentMap = async (
+  records: Array<Pick<IHistoryDocument, "student">>
+): Promise<Map<string, IStudentDocument>> => {
+  const ids = Array.from(
+    new Set(
+      records
+        .map((r) => r.student)
+        .filter((id): id is mongoose.Types.ObjectId => Boolean(id))
+    )
+  );
+  if (ids.length === 0) return new Map();
+  const students = await Student.find({ _id: { $in: ids } }).lean();
+  return new Map(
+    students.map((s) => [String(s._id), s as unknown as IStudentDocument])
+  );
+};
+
+/**
+ * Projects a history record's student FK back into the original denormalized
+ * field names. Orphan records (FK null or pointing to a deleted Student)
+ * fall back to empty strings / 0.
+ */
+const projectStudentFields = (
+  record: IHistoryDocument,
+  studentMap: Map<string, IStudentDocument>
+): Record<string, unknown> => {
+  const student = record.student
+    ? studentMap.get(String(record.student))
+    : undefined;
+  const fullName = student
+    ? `${student.first_name} ${student.middle_name ?? ""} ${student.last_name}`.trim()
+    : "";
+  return {
+    ...record.toObject(),
+    id_number: student?.id_number ?? "",
+    rfid: student?.rfid ?? "",
+    name: fullName,
+    year: student?.year ?? 0,
+    course: student?.course ?? "",
+  };
+};
+
 class HistoryService {
   //record membership history
   record = async (query: IHistory) => {
     return await new MembershipHistory(query).save();
   };
   //Get all membership history
-  getAll = async () => {
+  getAll = async (filters: { type?: MembershipHistoryType } = {}) => {
     const history: IHistoryDocument[] = await MembershipHistory.find().sort({
       date: -1,
     });
@@ -64,17 +116,29 @@ class HistoryService {
     // Surface the parent term's name + term so reports can filter by them.
     // Legacy rows without membership_id get empty values.
     const terms = await Membership.find().select("term_name membership_name");
-    const termById = new Map(
-      terms.map((term) => [String(term._id), term])
-    );
+    const termById = new Map(terms.map((term) => [String(term._id), term]));
 
-    return history.map((record) => ({
-      ...record.toObject(),
+    const studentMap = await buildStudentMap(history);
+
+    // The Members / Non-members split is about the linked student's
+    // organizational membership, not the history row's own membership_id (which
+    // only links the row to a membership term). Classify from the batched
+    // studentMap so no per-row student lookup is needed.
+    const rows = filters.type
+      ? history.filter(
+          (record) =>
+            isOrganizationalMemberRecord(record, studentMap) ===
+            (filters.type === "members")
+        )
+      : history;
+
+    return rows.map((record) => ({
+      ...projectStudentFields(record, studentMap),
       term_name: record.membership_id
-        ? termById.get(String(record.membership_id))?.term_name ?? ""
+        ? (termById.get(String(record.membership_id))?.term_name ?? "")
         : "",
       membership_name: record.membership_id
-        ? termById.get(String(record.membership_id))?.membership_name ?? ""
+        ? (termById.get(String(record.membership_id))?.membership_name ?? "")
         : "",
     }));
   };
@@ -82,11 +146,14 @@ class HistoryService {
   //Get history records linked to a membership term (activation records)
   getByMembership = async (
     membershipId: string | string[]
-  ): Promise<IHistoryDocument[]> => {
+  ): Promise<Record<string, unknown>[]> => {
     const ids = Array.isArray(membershipId) ? membershipId : [membershipId];
-    return await MembershipHistory.find({
+    const records: IHistoryDocument[] = await MembershipHistory.find({
       membership_id: { $in: ids },
     }).sort({ date: -1 });
+
+    const studentMap = await buildStudentMap(records);
+    return records.map((record) => projectStudentFields(record, studentMap));
   };
 
   /**
@@ -235,7 +302,10 @@ class HistoryService {
       );
     }
     if (from && from.year !== to.year) {
-      throw new AppError("Renumbering cannot move a record to another year", 400);
+      throw new AppError(
+        "Renumbering cannot move a record to another year",
+        400
+      );
     }
 
     // Ordering is by date, so the edited record needs a usable one to have a

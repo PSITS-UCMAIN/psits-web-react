@@ -1,19 +1,51 @@
 import { CampusView } from "@/components/common/CampusView";
+import { listPositions } from "@/api/recruitment.api";
 import { useAuth } from "@/features/auth";
 import { normalizeMembershipStatus } from "@/features/student";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 
 export const StudentLayout: React.FC = () => {
   const { user } = useAuth();
   const userName = user?.name || "Student";
   const location = useLocation();
+  const [hasOpenRoles, setHasOpenRoles] = useState(true);
   const isIndexRoute =
     location.pathname === "/student" || location.pathname === "/student/";
   const isMembershipRoute = location.pathname.startsWith("/student/membership");
   const showMembershipLink =
     user?.role === "student" &&
     normalizeMembershipStatus(user.membershipStatus) !== "active";
+
+  useEffect(() => {
+    let ignore = false;
+
+    const checkOpenRoles = async () => {
+      try {
+        const response = await listPositions({
+          status: "OPEN",
+          page: 1,
+          limit: 1,
+        });
+
+        const total = Number(response.data?.data?.pagination?.total || 0);
+
+        if (!ignore) {
+          setHasOpenRoles(total > 0);
+        }
+      } catch {
+        if (!ignore) {
+          setHasOpenRoles(false);
+        }
+      }
+    };
+
+    void checkOpenRoles();
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   return (
     <div className="w-full">
@@ -87,16 +119,18 @@ export const StudentLayout: React.FC = () => {
                 </NavLink>
               </li>
             )}
-            <li>
-              <NavLink
-                to="application"
-                className={({ isActive }) =>
-                  `pb-3 ${isActive ? "border-b-4 border-sky-400" : "border-b-4 border-transparent"}`
-                }
-              >
-                Application
-              </NavLink>
-            </li>
+            {hasOpenRoles && (
+              <li>
+                <NavLink
+                  to="application"
+                  className={({ isActive }) =>
+                    `pb-3 ${isActive ? "border-b-4 border-sky-400" : "border-b-4 border-transparent"}`
+                  }
+                >
+                  Application
+                </NavLink>
+              </li>
+            )}
           </ul>
         </nav>
       </div>

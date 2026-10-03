@@ -164,7 +164,7 @@ router.get(
   "/get-request-role",
   requireAccessTokenV2,
   roleAuthenticateV2(["admin"]),
-  adminController.getAllRequestAdminAccountController
+  adminController.getAllRequestMemberRoleController
 );
 //Get all Admin Account Request Role
 router.get(

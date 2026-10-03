@@ -12,7 +12,8 @@
     "migrate:membership-schema": "ts-node src/scripts/migrate-membership-to-new-schema.ts",
     "migrate:drop-renewed": "ts-node src/scripts/migrate-drop-renewed-to-active.ts",
     "seed:membership-counter": "ts-node src/scripts/seed-membership-counter.ts",
-    "restore:membership-references": "ts-node src/scripts/restore-membership-references.ts"
+    "restore:membership-references": "ts-node src/scripts/restore-membership-references.ts",
+    "repair:member-roles": "ts-node src/scripts/repair-member-roles.ts"
   },
   "keywords": [],
   "author": "",
@@ -45,7 +46,7 @@
     "multer-s3": "^3.0.1",
     "node-cron": "^4.2.1",
     "puppeteer": "^25.7.0",
-    "resend": "^6.18.0",
+    "resend": "^6.28.1",
     "xlsx": "^0.18.5",
     "zod": "^4.3.6"
   },

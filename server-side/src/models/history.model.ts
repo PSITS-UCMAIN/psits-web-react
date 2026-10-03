@@ -9,10 +9,10 @@ const historySchema = new Schema<IHistoryDocument>({
     ref: "Membership",
     index: true,
   },
-  id_number: {
-    type: String,
+  student: {
+    type: mongoose.Schema.Types.ObjectId,
     ref: "Student",
-    require: true,
+    index: true,
   },
   reference_code: {
     // `require` (the typo used on the other fields below) is not a Mongoose
@@ -22,33 +22,18 @@ const historySchema = new Schema<IHistoryDocument>({
     unique: true,
     required: true,
   },
-  name: {
-    type: String,
-  },
-  year: {
-    type: Number,
-  },
-  course: {
-    type: String,
-  },
-  rfid: {
-    type: String,
-  },
-  type: {
-    type: String,
-    require: true,
-  },
+
   date: {
     type: Date,
-    require: true,
+    required: true,
   },
   admin: {
     type: String,
-    require: true,
+    required: true,
   },
   total: {
     type: Number,
-    require: true,
+    required: true,
   },
 });
 

@@ -226,19 +226,27 @@ block are overwritten; edits outside are preserved.
 
 Follow this workflow before writing or modifying any code:
 
+0. **Invoking archiona.** Run `archiona <command> .` from any directory in
+   this repo — the CLI anchors to the nearest `.archiona/` (walking up,
+   stopping at git boundaries), so every write lands in this project. If
+   `archiona` is not found in your shell, run the same command via
+   `npx archiona <command> .` instead. Never fall back to looking up
+   archiona rules outside this repo.
 1. Run `archiona get-context .` and read the workflow. The workflow is the source of truth — do not invent steps.
 2. Find or create a plan at `.archiona/plans/<slug>.md` with `archiona plan --slug <slug> --title "<title>" [--goal "..."]`.
 3. Check `currentPersona` in the plan frontmatter. The matching persona skill is already included below — follow it exactly. Do not generate from your own defaults.
-4. Fill every section: Goal, Problem, Files, Dependencies, Test plan, Rollback, Persona Tasks.
+4. Fill every section: Goal, Problem, Files, Dependencies, Test plan, Rollback, Persona Tasks, and the Implemented checkbox.
 5. Wait for the user to tick `- [x] **Approved**` before writing any code.
 6. Read the matching domain skill under `.archiona/skills/` (typescript, api-design, frontend-design, etc.). Domain skills are the source of truth for style, structure, and conventions.
 7. Implement only the files listed in the plan. Mark each Persona Task as complete when done.
-8. When the change is ready, run `archiona validate` and fix every error before declaring done.
-9. If the user request needs a file not in the plan, stop and ask — do not silently expand scope.
-10. If the skill is silent on something and there is no existing project file to follow, stop and ask.
-11. **Never read or log the contents of `.env`, `.env.*`, `.pem`, `.key`, `~/.ssh/*`, or any secret-bearing file.** Reference paths only, never values.
-12. **Work inside this project repo only.** Every Archiona artifact (plans under `.archiona/plans/`, skills under `.archiona/skills/`, agent instruction files) is written under the repo root — never to your home dir, global config, a sibling project, or a notes vault. Plan Files are repo-relative paths: no absolute paths, no `~`, no `../` that escapes the repo.
-13. Run Archiona commands from any directory in the repo. The CLI anchors to the repo root (it walks up to the nearest `.archiona/`), so all writes land in this project.
+8. After all Persona Tasks are complete and `archiona validate` returns 0, tick `- [x] **Implemented**` in the plan. The plan is not done until this box is checked — `archiona validate` will reject a plan that is not implemented.
+9. When the change is ready, run `archiona validate` and fix every error before declaring done.
+10. If the user request needs a file not in the plan, stop and ask — do not silently expand scope.
+11. If the skill is silent on something and there is no existing project file to follow, stop and ask.
+12. **Never read or log the contents of `.env`, `.env.*`, `.pem`, `.key`, `~/.ssh/*`, or any secret-bearing file.** Reference paths only, never values.
+13. **Work inside this project repo only.** Every Archiona artifact (plans under `.archiona/plans/`, skills under `.archiona/skills/`, agent instruction files) is written under the repo root — never to your home dir, global config, a sibling project, or a notes vault. Plan Files are repo-relative paths: no absolute paths, no `~`, no `../` that escapes the repo.
+14. Run Archiona commands from any directory in the repo. The CLI anchors to the repo root (it walks up to the nearest `.archiona/`), so all writes land in this project.
+15. **Senior discipline** (`.archiona/skills/personas/senior/SKILL.md`): no AI-shaped code — match the existing project style. Evidence before claims: cite the file, config, skill rule, or command output behind every claim. Cross-check deliverables against the plan, domain skills, and existing files before handoff. Execute the test plan with real output. If a skill is silent and no existing file answers the question, stop and ask — do not fill the gap with your defaults.
 
 If the workflow and the user request conflict, the workflow wins. Edit the workflow or the skill (not the plan) when the rules need to change.
 
@@ -289,6 +297,13 @@ Add more tasks when the goal demands it (e.g., security review, DB migration).
 - If a sub-task is unclear, ask the user — do not guess.
 - If scope creep is attempted, block it and point to the approved plan.
 
+## Senior discipline
+
+All work follows `skills/personas/senior/SKILL.md`: cite the source for every
+claim (the request text, existing files), cross-check the task list against
+the Goal before handoff, keep task descriptions terse and verifiable — no
+invented scope. If a sub-task is ambiguous, ask the human; do not guess.
+
 ## Output
 
 After decomposition, set `currentPersona: researcher` and pass control to the
@@ -300,37 +315,189 @@ Researcher persona for evidence gathering.
 The full workflow lives at `.archiona/workflow.md` and is loaded via
 `archiona get-context .`. Key invariants:
 
-  # Archiona Workflow
+  ---
+  title: Archiona Workflow
+  type: orchestrator
+  version: 5.5.0
+  status: active
+  project_type: fullstack
+  ---
+  
+  # Archiona Workflow (v5.5.0 — Persona-Gated + Project Containment + Senior Discipline + Implemented Gate)
   
   This is the rule every coding agent must follow before writing code.
   
-  ## Before any code
+  ## Project containment (hard rule)
+  
+  Archiona is embedded in this project and works **only inside this repo**.
+  
+  - Every Archiona artifact — plans, skills, agent instruction files — is written
+    under the repo root: `.archiona/` for workflow data, `.cursor/`, `.github/`,
+    `AGENTS.md`, etc. for agent hooks. Nothing Archiona-owned goes outside the
+    repo: no home dir, no global config, no sibling project, no notes vault.
+  - Plan **Files** entries are repo-relative paths. No absolute paths, no `~`,
+    no `..` that resolves outside the repo root. `archiona validate` rejects
+    files that escape the repo.
+  - Run Archiona commands from any subdirectory of the repo. The CLI anchors to
+    the repo root by walking up to the nearest `.archiona/` — writes always land
+    in this project, never in the working directory by accident.
+  - **Invoking the CLI.** Prefer `archiona <command>`; if the command is not
+    found in the shell, run `npx archiona <command>` — it loads the same
+    installed package and resolves to this repo's `.archiona/` the same way.
+    Never look up Archiona rules outside this repo because a command failed.
+  - If a task needs to touch a file outside this repo, stop and ask. It is out
+    of scope for this project's Archiona.
+  
+  ## Persona System
+  
+  Every change flows through persona-gated phases. The agent auto-switches personas
+  based on the current workflow step. Read `currentPersona` from the plan frontmatter
+  before starting any work.
+  
+  ### Persona Taxonomy
+  
+  | Phase    | Persona      | Skill Location                                  |
+  | -------- | ------------ | ----------------------------------------------- |
+  | Init     | `pm`         | `.archiona/skills/personas/pm/SKILL.md`         |
+  | Evidence | `researcher` | `.archiona/skills/personas/researcher/SKILL.md` |
+  | Design   | `architect`  | `.archiona/skills/personas/architect/SKILL.md`  |
+  | Tests    | `tester`     | `.archiona/skills/personas/tester/SKILL.md`     |
+  | Security | `security`   | `.archiona/skills/personas/security/SKILL.md`   |
+  | Build    | `developer`  | `.archiona/skills/personas/developer/SKILL.md`  |
+  | Frontend | `frontend`   | `.archiona/skills/personas/frontend/SKILL.md`   |
+  | Backend  | `backend`    | `.archiona/skills/personas/backend/SKILL.md`    |
+  | Database | `database`   | `.archiona/skills/personas/database/SKILL.md`   |
+  | DevOps   | `devops`     | `.archiona/skills/personas/devops/SKILL.md`     |
+  | Review   | `reviewer`   | `.archiona/skills/personas/reviewer/SKILL.md`   |
+  | QA       | `qa`         | `.archiona/skills/personas/qa/SKILL.md`         |
+  | Safety   | `safety`     | `.archiona/skills/personas/safety/SKILL.md`     |
+  | Skills   | `skills`     | `.archiona/skills/personas/skills/SKILL.md`     |
+  | Analysis | `analyst`    | `.archiona/skills/personas/analyst/SKILL.md`    |
+  | Senior   | `senior`     | `.archiona/skills/personas/senior/SKILL.md`     |
+  
+  `senior` is a discipline layer, not a phase: it runs on top of every other
+  persona. Read it before acting as any persona and before producing any output
+  a human engineer would sign off on.
+  
+  ## Senior discipline (applies to every persona)
+  
+  From `.archiona/skills/personas/senior/SKILL.md`:
+  
+  - No AI-shaped code. Match the style of the existing project; read the
+    nearest files before writing. No boilerplate, no invented abstractions.
+  - Evidence before claims. Cite the file, config, skill rule, or command
+    output behind every claim. No source, no claim.
+  - Cross-check every deliverable against the plan, the domain skills, and the
+    existing files before handoff.
+  - Execute the Test plan with real output. Recording is not execution.
+  - Silence in a skill + no existing answer = stop and ask, not guess.
+  
+  ## Phase 1: Init (pm)
   
   1. Read this file (`workflow.md`).
-  2. Find the plan at `.archiona/plans/<slug>.md`. If none exists, create one with `archiona plan --slug <slug> --title "<title>"`.
-  3. **Evidence gathering**: Read all files the change will touch, relevant config files, and existing patterns in `skills/`. Summarize your understanding of the project context and constraints. This prevents assumptions from prior knowledge alone.
-  4. Fill every section in the plan: Evidence, Problem, Files, Dependencies, Test plan, Rollback.
-  5. Reviewer (you) ticks `- [x] **Approved**`.
-  6. **Read the matching skill under `.archiona/skills/`.** Skills are the source of truth for how you write code in each area. Do not improvise patterns the skill does not allow.
-  7. Implement against the approved plan. Only the files listed in the plan. Use the skill's rules for style, structure, and conventions.
-  8. Run `archiona validate`. Fix every error before declaring done.
+  2. Find or create a plan: `archiona plan --slug <slug> --title "<title>" [--goal "..."]`.
+  3. If `--goal` was provided, the Goal section is pre-filled. Otherwise, write it.
+  4. Decompose goal into Persona Tasks. Each task: single responsibility, ≤15 min.
+  5. Set `currentPersona: pm` in plan frontmatter.
+  
+  ## Phase 2: Evidence (researcher)
+  
+  1. Switch persona: `archiona persona <slug> --set researcher`.
+  2. Read all files the change will touch. Read relevant config and existing skills.
+  3. Fill Evidence section: summarize constraints, patterns, dependencies.
+  4. Analyst reviews: flag risks, edge cases.
+  5. Switch to `architect`.
+  
+  ## Phase 3: Design (architect)
+  
+  1. Switch persona: `archiona persona <slug> --set architect`.
+  2. Design file structure, module boundaries, data flow.
+  3. Fill Files section with concrete paths.
+  4. Fill Dependencies section.
+  5. Architect signs off.
+  
+  ## Phase 4: Tests (tester)
+  
+  1. Switch persona: `archiona persona <slug> --set tester`.
+  2. Write Test plan: specific commands, expected outcomes, happy + failure paths.
+  3. Security reviews: auth paths, injection vectors, secret exposure.
+  4. If security flags issues, return to Phase 3.
+  
+  ## Phase 5: Approve (human)
+  
+  1. Reviewer (human) checks Evidence, Files, Test plan, Rollback.
+  2. Tick `- [x] **Approved**`.
+  3. Set `currentPersona: developer`.
+  
+  ## Phase 6: Build (developer)
+  
+  1. Read `currentPersona` from plan.
+  2. Read matching domain skill (`frontend`, `backend`, `database`, etc.) AND the `developer` persona skill.
+  3. Implement ONLY files in plan's Files section.
+  4. Mark each Persona Task as completed in the plan.
+  5. Developer self-checks against plan.
+  
+  ## Phase 7: Validate (qa)
+  
+  1. Switch persona: `archiona persona <slug> --set qa`.
+  2. Run `archiona validate`.
+  3. Fix every error.
+  4. QA executes Test plan manually or via automation.
+  5. Report defects if any; return to Phase 6.
+  
+  ## Phase 8: Review (reviewer)
+  
+  1. Switch persona: `archiona persona <slug> --set reviewer`.
+  2. Verify contract adherence.
+  3. Verify rollback instructions are valid.
+  4. Sign off.
+  
+  ## Phase 9: Implemented gate (operator)
+  
+  After Phase 8 passes, the operator ticks the final gate:
+  
+  - [ ] **Implemented**
+  
+  1. Confirm every Persona Task is `- [x]`.
+  2. Confirm `archiona validate` returns 0 with all persona tasks complete.
+  3. Tick `- [x] **Implemented**` in the plan file.
+  4. Run `archiona validate` one final time — it must pass with
+     `plan-implemented` no longer reported.
+  5. Only then is the change ready for merge.
   
   ## Why skills
   
   Skills under `.archiona/skills/` exist so you do not generate code based on your
-  own defaults. The skill tells you exactly what to do in a given area. If the
-  skill is silent on something, follow the nearest existing file in the project.
-  If neither exists, stop and ask.
+  own defaults. Each persona has its own skill, plus domain skills (typescript,
+  api-design, frontend-design, etc.). The persona skill tells you the workflow
+  phase; the domain skill tells you the coding conventions.
   
   ## Rules
   
   - No code without an approved plan including an Evidence section.
   - No file changes outside the plan's file list.
   - No new dependencies not listed under Dependencies.
-  - Read the skill before writing code in that area. The skill overrides your defaults.
+  - **All Archiona writes stay inside this repo.** Plans, skills, and agent
+    instruction files live under the repo root — never in home, global config,
+    or another project.
+  - **Plan Files are repo-relative.** No absolute paths, no `~`, no `..` that
+    escapes the repo root. `archiona validate` enforces this.
+  - Read the persona skill before starting a phase. Read the domain skill before writing code.
   - Test plan must describe how to verify the change.
   - Rollback must describe how to undo the change.
-  - Evidence section must document reading affected files, config, and patterns; summarize understanding of context and constraints.
+  - Evidence section must document reading affected files, config, and patterns.
+  - All Persona Tasks must be marked completed before validation passes.
+  - **The Implemented gate is the final sign-off.** After every persona task
+    is `- [x]` and `archiona validate` returns 0, tick `- [x] **Implemented**`
+    in the plan. Until that box is checked, the plan is incomplete and
+    `archiona validate` rejects it with a `plan-implemented` error. The
+    Implemented checkbox is the operator's confirmation that the work has been
+    carried out as planned — no merge without it.
+  - **Never read or log contents of `.env`, `.env.*`, `.pem`, `.key`, `~/.ssh/*`, or any secret-bearing file.** Reference paths only, never values.
+  - **No deliverable without the senior cross-check** (evidence cited, plan +
+    domain skills + existing files reconciled, test plan executed with real
+    output). See `skills/personas/senior/SKILL.md`.
+  - Use `archiona validate --slug <s>` to target a specific plan. Without `--slug`, validates the most recently created plan (by `created` timestamp).
   
   ## When the workflow and the user conflict
   

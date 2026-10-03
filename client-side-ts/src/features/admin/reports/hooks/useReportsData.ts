@@ -34,6 +34,7 @@ export const DEFAULT_FILTERS: ReportsFilters = {
   dateFrom: "",
   dateTo: "",
   term: "",
+  type: "",
   membershipName: "",
 };
 
@@ -132,7 +133,7 @@ export const useReportsData = () => {
     const requestId = ++membershipRequestRef.current;
     setMembershipStatus("loading");
     try {
-      const result = await membershipHistory();
+      const result = await membershipHistory(filters.type || undefined);
       if (requestId !== membershipRequestRef.current) return;
       if (!result) throw new Error("No membership history returned");
       setMembershipData(result);
@@ -142,7 +143,7 @@ export const useReportsData = () => {
       setMembershipData([]);
       setMembershipStatus("error");
     }
-  }, []);
+  }, [filters.type]);
 
   const merchandiseQuery = useMemo(
     () => ({
@@ -232,26 +233,25 @@ export const useReportsData = () => {
     }
   }, []);
 
+  const membershipFetchKey = `${activeTab}|${filters.type}`;
+  const membershipFetchKeyRef = useRef("");
+
+  useEffect(() => {
+    if (activeTab !== "membership") return;
+    if (membershipFetchKeyRef.current === membershipFetchKey) return;
+    membershipFetchKeyRef.current = membershipFetchKey;
+    void fetchMembership();
+  }, [activeTab, membershipFetchKey, fetchMembership]);
+
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      if (activeTab === "membership" && membershipStatus === "idle") {
-        void fetchMembership();
-      }
       if (activeTab === "merchandise") {
         void fetchMerchandise(page);
       }
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [
-    activeTab,
-    page,
-    membershipStatus,
-    debouncedSearch,
-    filters,
-    fetchMembership,
-    fetchMerchandise,
-  ]);
+  }, [activeTab, page, debouncedSearch, filters, fetchMerchandise]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -312,9 +312,7 @@ export const useReportsData = () => {
     () =>
       Array.from(
         new Set(
-          membershipOptionsList
-            .map((option) => option.name)
-            .filter(Boolean)
+          membershipOptionsList.map((option) => option.name).filter(Boolean)
         )
       ),
     [membershipOptionsList]

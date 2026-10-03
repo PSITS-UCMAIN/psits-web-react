@@ -275,11 +275,9 @@ export const OrdersView = () => {
     setPage,
     pendingData,
     pendingTotal,
-    pendingTotalPages,
     pendingStatus,
     paidData,
     paidTotal,
-    paidTotalPages,
     paidStatus,
     isMutating,
     selectedIds,
@@ -303,8 +301,6 @@ export const OrdersView = () => {
   const [printingOrderId, setPrintingOrderId] = useState<string | null>(null);
 
   const data = activeTab === "pending" ? pendingData : paidData;
-  const totalPages =
-    activeTab === "pending" ? pendingTotalPages : paidTotalPages;
   const status = activeTab === "pending" ? pendingStatus : paidStatus;
   const rowCount =
     activeTab === "pending" ? pendingData.length : paidData.length;
@@ -335,7 +331,8 @@ export const OrdersView = () => {
     selectedIds.includes(row._id)
   );
 
-  const totalPagesNum = Math.max(1, totalPages);
+  const hasRows = data.length > 0;
+  const totalPagesNum = Math.max(1, Math.ceil(total / ROWS_PER_PAGE));
   const currentPage = Math.min(page, totalPagesNum);
 
   const handlePrintReceipt = async (order: OrderRowData) => {
@@ -636,12 +633,14 @@ export const OrdersView = () => {
           </div>
 
           {/* Pagination */}
-          <PaginationFooter
-            page={currentPage}
-            totalPages={totalPagesNum}
-            total={total}
-            onPageChange={setPage}
-          />
+          {hasRows && total > 0 && (
+            <PaginationFooter
+              page={currentPage}
+              totalPages={totalPagesNum}
+              total={total}
+              onPageChange={setPage}
+            />
+          )}
         </section>
       </div>
 

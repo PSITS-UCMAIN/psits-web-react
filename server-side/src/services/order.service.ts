@@ -195,27 +195,28 @@ class OrderService {
     const status = params.status;
 
     const statusLower = status.toLowerCase();
-    const total =
-      statusLower === "paid"
-        ? await this.getPaidCount()
-        : statusLower === "refunded"
-          ? await this.getRefundedCount()
-          : await this.getPendingCount();
-    const result = await Orders.find({
+      const filter = {
       order_status: status,
       ...this.buildOrderSearchQuery(trimmedSearch),
-    })
+    };
+
+    const total = await Orders.countDocuments(filter);
+    const totalPages = total === 0 ? 1 : Math.ceil(total / limit);
+    const safePage = Math.min(page, totalPages);
+
+    const result = await Orders.find(filter)
       .sort(
         statusLower === "paid" ? { transaction_date: -1 } : { order_date: -1 }
       )
-      .skip((page - 1) * limit)
+      .skip((safePage - 1) * limit)
       .limit(limit);
+
     return {
       data: result,
       total,
-      page,
+      page: safePage,
       limit,
-      totalPages: Math.ceil(total / limit),
+      totalPages,
     };
   };
 

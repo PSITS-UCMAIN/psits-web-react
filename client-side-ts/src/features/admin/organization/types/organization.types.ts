@@ -33,6 +33,7 @@ export interface OrganizationAccount {
   access?: string | string[];
   isRequest?: boolean;
   adminRequest?: string;
+  requestedBy?: string;
   githubUsername?: string;
   accountType: "admin" | "member" | "memberRequest" | "adminRequest";
 }

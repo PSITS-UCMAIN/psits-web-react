@@ -166,9 +166,7 @@ const resendAutomationReport = async (entry: PendingEntry) => {
     throw new Error("Invalid automation report payload");
   }
 
-  const { sendAutomationWebhookPayload } = await import(
-    "./automation.service"
-  );
+  const { sendAutomationWebhookPayload } = await import("./automation.service");
   await sendAutomationWebhookPayload(
     payload as Parameters<typeof sendAutomationWebhookPayload>[0]
   );
@@ -177,11 +175,24 @@ const resendAutomationReport = async (entry: PendingEntry) => {
 const resendMembership = async (entry: PendingEntry) => {
   const history = await MembershipHistory.findOne({
     reference_code: entry.referenceCode,
-  });
+  }).populate("student");
 
   if (!history) {
     throw new Error(`Membership history not found for ${entry.referenceCode}`);
   }
+
+  // The denormalized student fields were removed from the schema; derive
+  // them from the populated student (null-safe for orphan records).
+  const student = (history as any).student as {
+    first_name: string;
+    middle_name?: string;
+    last_name: string;
+    course: string;
+    year: number;
+  } | null;
+  const fullName = student
+    ? `${student.first_name} ${student.middle_name ?? ""} ${student.last_name}`.trim()
+    : "";
 
   // The term lives on the parent membership; legacy rows without a
   // `membership_id` fall back to the bare reference code.
@@ -190,15 +201,15 @@ const resendMembership = async (entry: PendingEntry) => {
     : null;
 
   const data = {
-    name: history.name ?? "",
+    name: fullName,
     reference_code: history.reference_code,
     reference_display: formatReceiptReference(
       history.reference_code,
       membership?.term_name
     ),
     total: history.total,
-    course: history.course ?? "",
-    year: history.year ?? 0,
+    course: student?.course ?? "",
+    year: student?.year ?? 0,
     admin: history.admin,
     date: format(new Date(history.date), "MMMM d, yyyy"),
   };

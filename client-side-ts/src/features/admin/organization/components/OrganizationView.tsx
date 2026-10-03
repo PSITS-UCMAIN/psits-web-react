@@ -19,6 +19,7 @@ import {
   UserCog,
   UserRoundCheck,
   UsersRound,
+  UserRoundPlus,
   X,
 } from "lucide-react";
 import type { ComponentType } from "react";
@@ -72,6 +73,7 @@ const tabs: Array<{
   { key: "admins", label: "Admins", icon: UserCog },
   { key: "members", label: "Members", icon: UsersRound },
   { key: "suspended", label: "Suspended", icon: CircleSlash },
+  { key: "memberRequests", label: "Members Request", icon: UserRoundPlus },
   { key: "adminRequests", label: "Admin Request", icon: Mail },
 ];
 
@@ -394,7 +396,7 @@ const OrganizationTable = ({
                   <td className="truncate px-2 py-3">{account.role || "-"}</td>
                   <td className="px-2 py-3">
                     {activeTab === "memberRequests"
-                      ? account.adminRequest || "-"
+                      ? account.requestedBy || account.adminRequest || "-"
                       : activeTab === "adminRequests"
                         ? account.status || "-"
                         : account.campus

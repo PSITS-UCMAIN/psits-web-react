@@ -792,7 +792,9 @@ export const MembershipView = () => {
                   className="space-y-1 rounded-lg border p-3 text-sm"
                 >
                   <div className="flex justify-between gap-4">
-                    <span className="font-medium">{h.name || "—"}</span>
+                    <span className="truncate font-medium">
+                      {h.name || "—"}
+                    </span>
                     <span className="text-muted-foreground text-xs">
                       {h.reference_code || "—"}
                     </span>

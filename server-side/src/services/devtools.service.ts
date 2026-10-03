@@ -15,7 +15,7 @@ import {
   renderMembershipReceiptHtml,
   renderOrderReceiptHtml,
 } from "./receipt.service";
-import { account_status } from "../enums/status.enums";
+import { account_status, active_status_values } from "../enums/status.enums";
 
 export const getEmailQueueEntries = async ({
   status,
@@ -1251,7 +1251,7 @@ export const suspendOldStudents = async (): Promise<{
   const fiveYearsAgo = new Date(now);
   fiveYearsAgo.setFullYear(fiveYearsAgo.getFullYear() - 5);
 
-  const activeStatuses = [account_status.ACTIVE, "True"];
+  const activeStatuses = active_status_values;
 
   const students = await Student.find({
     status: { $in: activeStatuses },

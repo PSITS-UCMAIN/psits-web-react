@@ -183,9 +183,7 @@ const ReportsFilterPopover = ({
                   </Label>
                   <Select
                     value={draft.term || "all"}
-                    onValueChange={(v) =>
-                      update("term", v === "all" ? "" : v)
-                    }
+                    onValueChange={(v) => update("term", v === "all" ? "" : v)}
                   >
                     <SelectTrigger className="h-9 w-full rounded-lg border-[#ececec]">
                       <SelectValue placeholder="All terms" />
@@ -197,6 +195,24 @@ const ReportsFilterPopover = ({
                           {option.label}
                         </SelectItem>
                       ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="mb-1.5 block text-xs font-medium">
+                    Type
+                  </Label>
+                  <Select
+                    value={draft.type || "all"}
+                    onValueChange={(v) => update("type", v === "all" ? "" : v)}
+                  >
+                    <SelectTrigger className="h-9 w-full rounded-lg border-[#ececec]">
+                      <SelectValue placeholder="All Student" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Default</SelectItem>
+                      <SelectItem value="non-members">Students</SelectItem>
+                      <SelectItem value="members">PSITS Personnel</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

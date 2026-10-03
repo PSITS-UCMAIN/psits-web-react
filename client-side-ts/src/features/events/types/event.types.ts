@@ -307,6 +307,11 @@ export interface AddAttendeeFormData {
 
 export interface AddAttendeeV2Payload {
   studentId: string;
+  /**
+   * Campus enum value (e.g. "UC_BANILAD") the attendee belongs to.
+   * Only used when no existing student record is found.
+   */
+  campus?: string;
   firstName: string;
   middleName?: string;
   lastName: string;

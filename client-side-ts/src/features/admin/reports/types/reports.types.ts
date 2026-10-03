@@ -64,5 +64,6 @@ export interface ReportsFilters {
   dateFrom: string;
   dateTo: string;
   term: string;
+  type: string;
   membershipName: string;
 }

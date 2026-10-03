@@ -26,12 +26,26 @@ export const renderMembershipReceiptHtml = async (
 ): Promise<string> => {
   const history = await MembershipHistory.findOne({
     reference_code: referenceCode,
-  });
+  }).populate("student");
   if (!history) {
     throw new ReceiptNotFoundError(
       `Membership history not found for ${referenceCode}`
     );
   }
+
+  // The denormalized student fields were removed from the schema; derive
+  // them from the populated student (null-safe for orphan records).
+  const student = (history as any).student as {
+    first_name: string;
+    middle_name?: string;
+    last_name: string;
+    id_number: string;
+    course: string;
+    year: number;
+  } | null;
+  const fullName = student
+    ? `${student.first_name} ${student.middle_name ?? ""} ${student.last_name}`.trim()
+    : "";
 
   // The term lives on the parent membership, not the history row. Legacy rows
   // predate `membership_id`, so this stays optional and the reference falls back
@@ -40,27 +54,24 @@ export const renderMembershipReceiptHtml = async (
     ? await Membership.findById(history.membership_id).lean()
     : null;
 
-  const html = await ejs.renderFile(
-    assetPath("appr-membership-receipt.ejs"),
-    {
-      name: history.name,
-      reference_code: history.reference_code,
-      reference_display: formatReceiptReference(
-        history.reference_code,
-        membership?.term_name
-      ),
-      total: history.total,
-      course: history.course,
-      year: history.year,
-      admin: history.admin,
-      date: new Date(history.date).toLocaleDateString("en-US", {
-        month: "long",
-        day: "numeric",
-        year: "numeric",
-      }),
-      change: 0,
-    }
-  );
+  const html = await ejs.renderFile(assetPath("appr-membership-receipt.ejs"), {
+    name: fullName,
+    reference_code: history.reference_code,
+    reference_display: formatReceiptReference(
+      history.reference_code,
+      membership?.term_name
+    ),
+    total: history.total,
+    course: student?.course ?? "",
+    year: student?.year ?? 0,
+    admin: history.admin,
+    date: new Date(history.date).toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    }),
+    change: 0,
+  });
 
   return html;
 };

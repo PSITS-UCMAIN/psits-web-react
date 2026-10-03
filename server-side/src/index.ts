@@ -330,63 +330,6 @@ async function startServer() {
       { timezone: "Asia/Manila" }
     );
 
-    // Daily: suspend active students who meet the account-age/year rule
-    const studentYear4SuspendJob = cron.schedule(
-      "0 0 1 * *",
-      async () => {
-        console.log(
-          "[Monthly Midnight PH] Running old-student suspend check..."
-        );
-        const startedAt = new Date();
-        try {
-          const { isStudentSuspendCronEnabled, suspendOldStudents } =
-            await import("./services/devtools.service");
-          if (!(await isStudentSuspendCronEnabled())) {
-            console.log(
-              "[Monthly Midnight PH] Student suspend cron disabled, skipping"
-            );
-            await logCronExecution({
-              jobName: "student-year4-suspend",
-              scheduledAt: startedAt,
-              startedAt,
-              completedAt: new Date(),
-              durationMs: Date.now() - startedAt.getTime(),
-              success: true,
-              metadata: { skipped: true, reason: "disabled" },
-            });
-            return;
-          }
-          const result = await suspendOldStudents();
-          if (result.suspended > 0) {
-            console.log(
-              `[Midnight PH] Suspended ${result.suspended} student(s) meeting the age/year rule`
-            );
-          }
-          await logCronExecution({
-            jobName: "student-year4-suspend",
-            scheduledAt: startedAt,
-            startedAt,
-            completedAt: new Date(),
-            durationMs: Date.now() - startedAt.getTime(),
-            success: true,
-            metadata: { suspendedCount: result.suspended },
-          });
-        } catch (err: any) {
-          await logCronExecution({
-            jobName: "student-year4-suspend",
-            scheduledAt: startedAt,
-            startedAt,
-            completedAt: new Date(),
-            durationMs: Date.now() - startedAt.getTime(),
-            success: false,
-            errorMessage: err.message,
-          });
-        }
-      },
-      { timezone: "Asia/Manila" }
-    );
-
-    // Schedule automation jobs from database
     try {
       await automationService.scheduleAllJobs();
     } catch (err) {

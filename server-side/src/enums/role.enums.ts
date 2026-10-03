@@ -15,6 +15,28 @@ export const student_roles = Object.freeze({
   OFFICER: "PSITS_OFFICER",
 });
 
+export const member_role_aliases: Record<string, string> = {
+  general: student_roles.GENERAL,
+  officer: student_roles.OFFICER,
+  officers: student_roles.OFFICER,
+  developer: student_roles.DEVELOPER,
+  developers: student_roles.DEVELOPER,
+  media: student_roles.MEDIA,
+  volunteer: student_roles.VOLUNTEER,
+  volunteers: student_roles.VOLUNTEER,
+};
+
+export const member_role_values: readonly string[] = [
+  student_roles.DEVELOPER,
+  student_roles.OFFICER,
+  student_roles.MEDIA,
+  student_roles.VOLUNTEER,
+  "developer",
+  "officers",
+  "media",
+  "volunteer",
+];
+
 export const general_roles = Object.freeze({
   STUDENT: "STUDENT",
   ADMIN: "ADMIN",

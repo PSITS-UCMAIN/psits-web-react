@@ -56,6 +56,7 @@ export interface StudentTabCounts {
 }
 
 export interface StudentFormValues {
+  id: string;
   id_number: string;
   rfid: string;
   first_name: string;

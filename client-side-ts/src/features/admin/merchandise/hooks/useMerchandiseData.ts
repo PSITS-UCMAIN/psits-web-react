@@ -425,7 +425,9 @@ export const useMerchandiseData = () => {
             ? "Product updated successfully"
             : "Product added successfully"
         );
-        await refreshProducts();
+        void refreshProducts().catch(() => {
+          setError("Unable to refresh merchandise data.");
+        });
       }
 
       return succeeded;

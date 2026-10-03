@@ -3,10 +3,11 @@ import { Request, Response } from "express";
 import { settingsService } from "../services/settings.service";
 import { studentService } from "../services/student.service";
 import { Settings } from "../models/settings.model";
-import { IStudent } from "../models/student.interface";
+import { IStudent, IStudentDocument } from "../models/student.interface";
 
 import { membership_status } from "../enums/status.enums";
 import { historyService } from "../services/history.service";
+import type { MembershipHistoryType } from "../services/history.service";
 import { ISettings } from "../models/settings.interface";
 
 import { format } from "date-fns";
@@ -47,7 +48,6 @@ class MembershipController {
           .json({ message: "No membership price in the backend" });
       }
 
-      
       // Block duplicate another approval for a student who already has an active membership.
       if (hasActiveMembership(student.membershipStatus)) {
         return res.status(409).json({
@@ -79,12 +79,8 @@ class MembershipController {
       }
       const historyQuery = {
         membership_id: activeParent._id,
-        id_number,
-        rfid,
+        student: (student as IStudentDocument)._id,
         reference_code,
-        name: studentService.fullNameFormat(student),
-        year: student.year,
-        course: student.course,
         date: new Date(),
         admin: admin ? admin : req.admin.name,
         total: settings?.membership_price || 0,
@@ -180,7 +176,20 @@ class MembershipController {
 
   getMembershipHistoryController = catchAsync(
     async (req: Request, res: Response) => {
-      const history = await historyService.getAll();
+      const rawType =
+        typeof req.query.type === "string" ? req.query.type.trim() : "";
+
+      // Absent or empty means "every row"; any other value has to be one of the
+      // two known filters so a typo cannot silently widen the report.
+      const type: MembershipHistoryType | undefined =
+        rawType === "members" || rawType === "non-members"
+          ? rawType
+          : undefined;
+      if (rawType && !type) {
+        return res.status(400).json({ message: "Invalid type filter" });
+      }
+
+      const history = await historyService.getAll({ type });
       if (!history) {
         res.status(401).json({ message: "No History" });
       }
@@ -210,7 +219,7 @@ class MembershipController {
         admin_id: req.admin?._id,
         action: logs_action.UPDATE_MEMBERSHIP_REFERENCE,
         target:
-          `${previousCode || "(blank)"} → ${record.reference_code} for ${record.name}` +
+          `${previousCode || "(blank)"} → ${record.reference_code} (id ${record._id})` +
           (renumbered.length
             ? ` (+${renumbered.length} renumbered: ${renumbered
                 .map((r) => `${r.from}→${r.to}`)
@@ -281,19 +290,9 @@ class MembershipController {
   // approval. Creating a term deactivates any currently active term.
   createMembershipController = catchAsync(
     async (req: Request, res: Response) => {
-      const {
-        membership_name,
-        start_date,
-        end_date,
-        term_name,
-      } = req.body;
+      const { membership_name, start_date, end_date, term_name } = req.body;
 
-      if (
-        !membership_name ||
-        !start_date ||
-        !end_date ||
-        !term_name
-      ) {
+      if (!membership_name || !start_date || !end_date || !term_name) {
         return res.status(400).json({ message: "Missing required fields" });
       }
 
@@ -377,12 +376,16 @@ class MembershipController {
 
       const status = normalizeMembershipStatus(student.membershipStatus);
       if (status === "active") {
-        return res.status(400).json({ message: "Membership is already active." });
+        return res
+          .status(400)
+          .json({ message: "Membership is already active." });
       }
       if (status === "pending") {
         return res
           .status(400)
-          .json({ message: "Student already has a pending membership request." });
+          .json({
+            message: "Student already has a pending membership request.",
+          });
       }
 
       // Stamp `applied` so the requests queue shows when membership was asked
@@ -495,7 +498,9 @@ class MembershipController {
         target_model: "Membership",
       });
 
-      return res.status(200).json({ message: "Membership revoked successfully" });
+      return res
+        .status(200)
+        .json({ message: "Membership revoked successfully" });
     }
   );
 

@@ -239,11 +239,8 @@ const approveStudentMembershipFull = async (
 
   const historyQuery: IHistory = {
     membership_id: activeParent._id,
-    id_number: student.id_number,
+    student: (student as unknown as { _id?: mongoose.Types.ObjectId })._id,
     reference_code,
-    name: studentService.fullNameFormat(student),
-    year: student.year,
-    course: student.course,
     date: new Date(),
     admin: adminLabel,
     total: price,

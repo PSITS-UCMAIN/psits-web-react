@@ -9,19 +9,42 @@ import mongoose from "mongoose";
 import { Request, Response } from "express";
 import { IStudent } from "../models/student.interface";
 import { IHistory } from "../models/history.interface";
-import { account_status } from "../enums/status.enums";
+import { account_status, active_status_values } from "../enums/status.enums";
+import { psits_roles } from "../enums/role.enums";
+
+export interface StudentSearchResult {
+  _id: mongoose.Types.ObjectId;
+  rfid?: string;
+  id_number: string;
+  first_name: string;
+  middle_name?: string;
+  last_name: string;
+  email?: string;
+  course: string;
+  status: string;
+  membershipStatus: string;
+  role: string;
+  isFirstApplication: boolean;
+  isYearUpdated: boolean;
+  createdAt: Date;
+  year: number;
+  campus: string;
+}
 
 export const getAllActiveStudentsController = async (
   req: Request,
   res: Response
 ) => {
   try {
-    const students: IStudent[] = await Student.find({
-      status: { $in: ["True", account_status.ACTIVE] },
-    });
+    const students: StudentSearchResult[] = await Student.find({
+      status: { $in: active_status_values },
+    }).select(
+      "id_number rfid first_name middle_name last_name email course year campus status membershipStatus role isFirstApplication isYearUpdated createdAt"
+    );
     if (!students) {
       res.status(400).json({ message: "No Students" });
     }
+
     res.status(200).json(students);
   } catch (error) {
     console.error("Error fetching students:", error);
@@ -197,6 +220,7 @@ export const cancelMembershipRequestController = async (
 
 export const editStudentController = async (req: Request, res: Response) => {
   const {
+    id,
     id_number,
     rfid,
     first_name,
@@ -206,62 +230,124 @@ export const editStudentController = async (req: Request, res: Response) => {
     course,
     year,
   } = req.body;
-
+  const user = req.userV2;
+  const session = await mongoose.startSession();
+  session.startTransaction();
   try {
+    const studentId = new mongoose.Types.ObjectId(id);
     // Fetch the student document by id_number to get the _id
     const student: IStudentDocument | null = await Student.findOne({
-      id_number: id_number,
-    });
+      _id: studentId,
+    }).session(session);
 
     if (!student) {
+      await session.abortTransaction();
+      await session.endSession();
       return res.status(404).json({ message: "Student not found" });
     }
-
-    // Update the student's information
-    const studentResult = await Student.updateOne(
-      { id_number: id_number },
-      {
-        $set: {
-          rfid: rfid,
-          first_name: first_name,
-          middle_name: middle_name,
-          last_name: last_name,
-          email: email,
-          course: course,
-          year: year,
-        },
+    const previousIdNumber = student.id_number;
+    if (id_number !== previousIdNumber) {
+      //Check if the admin has permission to edit the id number
+      if (
+        user?.access === psits_roles.ADMIN ||
+        user?.access === psits_roles.DEVELOPER
+      ) {
+        //Update student records
+        await Student.updateOne(
+          { _id: studentId },
+          {
+            $set: {
+              id_number,
+              rfid: rfid,
+              first_name: first_name,
+              middle_name: middle_name,
+              last_name: last_name,
+              email: email,
+              course: course,
+              year: year,
+            },
+          }
+        ).session(session);
+        //Update order records with the new id_number
+        await Orders.updateMany(
+          { id_number: previousIdNumber },
+          {
+            $set: {
+              id_number,
+              student_name: `${first_name} ${middle_name} ${last_name}`,
+              course: course,
+              year: year,
+              rfid: rfid,
+            },
+          }
+        ).session(session);
+        //Update membership history records with the new id_number
+        // NOTE: MembershipHistory now uses the student FK as the source of
+        // truth; denormalized fields were removed in the drop-redundant-fields
+        // migration. No updateMany needed here.
+      } else {
+        await session.abortTransaction();
+        await session.endSession();
+        return res.status(403).json({
+          message: "You do not have permission to edit the ID number.",
+        });
       }
-    );
+    } else {
+      //Update student records without changing the id_number
+      await Student.updateOne(
+        { _id: studentId },
+        {
+          $set: {
+            rfid: rfid,
+            first_name: first_name,
+            middle_name: middle_name,
+            last_name: last_name,
+            email: email,
+            course: course,
+            year: year,
+          },
+        }
+      ).session(session);
+      //Update order records with the new student details
+      await Orders.updateMany(
+        { id_number: previousIdNumber },
+        {
+          $set: {
+            id_number,
+            student_name: `${first_name} ${middle_name} ${last_name}`,
+            course: course,
+            year: year,
+            rfid: rfid,
+          },
+        }
+      ).session(session);
+      // MembershipHistory no longer stores denormalized student fields —
+      // the student FK is the source of truth; no updateMany needed here.
+    }
 
-    // Update related orders with the new student details
-    await Orders.updateMany(
-      { id_number: id_number },
-      {
-        $set: {
-          student_name: `${first_name} ${middle_name} ${last_name}`,
-          course: course,
-          year: year,
-          rfid: rfid,
-        },
-      }
-    );
-
-    // Log the editing action
+    // Log the editing action.
+    const renamedFrom =
+      id_number !== previousIdNumber ? `${previousIdNumber} -> ` : "";
     const log = new Log({
       admin: req.admin.name,
       admin_id: req.admin._id,
       action: "Edited Student",
-      target: `${id_number} - ${first_name} ${middle_name} ${last_name}`,
+      target: `${renamedFrom}${id_number} - ${first_name} ${middle_name} ${last_name}`,
       target_id: student._id,
       target_model: "Student",
     });
 
-    await log.save();
-
+    await log.save({ session });
+    await session.commitTransaction();
+    await session.endSession();
     res
       .status(200)
       .json({ message: "Student and related orders updated successfully" });
   } catch (error) {
+    if (session.inTransaction()) {
+      await session.abortTransaction();
+    }
+    await session.endSession();
     console.error("Error updating student and orders:", error);
     res.status(500).json("Internal Server Error");
   }
@@ -337,18 +423,44 @@ export const fetchSpecificMembershipHistoryController = async (
   req: Request,
   res: Response
 ) => {
-  const { id_number } = req.params;
+  // The route param may carry a campus-scoped suffix (e.g. "71009042-UC_LM").
+  // Student `id_number` is stored as a bare 8-digit value — strip the suffix.
+  const rawId = req.params.id_number as string;
+  const bareId = rawId?.split("-")[0]?.trim() ?? "";
 
   try {
-    const membershipHistory: IHistory[] = await MembershipHistory.find({
-      id_number: id_number,
-    }).sort({ date: -1 });
-
-    if (!membershipHistory) {
-      res.status(400).json({ message: "No Membership History" });
+    if (!bareId) {
+      res.status(400).json({ message: "Invalid student ID" });
+      return;
     }
 
-    res.status(200).json({ data: membershipHistory });
+    // Resolve the student first so the FK can be used as the query filter.
+    const student: IStudentDocument | null = await Student.findOne({
+      id_number: bareId,
+    });
+    if (!student) {
+      res.status(404).json({ message: "Student not found" });
+      return;
+    }
+
+    const membershipHistory = await MembershipHistory.find({
+      student: student._id,
+    }).sort({ date: -1 });
+
+    // Project the same response shape the frontend expects — the denormalized
+    // fields no longer live on the schema; they are derived from the student.
+    const fullName =
+      `${student.first_name} ${student.middle_name ?? ""} ${student.last_name}`.trim();
+    const data = membershipHistory.map((record) => ({
+      ...record.toObject(),
+      id_number: student.id_number,
+      rfid: student.rfid ?? "",
+      name: fullName,
+      year: student.year,
+      course: student.course,
+    }));
+
+    res.status(200).json({ data });
   } catch (error) {
     console.error("Error fetching student membership history:", error);
     res.status(500).json({ message: "Internal Server Error" });

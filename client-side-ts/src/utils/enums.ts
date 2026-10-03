@@ -5,12 +5,6 @@ export const account_status = Object.freeze({
   PENDING: "STATUS_PENDING",
 });
 
-// Rows written before account_status existed store the plain string "True".
-// Read paths tolerate both so those students keep working; writers must always
-// use account_status.ACTIVE. Drop the legacy value once stored data has been
-// migrated.
-export const active_status_values: readonly string[] = [account_status.ACTIVE];
-
 export const membership_status = Object.freeze({
   ACTIVE: "MEMBERSHIP_ACTIVE",
   PENDING: "MEMBERSHIP_PENDING",
@@ -19,4 +13,13 @@ export const membership_status = Object.freeze({
 export const membership_term = Object.freeze({
   FIRST: "MEMBERSHIP_TERM_FIRST",
   SECOND: "MEMBERSHIP_TERM_SECOND",
+});
+export const psits_roles = Object.freeze({
+  ADMIN: "PSITS_ADMIN",
+  DEVELOPER: "PSITS_DEV",
+  HEAD_FINANCE: "PSITS_HEAD_FINANCE",
+  FINANCE: "PSITS_FINANCE",
+  EXECUTIVE: "PSITS_EXEC",
+  STANDARD: "PSITS_STANDARD",
+  NO_ACCESS: "PSITS_NO_ACCESS",
 });

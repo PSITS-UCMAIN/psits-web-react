@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -13,16 +13,23 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { cancelOrder } from "@/features/orders/api/orders";
-import { getStudentOrders, getRefundByOrderId } from "@/features/orders/api/orders";
-import type { OrdersTab, RefundDetail } from "@/features/orders/types/orders.types";
+import {
+  getStudentOrders,
+  getRefundByOrderId,
+} from "@/features/orders/api/orders";
+import type {
+  OrdersTab,
+  RefundDetail,
+} from "@/features/orders/types/orders.types";
 import OrderDetailModal from "@/features/orders/components/OrderDetailModal";
 
 const ROWS_PER_PAGE = 8;
-const ORDER_STATUS_BY_TAB: Record<OrdersTab, "Pending" | "Paid" | "Refunded"> = {
-  pending: "Pending",
-  paid: "Paid",
-  refunded: "Refunded",
-};
+const ORDER_STATUS_BY_TAB: Record<OrdersTab, "Pending" | "Paid" | "Refunded"> =
+  {
+    pending: "Pending",
+    paid: "Paid",
+    refunded: "Refunded",
+  };
 
 const EMPTY_COUNTS: Record<OrdersTab, number> = {
   pending: 0,
@@ -34,6 +41,7 @@ interface OrderItem {
   id: string;
   title: string;
   variant?: string;
+  variation?: string[];
   price: number;
   qty: number;
   image?: string;
@@ -41,9 +49,11 @@ interface OrderItem {
 
 interface Order {
   _id: string;
+  id_number?: string;
   items: OrderItem[];
   status: string;
   orderDate: string;
+  order_date?: string | Date;
   orderId: string;
   student_name?: string;
   course?: string;
@@ -78,6 +88,7 @@ interface ApiOrderItem {
 interface ApiOrder {
   _id?: string;
   id?: string;
+  id_number?: string;
   orderId?: string;
   reference_code?: string;
   items?: ApiOrderItem[];
@@ -112,6 +123,7 @@ const mapApiToUi = (apiOrder: ApiOrder): Order => {
 
   return {
     _id: apiOrder._id || apiOrder.id || Math.random().toString(),
+    id_number: apiOrder.id_number,
     orderId: String(
       apiOrder._id ??
         apiOrder.orderId ??
@@ -121,6 +133,7 @@ const mapApiToUi = (apiOrder: ApiOrder): Order => {
     items,
     status: apiOrder.order_status ?? apiOrder.status ?? "Pending",
     orderDate,
+    order_date: apiOrder.order_date,
     student_name: apiOrder.student_name,
     course: apiOrder.course,
     year: apiOrder.year,
@@ -192,7 +205,7 @@ const OrderCard: React.FC<{
           <Badge
             className={
               statusColors[order.status] ??
-              "bg-gray-100 text-gray-700 border-transparent"
+              "border-transparent bg-gray-100 text-gray-700"
             }
           >
             <span
@@ -246,9 +259,7 @@ const OrderCard: React.FC<{
 
       {order.status === "Pending" && (
         <div className="mt-4 flex justify-end">
-          <CancelConfirm
-            onConfirm={() => onCancel(order._id)}
-          />
+          <CancelConfirm onConfirm={() => onCancel(order._id)} />
         </div>
       )}
     </div>
@@ -275,7 +286,8 @@ const CancelConfirm: React.FC<{
           <DialogHeader>
             <DialogTitle>Cancel Order?</DialogTitle>
             <DialogDescription>
-              The order will be deleted and stock will be restored. This action cannot be undone.
+              The order will be deleted and stock will be restored. This action
+              cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -333,25 +345,25 @@ const Pagination: React.FC<{
 
   return (
     <div className="mt-6 flex items-center justify-center gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={current <= 1}
-          onClick={() => onChange(current - 1)}
-        >
-          Previous
-        </Button>
-        <span className="px-3 text-sm">
-          Page {current} of {totalPages}
-        </span>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={current >= totalPages}
-          onClick={() => onChange(current + 1)}
-        >
-          Next
-        </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={current <= 1}
+        onClick={() => onChange(current - 1)}
+      >
+        Previous
+      </Button>
+      <span className="px-3 text-sm">
+        Page {current} of {totalPages}
+      </span>
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={current >= totalPages}
+        onClick={() => onChange(current + 1)}
+      >
+        Next
+      </Button>
     </div>
   );
 };
@@ -359,6 +371,7 @@ const Pagination: React.FC<{
 const MyOrders: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<OrdersTab>("pending");
   const [page, setPage] = useState(1);
   const [totalOrders, setTotalOrders] = useState(0);
@@ -370,6 +383,11 @@ const MyOrders: React.FC = () => {
   const [detailOrder, setDetailOrder] = useState<Order | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [refundData, setRefundData] = useState<RefundDetail[]>([]);
+  const [refundLoading, setRefundLoading] = useState(false);
+
+  // Guards against out-of-order responses overwriting newer state when the
+  // user switches tabs or pages faster than requests resolve.
+  const requestSeqRef = useRef(0);
 
   const fetchStatusCounts = useCallback(async () => {
     const entries = await Promise.all(
@@ -387,6 +405,8 @@ const MyOrders: React.FC = () => {
   }, []);
 
   const fetchOrders = useCallback(async () => {
+    const requestId = ++requestSeqRef.current;
+    setLoadError(null);
     setLoading(true);
     try {
       const result = await getStudentOrders({
@@ -394,6 +414,16 @@ const MyOrders: React.FC = () => {
         page,
         limit: ROWS_PER_PAGE,
       });
+
+      if (requestId !== requestSeqRef.current) return;
+
+      if (!result) {
+        setLoadError("Unable to load orders. Please try again.");
+        setOrders([]);
+        setTotalOrders(0);
+        setTotalPages(0);
+        return;
+      }
 
       if (result && result.data) {
         const mapped = result.data.map(mapApiToUi);
@@ -408,13 +438,15 @@ const MyOrders: React.FC = () => {
         setStatusCounts((prev) => ({ ...prev, [activeTab]: 0 }));
       }
     } catch (error) {
+      if (requestId !== requestSeqRef.current) return;
       console.error("Failed to fetch orders", error);
+      setLoadError("Unable to load orders. Please try again.");
       setOrders([]);
       setTotalOrders(0);
       setTotalPages(0);
       setStatusCounts((prev) => ({ ...prev, [activeTab]: 0 }));
     } finally {
-      setLoading(false);
+      if (requestId === requestSeqRef.current) setLoading(false);
     }
   }, [activeTab, page]);
 
@@ -449,11 +481,13 @@ const MyOrders: React.FC = () => {
   };
 
   const handleViewDetails = async (order: Order) => {
+    const isRefunded = order.status === "Refunded";
     setDetailOrder(order);
     setDetailOpen(true);
     setRefundData([]);
+    setRefundLoading(isRefunded);
 
-    if (order.status === "Refunded") {
+    if (isRefunded) {
       try {
         const refunds = await getRefundByOrderId(order._id);
         if (refunds) {
@@ -461,6 +495,8 @@ const MyOrders: React.FC = () => {
         }
       } catch (err) {
         console.error("Failed to fetch refund", err);
+      } finally {
+        setRefundLoading(false);
       }
     }
   };
@@ -468,6 +504,31 @@ const MyOrders: React.FC = () => {
   const pendingCount = statusCounts.pending;
   const paidCount = statusCounts.paid;
   const refundedCount = statusCounts.refunded;
+
+  // Shared content for every status tab so loading/error/empty handling stays
+  // consistent across Pending, Paid, and Refunded.
+  const renderTabContent = (emptyTitle: string, emptyDescription: string) =>
+    loading ? (
+      <div className="py-8 text-center text-gray-500">Loading...</div>
+    ) : orders.length > 0 ? (
+      orders.map((order) => (
+        <OrderCard
+          key={order._id}
+          order={order}
+          onCancel={handleCancelOrder}
+          onViewDetails={handleViewDetails}
+        />
+      ))
+    ) : loadError ? (
+      <div className="py-8 text-center">
+        <p className="mb-2 text-red-600">{loadError}</p>
+        <Button variant="outline" size="sm" onClick={() => void fetchOrders()}>
+          Retry
+        </Button>
+      </div>
+    ) : (
+      <EmptyState title={emptyTitle} description={emptyDescription} />
+    );
 
   return (
     <div className="min-h-screen">
@@ -486,26 +547,41 @@ const MyOrders: React.FC = () => {
               <div className="-mx-2 overflow-x-auto">
                 <div className="inline-block min-w-full">
                   <TabsList className="flex w-full cursor-pointer rounded-xl bg-white px-3 py-7">
-                    <TabsTrigger className="flex-1 cursor-pointer py-5 text-center" value="pending">
+                    <TabsTrigger
+                      className="flex-1 cursor-pointer py-5 text-center"
+                      value="pending"
+                    >
                       <div className="flex items-center justify-center gap-2">
                         <span>Pending</span>
-                        <span className={`ml-2 inline-block rounded-full px-2 py-1 text-xs ${pendingCount > 0 ? "bg-[#1C9DDE] text-white" : "bg-gray-200 text-gray-600"}`}>
+                        <span
+                          className={`ml-2 inline-block rounded-full px-2 py-1 text-xs ${pendingCount > 0 ? "bg-[#1C9DDE] text-white" : "bg-gray-200 text-gray-600"}`}
+                        >
                           {pendingCount}
                         </span>
                       </div>
                     </TabsTrigger>
-                    <TabsTrigger className="flex-1 cursor-pointer py-5 text-center" value="paid">
+                    <TabsTrigger
+                      className="flex-1 cursor-pointer py-5 text-center"
+                      value="paid"
+                    >
                       <div className="flex items-center justify-center gap-2">
                         <span>Paid</span>
-                        <span className={`ml-2 inline-block rounded-full px-2 py-1 text-xs ${paidCount > 0 ? "bg-[#1C9DDE] text-white" : "bg-gray-200 text-gray-600"}`}>
+                        <span
+                          className={`ml-2 inline-block rounded-full px-2 py-1 text-xs ${paidCount > 0 ? "bg-[#1C9DDE] text-white" : "bg-gray-200 text-gray-600"}`}
+                        >
                           {paidCount}
                         </span>
                       </div>
                     </TabsTrigger>
-                    <TabsTrigger className="flex-1 cursor-pointer py-5 text-center" value="refunded">
+                    <TabsTrigger
+                      className="flex-1 cursor-pointer py-5 text-center"
+                      value="refunded"
+                    >
                       <div className="flex items-center justify-center gap-2">
                         <span>Refunded</span>
-                        <span className={`ml-2 inline-block rounded-full px-2 py-1 text-xs ${refundedCount > 0 ? "bg-[#1C9DDE] text-white" : "bg-gray-200 text-gray-600"}`}>
+                        <span
+                          className={`ml-2 inline-block rounded-full px-2 py-1 text-xs ${refundedCount > 0 ? "bg-[#1C9DDE] text-white" : "bg-gray-200 text-gray-600"}`}
+                        >
                           {refundedCount}
                         </span>
                       </div>
@@ -516,62 +592,23 @@ const MyOrders: React.FC = () => {
 
               <div className="mt-6">
                 <TabsContent value="pending">
-                  {loading ? (
-                    <div className="py-8 text-center text-gray-500">Loading...</div>
-                  ) : orders.length > 0 ? (
-                    orders.map((order) => (
-                      <OrderCard
-                        key={order._id}
-                        order={order}
-                        onCancel={handleCancelOrder}
-                        onViewDetails={handleViewDetails}
-                      />
-                    ))
-                  ) : (
-                    <EmptyState
-                      title="No pending orders"
-                      description="You don't have any pending orders right now. Start shopping to add items to your order."
-                    />
+                  {renderTabContent(
+                    "No pending orders",
+                    "You don't have any pending orders right now. Start shopping to add items to your order."
                   )}
                 </TabsContent>
 
                 <TabsContent value="paid">
-                  {loading ? (
-                    <div className="py-8 text-center text-gray-500">Loading...</div>
-                  ) : orders.length > 0 ? (
-                    orders.map((order) => (
-                      <OrderCard
-                        key={order._id}
-                        order={order}
-                        onCancel={handleCancelOrder}
-                        onViewDetails={handleViewDetails}
-                      />
-                    ))
-                  ) : (
-                    <EmptyState
-                      title="No paid orders"
-                      description="You have no paid orders yet. Browse products to place an order."
-                    />
+                  {renderTabContent(
+                    "No paid orders",
+                    "You have no paid orders yet. Browse products to place an order."
                   )}
                 </TabsContent>
 
                 <TabsContent value="refunded">
-                  {loading ? (
-                    <div className="py-8 text-center text-gray-500">Loading...</div>
-                  ) : orders.length > 0 ? (
-                    orders.map((order) => (
-                      <OrderCard
-                        key={order._id}
-                        order={order}
-                        onCancel={handleCancelOrder}
-                        onViewDetails={handleViewDetails}
-                      />
-                    ))
-                  ) : (
-                    <EmptyState
-                      title="No refunded orders"
-                      description="You have no refunded orders."
-                    />
+                  {renderTabContent(
+                    "No refunded orders",
+                    "You have no refunded orders."
                   )}
                 </TabsContent>
               </div>
@@ -591,12 +628,15 @@ const MyOrders: React.FC = () => {
       </div>
 
       {/* Detail Modal */}
-      <OrderDetailModal
-        isOpen={detailOpen}
-        onClose={() => setDetailOpen(false)}
-        order={detailOrder}
-        refunds={refundData}
-      />
+      {detailOrder && (
+        <OrderDetailModal
+          isOpen={detailOpen}
+          onClose={() => setDetailOpen(false)}
+          order={detailOrder}
+          refunds={refundData}
+          refundLoading={refundLoading}
+        />
+      )}
     </div>
   );
 };

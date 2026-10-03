@@ -6,7 +6,12 @@ import { IAdmin } from "../models/admin.interface";
 import { IAdminDocument } from "../models/admin.interface";
 import { admin_model, role_model } from "../model_template/model_data";
 import { account_status } from "../enums/status.enums";
-import { psits_roles, student_roles } from "../enums/role.enums";
+import {
+  member_role_aliases,
+  member_role_values,
+  psits_roles,
+  student_roles,
+} from "../enums/role.enums";
 import { logService } from "./log.service";
 import { logs_action } from "../enums/logs.enums";
 import bcrypt from "bcryptjs";
@@ -31,6 +36,14 @@ const normalizeAdminIdNumber = (id_number: unknown): string => {
     : trimmed;
 
   return `${base}${ADMIN_ID_SUFFIX}`;
+};
+const normalizeMemberRole = (role?: string): string => {
+  const normalized = String(role ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/^psits_/, "");
+
+  return member_role_aliases[normalized] ?? student_roles.GENERAL;
 };
 
 class AdminService {
@@ -116,14 +129,8 @@ class AdminService {
   };
   //Get all members under admin
   getAllMembers = async () => {
-    const rolesToFind = [
-      student_roles.DEVELOPER,
-      student_roles.OFFICER,
-      student_roles.MEDIA,
-      student_roles.VOLUNTEER,
-    ];
     const members: IStudent[] = await Student.find({
-      role: { $in: rolesToFind },
+      role: { $in: member_role_values },
       isRequest: false,
     });
     if (!members) {
@@ -343,7 +350,7 @@ class AdminService {
     //
     //Parametirized updated
     const params = {
-      role: role,
+      role: normalizeMemberRole(role),
       isRequest: true,
       adminRequest: admin,
     };
@@ -406,7 +413,10 @@ class AdminService {
     if (!student) {
       throw new AppError("No student found", 404);
     }
+
+    const approvedRole = normalizeMemberRole(student.role);
     const updatedRole = await studentService.updateOneDynamic(id_number, {
+      role: approvedRole,
       isRequest: false,
     });
 

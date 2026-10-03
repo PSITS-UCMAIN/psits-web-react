@@ -72,6 +72,8 @@ import type {
   StudentSortField,
   StudentsTab,
 } from "../types/students.types";
+import { membership_status, psits_roles } from "@/utils/enums";
+import { useAuth } from "@/features/auth";
 
 const tabs: Array<{
   key: StudentsTab;
@@ -85,9 +87,14 @@ const tabs: Array<{
 
 const courses = ["BSIT", "BSCS", "ACT"];
 const years = ["1", "2", "3", "4"];
-const membershipStatuses = ["ACTIVE", "PENDING", "NONE"];
+const membershipStatuses = [
+  membership_status.ACTIVE,
+  membership_status.PENDING,
+  membership_status.NONE,
+];
 
 const initialFormValues: StudentFormValues = {
+  id: "",
   id_number: "",
   rfid: "",
   first_name: "",
@@ -104,16 +111,16 @@ const emptyPasswordValues: StudentPasswordValues = {
 };
 
 const formatMembership = (status: string) => {
-  if (status === "ACTIVE") return "Active";
-  if (status === "PENDING") return "Pending";
+  if (status === membership_status.ACTIVE) return "Active";
+  if (status === membership_status.PENDING) return "Pending";
   return "Not Applied";
 };
 
 const membershipTone = (status: string) => {
-  if (status === "ACTIVE") {
+  if (status === membership_status.ACTIVE) {
     return "bg-green-100 text-green-600";
   }
-  if (status === "PENDING") return "bg-sky-100 text-sky-600";
+  if (status === membership_status.PENDING) return "bg-sky-100 text-sky-600";
   return "bg-[#f2f2f2] text-[#979797]";
 };
 
@@ -163,6 +170,7 @@ const formValuesFromStudent = (
 ): StudentFormValues =>
   student
     ? {
+        id: student.id,
         id_number: student.id_number,
         rfid: student.rfid,
         first_name: student.first_name,
@@ -307,8 +315,8 @@ const StudentsTable = ({
               )}
               {isDeletedTab && (
                 <th className="px-2 py-2 text-left align-middle font-medium">
-                    <SortLabel field="deletedBy" onSort={onSort}>
-                      Suspended by
+                  <SortLabel field="deletedBy" onSort={onSort}>
+                    Suspended by
                   </SortLabel>
                 </th>
               )}
@@ -728,6 +736,7 @@ const StudentFormDialog = ({
   onClose,
   onSubmit,
 }: StudentFormDialogProps) => {
+  const { user } = useAuth();
   const [values, setValues] = useState<StudentFormValues>(
     formValuesFromStudent(account)
   );
@@ -750,8 +759,10 @@ const StudentFormDialog = ({
         <div className="p-6">
           <div className="mb-6 flex items-start justify-between gap-4">
             <div>
-              <h2 className="text-lg font-medium">{account?.name}</h2>
-              <p className="text-sm text-[#8f8f8f]">{account?.email}</p>
+              <h2 className="text-lg font-medium break-all">{account?.name}</h2>
+              <p className="text-sm break-all text-[#8f8f8f]">
+                {account?.email}
+              </p>
             </div>
           </div>
           <div className="space-y-4">
@@ -760,11 +771,22 @@ const StudentFormDialog = ({
                 <Label className="mb-1.5 block text-xs font-medium">
                   Student ID Number
                 </Label>
-                <Input
-                  value={values.id_number}
-                  readOnly
-                  className="h-10 rounded-lg border-0 bg-[#efefef]"
-                />
+                {user?.access === psits_roles.ADMIN ||
+                user?.access === psits_roles.DEVELOPER ? (
+                  <Input
+                    value={values.id_number}
+                    onChange={(event) =>
+                      updateValue("id_number", event.target.value)
+                    }
+                    className="h-10 rounded-lg border-0"
+                  />
+                ) : (
+                  <Input
+                    value={values.id_number}
+                    readOnly
+                    className="h-10 rounded-lg border-0 bg-[#efefef]"
+                  />
+                )}
               </div>
               <div>
                 <Label className="mb-1.5 block text-xs font-medium">RFID</Label>

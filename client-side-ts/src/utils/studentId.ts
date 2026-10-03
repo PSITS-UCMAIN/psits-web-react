@@ -1,7 +1,8 @@
 export const STUDENT_ID_REGEX = /^\d{8}$/;
 
-// Sign-in accepts only the -admin, -ucb, -uclm, -ucpt
-export const LOGIN_ID_REGEX = /^\d{8}(-(admin|ucb|uclm|ucpt))?$/;
+// Sign-in accepts only the -admin suffix. Students sign in with their bare
+// 8-digit ID; campus suffixes are not valid sign-in formats.
+export const LOGIN_ID_REGEX = /^\d{8}(-admin)?$/;
 
 //limit length to 8 digit only
 export const STUDENT_ID_LENGTH = 8;
@@ -14,7 +15,7 @@ export const STUDENT_ID_MESSAGE =
 export const LOGIN_ID_MESSAGE = "Enter your 8-digit ID number";
 export const SUSPICIOUS_ID_MESSAGE = "Please enter a valid student ID number";
 
-// Longest real value is 8 digits + "-uclm"; this is slack, not a format rule.
+// Longest real value is 8 digits + "-admin"; this is slack, not a format rule.
 const MAX_ID_LENGTH = 32;
 
 export type IdMode = "student" | "login";
@@ -24,7 +25,7 @@ export type IdValidation =
   | { valid: false; id: null; message: string };
 
 //mode "student" = exactly 8 digits (signup, attendance).
-//mode "login"   = 8 digits + optional -admin/-ucb/-uclm/-ucpt (sign-in, reset).
+//mode "login"   = 8 digits + optional -admin (sign-in, reset).
 export function validateId(
   value: unknown,
   options: { mode?: IdMode; rejectSuspicious?: boolean } = {}

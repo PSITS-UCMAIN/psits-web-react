@@ -471,6 +471,20 @@ export class RecruitmentService {
       throw new AppError("Invalid hiring status.", 400);
     }
 
+    if (status === hiringStatus.OPEN) {
+      if (
+        position.applicationDeadline &&
+        new Date(position.applicationDeadline).getTime() < Date.now()
+      ) {
+        throw new AppError(
+          "Application deadline must be in the future for open positions.",
+          400
+        );
+      }
+
+      position.isActive = true;
+    }
+
     position.hiringStatus = status as any;
     await position.save();
     return position;

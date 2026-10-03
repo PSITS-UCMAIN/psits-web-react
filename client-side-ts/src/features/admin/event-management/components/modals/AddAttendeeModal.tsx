@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { X, Eye, EyeOff, Loader2, Info } from "lucide-react";
+import { X, Eye, EyeOff, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -44,12 +44,6 @@ export interface AttendeeFormData {
   password: string;
   confirmPassword: string;
 }
-
-const CAMPUS_ID_SUFFIX_LABELS: Record<string, string> = {
-  "UC_BANILAD": "ucb",
-  "UC_LM": "uclm",
-  "UC_PT": "ucpt",
-};
 
 const COURSE_OPTIONS = ["BSIT", "BSCS", "ACT"];
 const YEAR_LEVEL_OPTIONS = ["1st Year", "2nd Year", "3rd Year", "4th Year"];
@@ -184,8 +178,6 @@ export const AddAttendeeModal: React.FC<AddAttendeeModalProps> = ({
     return Object.keys(merch.selectedSizes);
   }, [merch]);
 
-  const suffixLabel = adminCampus ? CAMPUS_ID_SUFFIX_LABELS[adminCampus] : null;
-
   useEffect(() => {
     if (!adminCampus) return;
 
@@ -299,6 +291,7 @@ export const AddAttendeeModal: React.FC<AddAttendeeModalProps> = ({
     try {
       const result = await addAttendeeV2(eventId, {
         studentId: formData.studentId.trim(),
+        campus: formData.campus.trim() || undefined,
         firstName: formData.firstName.trim(),
         middleName: formData.middleName.trim() || undefined,
         lastName: formData.lastName.trim(),
@@ -476,19 +469,6 @@ export const AddAttendeeModal: React.FC<AddAttendeeModalProps> = ({
             </div>
           ) : (
             <div className="space-y-4">
-              {/* Credential note for campuses with suffixed IDs */}
-              {suffixLabel && (
-                <div className="flex items-start gap-2 rounded-xl border border-blue-200 bg-blue-50/70 px-4 py-3">
-                  <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-600" />
-                  <p className="text-xs leading-relaxed text-blue-900">
-                    This student&apos;s login credentials will use the
-                    campus-suffixed ID format (e.g., 21123456-{suffixLabel} for{" "}
-                    {adminCampus}). Please ensure the student is aware of their
-                    full login ID.
-                  </p>
-                </div>
-              )}
-
               {/* Student ID Number */}
               <div>
                 <Label htmlFor="studentId" className="mb-2">

@@ -137,6 +137,8 @@ const normalizeAccount = (
         : record.status || "Pending"
       : record.status || (tab === "suspended" ? "Suspend" : "Active");
 
+  const requestedBy = isMemberRequest ? record.adminRequest || "" : "";
+
   return {
     id: String(record._id || record.id_number || crypto.randomUUID()),
     id_number: String(record.id_number || ""),
@@ -151,6 +153,7 @@ const normalizeAccount = (
     access: record.access,
     isRequest: record.isRequest,
     adminRequest: record.adminRequest,
+    requestedBy,
     githubUsername: record.githubUsername || undefined,
     accountType: isMemberRequest
       ? "memberRequest"
@@ -173,6 +176,7 @@ const searchableText = (record: OrganizationAccount) =>
     record.campus,
     record.status,
     record.adminRequest,
+    record.requestedBy,
   ]
     .filter(Boolean)
     .join(" ")
@@ -183,6 +187,14 @@ const getSortValue = (
   field: OrganizationSortField
 ) => {
   if (field === "courseYear") return `${record.course} ${record.year}`;
+  if (field === "campus") {
+    if (record.accountType === "memberRequest") {
+      return String(record.requestedBy || record.adminRequest || "");
+    }
+    if (record.accountType === "adminRequest") {
+      return String(record.status || "");
+    }
+  }
   return String(record[field] || "");
 };
 
@@ -212,28 +224,32 @@ export const useOrganizationData = () => {
     (user?.access === PSITS_ROLES.EXECUTIVE ||
       user?.access === PSITS_ROLES.ADMIN);
 
-  const fetchAccounts = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
+  const fetchAccounts = useCallback(
+    async (tabOverride?: OrganizationTab) => {
+      const tab = tabOverride ?? activeTab;
+      setIsLoading(true);
+      setError(null);
 
-    try {
-      const records = await fetchRecordsForTab(activeTab);
-      const normalizedRecords = records.map((record) =>
-        normalizeAccount(record, activeTab)
-      );
+      try {
+        const records = await fetchRecordsForTab(tab);
+        const normalizedRecords = records.map((record) =>
+          normalizeAccount(record, tab)
+        );
 
-      setAccounts(normalizedRecords);
-      setTabCounts((currentCounts) => ({
-        ...currentCounts,
-        [activeTab]: normalizedRecords.length,
-      }));
-    } catch {
-      setAccounts([]);
-      setError("Unable to load organization data.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [activeTab]);
+        setAccounts(normalizedRecords);
+        setTabCounts((currentCounts) => ({
+          ...currentCounts,
+          [tab]: normalizedRecords.length,
+        }));
+      } catch {
+        setAccounts([]);
+        setError("Unable to load organization data.");
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [activeTab]
+  );
 
   const fetchTabCounts = useCallback(async () => {
     const countEntries = await Promise.all(
@@ -458,7 +474,10 @@ export const useOrganizationData = () => {
         user?.name || ""
       );
       if (result) {
-        await Promise.all([fetchAccounts(), fetchTabCounts()]);
+        const nextTab: OrganizationTab = "memberRequests";
+        setActiveTab(nextTab);
+        setPage(1);
+        await Promise.all([fetchAccounts(nextTab), fetchTabCounts()]);
       }
       return Boolean(result);
     } finally {
@@ -498,7 +517,18 @@ export const useOrganizationData = () => {
         if (action === "suspend") showToast("success", "Account suspended.");
         if (action === "restore") showToast("success", "Account restored.");
         if (action === "removeRole") showToast("success", "Role removed.");
-        await Promise.all([fetchAccounts(), fetchTabCounts()]);
+
+        const shouldOpenMembersTab =
+          action === "approve" &&
+          records.some((record) => record.accountType === "memberRequest");
+
+        if (shouldOpenMembersTab) {
+          setActiveTab("members");
+          setPage(1);
+          await Promise.all([fetchAccounts("members"), fetchTabCounts()]);
+        } else {
+          await Promise.all([fetchAccounts(), fetchTabCounts()]);
+        }
         clearSelection();
       }
 

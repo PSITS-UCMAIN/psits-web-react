@@ -126,7 +126,34 @@ const handleApiError = (error: unknown, showUserError = true): void => {
   }
 };
 
-export const makeOrder = async (formData: OrderFormData & { promo_id?: string }): Promise<boolean> => {
+const isValidObjectId = (id?: string): boolean =>
+  typeof id === "string" && /^[0-9a-fA-F]{24}$/.test(id);
+
+// Validate order items before hitting the API so a malformed payload fails
+// fast with a clear message instead of a generic 500 from the backend.
+const validateOrderItems = (items?: CartItem[]): string | null => {
+  if (!Array.isArray(items) || items.length === 0) {
+    return "Your order has no items.";
+  }
+  for (const item of items) {
+    if (!item.product_id || !isValidObjectId(String(item.product_id))) {
+      return "An item in your cart is no longer valid. Please refresh and try again.";
+    }
+    if (!Number.isFinite(item.quantity) || item.quantity <= 0) {
+      return "An item has an invalid quantity.";
+    }
+  }
+  return null;
+};
+
+export const makeOrder = async (
+  formData: OrderFormData & { promo_id?: string }
+): Promise<boolean> => {
+  const validationError = validateOrderItems(formData.items);
+  if (validationError) {
+    showToast("error", validationError);
+    return false;
+  }
   try {
     const payload: Record<string, unknown> = { items: formData.items };
     if (formData.promo_id) {
@@ -447,9 +474,12 @@ export const getOrderReceiptV2 = async (
 ): Promise<PrintableOrderReceipt | null> => {
   try {
     const response: AxiosResponse<{ data: PrintableOrderReceipt }> =
-      await axios.get(`${backendConnection()}/api/orders/v2/${orderId}/receipt`, {
-        headers: createHeaders(),
-      });
+      await axios.get(
+        `${backendConnection()}/api/orders/v2/${orderId}/receipt`,
+        {
+          headers: createHeaders(),
+        }
+      );
 
     return response.status === 200 ? response.data.data : null;
   } catch (error) {
@@ -495,7 +525,7 @@ export const getStudentOrders = async ({
     return null;
   } catch (error) {
     handleApiError(error, false);
-    return { data: [], total: 0, page, limit, totalPages: 0 };
+    return null;
   }
 };
 

@@ -84,12 +84,8 @@ const normalizeName = (record: StudentApiRecord) =>
     .trim();
 
 const normalizeStudent = (record: StudentApiRecord): AdminStudent => {
-  const membershipStatus = (record.membershipStatus || "")
-    .replace(/^MEMBERSHIP_/, "")
-    .replace(/^STATUS_/, "")
-    .trim();
   return {
-    id: String(record._id || record.id_number || crypto.randomUUID()),
+    id: String(record._id),
     id_number: String(record.id_number || ""),
     rfid: String(record.rfid || ""),
     first_name: String(record.first_name || ""),
@@ -99,8 +95,11 @@ const normalizeStudent = (record: StudentApiRecord): AdminStudent => {
     email: String(record.email || ""),
     course: String(record.course || ""),
     year: String(record.year || ""),
-    membershipStatus: membershipStatus || "NONE",
-    status: String(record.status || "").replace(/^STATUS_/, "").trim() || "",
+    membershipStatus: String(record.membershipStatus || ""),
+    status:
+      String(record.status || "")
+        .replace(/^STATUS_/, "")
+        .trim() || "",
     applied: String(record.applied || ""),
     deletedBy: String(record.deletedBy || ""),
     deletedDate: String(record.deletedDate || ""),
@@ -327,6 +326,7 @@ export const useStudentsData = () => {
     setIsMutating(true);
     try {
       const result = await updateStudent(
+        values.id,
         values.id_number,
         values.rfid,
         values.first_name,
