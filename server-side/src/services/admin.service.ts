@@ -43,7 +43,12 @@ const normalizeMemberRole = (role?: string): string => {
     .toLowerCase()
     .replace(/^psits_/, "");
 
-  return member_role_aliases[normalized] ?? student_roles.GENERAL;
+  const memberRole = member_role_aliases[normalized];
+  if (!memberRole) {
+    throw new AppError("Invalid member role.", 400);
+  }
+
+  return memberRole;
 };
 
 class AdminService {
@@ -349,6 +354,9 @@ class AdminService {
 
     //
     //Parametirized updated
+
+
+    
     const params = {
       role: normalizeMemberRole(role),
       isRequest: true,

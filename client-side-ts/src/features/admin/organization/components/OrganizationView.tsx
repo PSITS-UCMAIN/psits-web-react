@@ -107,7 +107,7 @@ const adminRoles = [
   "Quality Assurance",
   "Lead Developer",
 ];
-const memberRoles = ["developer", "officers", "media", "volunteer"];
+const memberRoles = ["developer", "officers", "media", "volunteer", "finance"];
 const avatarColors = [
   "bg-[#ffb284]",
   "bg-[#8698f7]",
