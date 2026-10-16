@@ -3,6 +3,7 @@ import type { AxiosError, AxiosResponse } from "axios";
 import backendConnection from "../../../api/backendApi";
 import { showToast } from "../../../utils/alertHelper";
 import type { DashboardStatsResponse } from "../dashboard/types/dashboard.types";
+import type { OrganizationTabCounts } from "../organization/types/organization.types";
 
 interface Student {
   _id?: string;
@@ -972,6 +973,22 @@ export const getAllMembers = async (): Promise<Member[] | void> => {
     return response.status === 200 ? response.data.data : [];
   } catch (error) {
     handleApiError(error, false);
+  }
+};
+
+export const getOrganizationTabCounts = async (): Promise<
+  OrganizationTabCounts | void
+> => {
+  try {
+    const response: AxiosResponse<{ data: OrganizationTabCounts }> =
+      await axios.get(
+        `${backendConnection()}/api/admin/get-organization-tab-counts`,
+        { headers: createHeaders() }
+      );
+    return response.status === 200 ? response.data.data : undefined;
+  } catch (error) {
+    handleApiError(error, false);
+    throw error;
   }
 };
 

@@ -11,6 +11,7 @@ import {
   member_role_values,
   psits_roles,
   student_roles,
+  officer_list_access,
 } from "../enums/role.enums";
 import { logService } from "./log.service";
 import { logs_action } from "../enums/logs.enums";
@@ -43,7 +44,12 @@ const normalizeMemberRole = (role?: string): string => {
     .toLowerCase()
     .replace(/^psits_/, "");
 
-  return member_role_aliases[normalized] ?? student_roles.GENERAL;
+  const memberRole = member_role_aliases[normalized];
+  if (!memberRole || !member_role_values.includes(memberRole)) {
+    throw new AppError("Invalid member role.", 400);
+  }
+
+  return memberRole;
 };
 
 class AdminService {
@@ -93,6 +99,42 @@ class AdminService {
         year3: year3Count,
         year4: year4Count,
       },
+    };
+  };
+  getOrganizationTabCounts = async (access?: string) => {
+    const hiddenAdminAccess =
+      access === psits_roles.HEAD_FINANCE || access === psits_roles.FINANCE
+        ? [psits_roles.EXECUTIVE, psits_roles.ADMIN]
+        : access === psits_roles.EXECUTIVE
+          ? [psits_roles.ADMIN]
+          : undefined;
+    const activeAdminQuery = hiddenAdminAccess
+      ? {
+          status: account_status.ACTIVE,
+          access: { $nin: hiddenAdminAccess },
+        }
+      : { status: account_status.ACTIVE };
+
+    const canViewOfficers = officer_list_access.includes(access ?? "");
+
+    const [admins, members, suspended, memberRequests, adminRequests] =
+      await Promise.all([
+        canViewOfficers ? Admin.countDocuments(activeAdminQuery) : 0,
+        Student.countDocuments({
+          role: { $in: member_role_values },
+          isRequest: false,
+        }),
+        Admin.countDocuments({ status: account_status.SUSPENDED }),
+        Student.countDocuments({ isRequest: true }),
+        Admin.countDocuments({ status: account_status.PENDING }),
+      ]);
+
+    return {
+      admins,
+      members,
+      suspended,
+      memberRequests,
+      adminRequests,
     };
   };
   //Get all admin accounts , used in Settings and AllOfficers.jsx
@@ -347,13 +389,18 @@ class AdminService {
   requestRole = async (req: Request) => {
     const { id_number, role, admin } = req.body;
 
-    //
+    const memberRole = normalizeMemberRole(role);
+    if (!member_role_values.includes(memberRole)) {
+      throw new AppError("Invalid member role.", 400);
+    }
+
     //Parametirized updated
     const params = {
-      role: normalizeMemberRole(role),
+      role: memberRole,
       isRequest: true,
       adminRequest: admin,
     };
+
     //Run update
     const updatedRole: IResponseMessage = await studentService.updateOneDynamic(
       id_number,
@@ -414,7 +461,15 @@ class AdminService {
       throw new AppError("No student found", 404);
     }
 
-    const approvedRole = normalizeMemberRole(student.role);
+    let approvedRole: string;
+    try {
+      approvedRole = normalizeMemberRole(student.role);
+    } catch {
+      throw new AppError(
+        "This request has an unrecognized role. Decline it and have the member re-request.",
+        400
+      );
+    }
     const updatedRole = await studentService.updateOneDynamic(id_number, {
       role: approvedRole,
       isRequest: false,

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   addOfficer,
   approveAdminAccount,
@@ -10,6 +10,7 @@ import {
   fetchStudentName,
   getAllMembers,
   getAllOfficers,
+  getOrganizationTabCounts,
   getRequestAdminAccount,
   getSuspendOfficers,
   officerRestore,
@@ -31,6 +32,7 @@ import type {
   OrganizationSort,
   OrganizationSortField,
   OrganizationTab,
+  OrganizationTabCounts,
 } from "../types/organization.types";
 
 const DEFAULT_FILTERS: OrganizationFilters = {
@@ -45,7 +47,7 @@ const DEFAULT_SORT: OrganizationSort = {
   direction: "asc",
 };
 
-const ROWS_PER_PAGE = 8;
+export const ROWS_PER_PAGE = 8;
 
 interface OrganizationApiRecord {
   _id?: string;
@@ -67,15 +69,7 @@ interface OrganizationApiRecord {
   githubUsername?: string;
 }
 
-const ORGANIZATION_TABS: OrganizationTab[] = [
-  "admins",
-  "members",
-  "suspended",
-  "memberRequests",
-  "adminRequests",
-];
-
-const EMPTY_TAB_COUNTS: Record<OrganizationTab, number> = {
+const EMPTY_TAB_COUNTS: OrganizationTabCounts = {
   admins: 0,
   members: 0,
   suspended: 0,
@@ -213,8 +207,11 @@ export const useOrganizationData = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isMutating, setIsMutating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [countsError, setCountsError] = useState<string | null>(null);
   const [tabCounts, setTabCounts] =
     useState<Record<OrganizationTab, number>>(EMPTY_TAB_COUNTS);
+  const [accountsRefreshVersion, setAccountsRefreshVersion] = useState(0);
+  const [countsRefreshVersion, setCountsRefreshVersion] = useState(0);
 
   const isUcMainAdmin =
     user?.role === "admin" && normalizeCampus(user.campus) === "UC_MAIN";
@@ -224,63 +221,61 @@ export const useOrganizationData = () => {
     (user?.access === PSITS_ROLES.EXECUTIVE ||
       user?.access === PSITS_ROLES.ADMIN);
 
-  const fetchAccounts = useCallback(
-    async (tabOverride?: OrganizationTab) => {
-      const tab = tabOverride ?? activeTab;
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadAccounts = async () => {
       setIsLoading(true);
       setError(null);
 
       try {
-        const records = await fetchRecordsForTab(tab);
+        const records = await fetchRecordsForTab(activeTab);
         const normalizedRecords = records.map((record) =>
-          normalizeAccount(record, tab)
+          normalizeAccount(record, activeTab)
         );
 
+        if (cancelled) return;
         setAccounts(normalizedRecords);
-        setTabCounts((currentCounts) => ({
-          ...currentCounts,
-          [tab]: normalizedRecords.length,
-        }));
       } catch {
+        if (cancelled) return;
         setAccounts([]);
         setError("Unable to load organization data.");
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
-    },
-    [activeTab]
-  );
+    };
 
-  const fetchTabCounts = useCallback(async () => {
-    const countEntries = await Promise.all(
-      ORGANIZATION_TABS.map(async (tab) => {
-        try {
-          const records = await fetchRecordsForTab(tab);
-          return [tab, records.length] as const;
-        } catch {
-          return [tab, 0] as const;
+    void loadAccounts();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, accountsRefreshVersion]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadTabCounts = async () => {
+      try {
+        const counts = await getOrganizationTabCounts();
+        if (!counts) {
+          throw new Error("Organization tab counts were not returned.");
         }
-      })
-    );
 
-    setTabCounts(
-      countEntries.reduce<Record<OrganizationTab, number>>(
-        (nextCounts, [tab, count]) => ({
-          ...nextCounts,
-          [tab]: count,
-        }),
-        { ...EMPTY_TAB_COUNTS }
-      )
-    );
-  }, []);
+        if (cancelled) return;
+        setTabCounts(counts);
+        setCountsError(null);
+      } catch {
+        if (!cancelled) {
+          setCountsError("Unable to load organization tab counts.");
+        }
+      }
+    };
 
-  useEffect(() => {
-    fetchAccounts();
-  }, [fetchAccounts]);
-
-  useEffect(() => {
-    void fetchTabCounts();
-  }, [fetchTabCounts]);
+    void loadTabCounts();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, countsRefreshVersion]);
 
   useEffect(() => {
     setSelectedIds([]);
@@ -343,8 +338,8 @@ export const useOrganizationData = () => {
   }, [currentPage, page]);
 
   const selectedAccounts = useMemo(
-    () => accounts.filter((record) => selectedIds.includes(record.id_number)),
-    [accounts, selectedIds]
+    () => filteredAccounts.filter((record) => selectedIds.includes(record.id)),
+    [filteredAccounts, selectedIds]
   );
 
   const roleOptions = useMemo(
@@ -366,16 +361,20 @@ export const useOrganizationData = () => {
     );
   };
 
-  const toggleAccountSelection = (idNumber: string) => {
+  const toggleAccountSelection = (id: string) => {
+    if (!id) return;
+
     setSelectedIds((currentIds) =>
-      currentIds.includes(idNumber)
-        ? currentIds.filter((id) => id !== idNumber)
-        : [...currentIds, idNumber]
+      currentIds.includes(id)
+        ? currentIds.filter((selectedId) => selectedId !== id)
+        : [...currentIds, id]
     );
   };
 
   const togglePageSelection = () => {
-    const pageIds = pagedAccounts.map((record) => record.id_number);
+    const pageIds = pagedAccounts
+      .filter((record) => record.id_number.trim())
+      .map((record) => record.id);
     setSelectedIds((currentIds) =>
       isSameSelection(
         currentIds.filter((id) => pageIds.includes(id)),
@@ -387,6 +386,13 @@ export const useOrganizationData = () => {
   };
 
   const clearSelection = () => setSelectedIds([]);
+
+  const refreshOrganizationData = (refreshAccounts = true) => {
+    if (refreshAccounts) {
+      setAccountsRefreshVersion((version) => version + 1);
+    }
+    setCountsRefreshVersion((version) => version + 1);
+  };
 
   const saveAdminAccount = async (
     values: OrganizationAccountFormValues
@@ -405,7 +411,7 @@ export const useOrganizationData = () => {
       });
 
       if (result) {
-        await Promise.all([fetchAccounts(), fetchTabCounts()]);
+        refreshOrganizationData();
         return true;
       }
       return false;
@@ -437,7 +443,7 @@ export const useOrganizationData = () => {
       });
 
       if (result) {
-        await Promise.all([fetchAccounts(), fetchTabCounts()]);
+        refreshOrganizationData();
         return true;
       }
       return false;
@@ -477,7 +483,7 @@ export const useOrganizationData = () => {
         const nextTab: OrganizationTab = "memberRequests";
         setActiveTab(nextTab);
         setPage(1);
-        await Promise.all([fetchAccounts(nextTab), fetchTabCounts()]);
+        refreshOrganizationData(activeTab === nextTab);
       }
       return Boolean(result);
     } finally {
@@ -491,10 +497,21 @@ export const useOrganizationData = () => {
   ) => {
     if (records.length === 0) return false;
 
+    const actionableRecords = records.filter((record) =>
+      record.id_number.trim()
+    );
+    if (actionableRecords.length === 0) {
+      showToast("error", "Cannot update records without an ID number.");
+      return false;
+    }
+    if (actionableRecords.length < records.length) {
+      showToast("error", "Records without an ID number were skipped.");
+    }
+
     setIsMutating(true);
     try {
-      const results = await Promise.all(
-        records.map((record) => {
+      const results = await Promise.allSettled(
+        actionableRecords.map((record) => {
           if (action === "suspend") return officerSuspend(record.id_number);
           if (action === "restore") return officerRestore(record.id_number);
           if (action === "removeRole") return roleRemove(record.id_number);
@@ -509,28 +526,42 @@ export const useOrganizationData = () => {
         })
       );
 
-      const isSuccess = results.every((result) =>
-        typeof result === "boolean" ? result : result === 200
-      );
+      const successCount = results.filter(
+        (result) =>
+          result.status === "fulfilled" &&
+          (typeof result.value === "boolean"
+            ? result.value
+            : result.value === 200)
+      ).length;
+      const isSuccess = successCount === actionableRecords.length;
 
       if (isSuccess) {
         if (action === "suspend") showToast("success", "Account suspended.");
         if (action === "restore") showToast("success", "Account restored.");
         if (action === "removeRole") showToast("success", "Role removed.");
-
-        const shouldOpenMembersTab =
-          action === "approve" &&
-          records.some((record) => record.accountType === "memberRequest");
-
-        if (shouldOpenMembersTab) {
-          setActiveTab("members");
-          setPage(1);
-          await Promise.all([fetchAccounts("members"), fetchTabCounts()]);
-        } else {
-          await Promise.all([fetchAccounts(), fetchTabCounts()]);
-        }
-        clearSelection();
+      } else if (successCount > 0) {
+        showToast(
+          "error",
+          `${successCount} of ${actionableRecords.length} records were updated.`
+        );
+      } else {
+        showToast("error", "No records were updated.");
       }
+
+      const shouldOpenMembersTab =
+        successCount > 0 &&
+        action === "approve" &&
+        actionableRecords.some(
+          (record) => record.accountType === "memberRequest"
+        );
+      if (shouldOpenMembersTab) {
+        setActiveTab("members");
+        setPage(1);
+        refreshOrganizationData(activeTab === "members");
+      } else {
+        refreshOrganizationData();
+      }
+      clearSelection();
 
       return isSuccess;
     } finally {
@@ -543,6 +574,7 @@ export const useOrganizationData = () => {
     accounts,
     currentPage,
     error,
+    countsError,
     filters,
     isAdminAccess,
     isExecutiveAccess,

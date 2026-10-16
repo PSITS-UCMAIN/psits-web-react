@@ -3,7 +3,12 @@ export interface SelectedMerchandise {
   name: string;
 }
 
-export type PromoType = "Members" | "Students" | "All Students" | "Specific" | "Membership";
+export type PromoType =
+  | "Members"
+  | "Students"
+  | "All Students"
+  | "Specific"
+  | "Membership";
 
 export type PromoScope = "Merchandise" | "Category" | "Both";
 
@@ -67,4 +72,10 @@ export interface PromoLogEntry {
   date: string;
 }
 
-export const TEAM_ROLES = ["officers", "media", "developer", "volunteer"] as const;
+export const TEAM_ROLES = [
+  "officers",
+  "media",
+  "developer",
+  "volunteer",
+  "finance",
+] as const;
