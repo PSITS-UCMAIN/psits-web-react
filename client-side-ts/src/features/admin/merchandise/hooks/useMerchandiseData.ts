@@ -85,6 +85,7 @@ export const PRODUCT_AUDIENCES = [
     value: "volunteer,media,developer",
     label: "Volunteers, Media and Developers",
   },
+  { value: "finance", label: "Finance" },
 ];
 
 export const PURCHASE_CONTROLS = [

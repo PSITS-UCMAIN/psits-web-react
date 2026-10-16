@@ -128,7 +128,7 @@ export const AddMembershipDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && handleClose()}>
-      <DialogContent className="w-[95vw] rounded-[20px] sm:w-[280px]">
+      <DialogContent className="rounded-[20px] sm:w-[280px] md:w-[95vw]">
         <DialogHeader>
           <DialogTitle>Add Membership</DialogTitle>
           <DialogDescription>

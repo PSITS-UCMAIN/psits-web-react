@@ -9,6 +9,7 @@ export const psits_roles = Object.freeze({
 });
 export const student_roles = Object.freeze({
   GENERAL: "PSITS_GENERAL",
+  FINANCE: "PSITS_FINANCE_MEMBER",
   MEDIA: "PSITS_MEDIA",
   DEVELOPER: "PSITS_DEVELOPER",
   VOLUNTEER: "PSITS_VOLUNTEER",
@@ -21,6 +22,8 @@ export const member_role_aliases: Record<string, string> = {
   officers: student_roles.OFFICER,
   developer: student_roles.DEVELOPER,
   developers: student_roles.DEVELOPER,
+  finance: student_roles.FINANCE,
+  finance_member: student_roles.FINANCE,
   media: student_roles.MEDIA,
   volunteer: student_roles.VOLUNTEER,
   volunteers: student_roles.VOLUNTEER,
@@ -29,12 +32,20 @@ export const member_role_aliases: Record<string, string> = {
 export const member_role_values: readonly string[] = [
   student_roles.DEVELOPER,
   student_roles.OFFICER,
+  student_roles.FINANCE,
   student_roles.MEDIA,
   student_roles.VOLUNTEER,
   "developer",
   "officers",
+  "finance",
   "media",
   "volunteer",
+];
+
+export const officer_list_access: readonly string[] = [
+  psits_roles.ADMIN,
+  psits_roles.FINANCE,
+  psits_roles.EXECUTIVE,
 ];
 
 export const general_roles = Object.freeze({
@@ -45,6 +56,7 @@ export const general_roles = Object.freeze({
 export const promo_audience_roles = Object.freeze({
   officers: student_roles.OFFICER,
   media: student_roles.MEDIA,
+  finance: student_roles.FINANCE,
   developer: student_roles.DEVELOPER,
   volunteer: student_roles.VOLUNTEER,
 } as Record<string, string>);

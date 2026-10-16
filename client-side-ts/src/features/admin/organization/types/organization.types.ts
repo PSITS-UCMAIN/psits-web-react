@@ -5,6 +5,8 @@ export type OrganizationTab =
   | "memberRequests"
   | "adminRequests";
 
+export type OrganizationTabCounts = Record<OrganizationTab, number>;
+
 export type OrganizationSortField =
   | "name"
   | "id_number"

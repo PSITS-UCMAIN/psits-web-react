@@ -55,7 +55,10 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { showToast } from "@/utils/alertHelper";
-import { useOrganizationData } from "../hooks/useOrganizationData";
+import {
+  ROWS_PER_PAGE,
+  useOrganizationData,
+} from "../hooks/useOrganizationData";
 import type {
   OrganizationAccount,
   OrganizationAccountFormValues,
@@ -107,7 +110,7 @@ const adminRoles = [
   "Quality Assurance",
   "Lead Developer",
 ];
-const memberRoles = ["developer", "officers", "media", "volunteer"];
+const memberRoles = ["developer", "officers", "media", "volunteer", "finance"];
 const avatarColors = [
   "bg-[#ffb284]",
   "bg-[#8698f7]",
@@ -250,7 +253,9 @@ const OrganizationTable = ({
   onSort,
 }: OrganizationTableProps) => {
   const visiblePages = pageRange(page, totalPages);
-  const pageIds = data.map((record) => record.id_number);
+  const pageIds = data
+    .filter((record) => record.id_number.trim())
+    .map((record) => record.id);
   const isPageSelected =
     pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id));
   const isSomePageSelected =
@@ -285,6 +290,7 @@ const OrganizationTable = ({
                   }
                   onCheckedChange={onSelectPage}
                   className="border-[#a7a7a7] data-[state=checked]:border-[#1c9dde] data-[state=checked]:bg-[#1c9dde]"
+                  disabled={pageIds.length === 0}
                   aria-label="Select visible rows"
                 />
               </th>
@@ -323,7 +329,7 @@ const OrganizationTable = ({
           </thead>
           <tbody>
             {isLoading ? (
-              Array.from({ length: 8 }, (_, index) => (
+              Array.from({ length: ROWS_PER_PAGE }, (_, index) => (
                 <tr key={index} className="border-b border-[#ededed]">
                   <td className="px-2 py-3">
                     <Skeleton className="h-4 w-4 rounded" />
@@ -357,13 +363,14 @@ const OrganizationTable = ({
             ) : data.length > 0 ? (
               data.map((account) => (
                 <tr
-                  key={`${activeTab}-${account.id_number}`}
+                  key={`${activeTab}-${account.id}`}
                   className="border-b border-[#ededed] text-[#303030]"
                 >
                   <td className="px-2 py-3">
                     <Checkbox
-                      checked={selectedIds.includes(account.id_number)}
-                      onCheckedChange={() => onSelect(account.id_number)}
+                      checked={selectedIds.includes(account.id)}
+                      onCheckedChange={() => onSelect(account.id)}
+                      disabled={!account.id_number.trim()}
                       className="border-[#a7a7a7] data-[state=checked]:border-[#1c9dde] data-[state=checked]:bg-[#1c9dde]"
                       aria-label={`Select ${account.name}`}
                     />
@@ -517,8 +524,8 @@ const OrganizationTable = ({
 
       <div className="mt-7 flex flex-col items-center justify-between gap-3 text-xs text-[#8a8a8a] sm:flex-row">
         <span>
-          Showing {total > 0 ? (page - 1) * 8 + 1 : 0} to{" "}
-          {Math.min(page * 8, total)} of {total}
+          Showing {total > 0 ? (page - 1) * ROWS_PER_PAGE + 1 : 0} to{" "}
+          {Math.min(page * ROWS_PER_PAGE, total)} of {total}
         </span>
         <div className="flex items-center gap-1">
           <button
@@ -1371,6 +1378,7 @@ export const OrganizationView = () => {
     activeTab,
     currentPage,
     error,
+    countsError,
     filters,
     isAdminAccess,
     isExecutiveAccess,
@@ -1475,7 +1483,11 @@ export const OrganizationView = () => {
               <tab.icon className="h-4 w-4" />
               <span>{tab.label}</span>
               <span className="text-xs text-current/70">
-                ({tabCounts[tab.key].toLocaleString()})
+                (
+                {countsError
+                  ? "—"
+                  : tabCounts[tab.key].toLocaleString()}
+                )
               </span>
               {activeTab === tab.key && (
                 <span className="absolute right-0 bottom-0 left-0 h-0.5 bg-[#1c9dde]" />
@@ -1487,6 +1499,11 @@ export const OrganizationView = () => {
         {error && (
           <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
+          </div>
+        )}
+        {countsError && (
+          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            {countsError}
           </div>
         )}
 
@@ -1620,8 +1637,13 @@ export const OrganizationView = () => {
         onCancel={() => setConfirmState(null)}
         onConfirm={async () => {
           if (!confirmState) return;
-          await runAction(confirmState.action, confirmState.records);
-          setConfirmState(null);
+          try {
+            await runAction(confirmState.action, confirmState.records);
+          } catch {
+            showToast("error", "Unable to complete the organization action.");
+          } finally {
+            setConfirmState(null);
+          }
         }}
       />
     </div>
