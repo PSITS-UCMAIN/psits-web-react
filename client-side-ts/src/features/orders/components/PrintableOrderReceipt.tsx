@@ -19,10 +19,10 @@ export const PrintableOrderReceipt = ({
 
   return (
     <PrintShell>
-      <div className="px-2 py-3 text-[11px] leading-tight">
+      <div className="px-2 pt-1 pb-3 text-[9px] leading-tight">
         <ReceiptHeader copyLabel="Order Copy" />
 
-        <div className="space-y-1 border-b border-dashed border-neutral-300 pb-3">
+        <div className="space-y-1 border-b border-dashed border-black pb-3">
           <p>
             <span className="font-semibold">Name:</span>{" "}
             {receipt.student_name || "-"}
@@ -52,7 +52,7 @@ export const PrintableOrderReceipt = ({
         </div>
 
         {receipt.membership_discount || receipt.promo_name ? (
-          <div className="space-y-1 border-b border-dashed border-neutral-300 py-3">
+          <div className="space-y-1 border-b border-dashed border-black py-3">
             {receipt.membership_discount ? (
               <p>
                 <span className="font-semibold">Membership:</span> Discounted
@@ -67,7 +67,7 @@ export const PrintableOrderReceipt = ({
           </div>
         ) : null}
 
-        <div className="border-b border-dashed border-neutral-300 py-3">
+        <div className="border-b border-dashed border-black py-3">
           <p className="mb-2 font-semibold">Items</p>
           <div className="space-y-3">
             {receipt.items.map((item, index) => (
@@ -78,13 +78,13 @@ export const PrintableOrderReceipt = ({
                     {formatReceiptCurrency(item.sub_total)}
                   </p>
                 </div>
-                <p className="text-[10px] text-neutral-600">
+                <p className="text-[8px] text-black">
                   Qty {item.quantity}
                   {item.price !== undefined
                     ? ` x ${formatReceiptCurrency(item.price)}`
                     : ""}
                 </p>
-                <p className="text-[10px] text-neutral-600">
+                <p className="text-[8px] text-black">
                   Batch: {item.batch ?? "-"} | Size:{" "}
                   {formatReceiptList(item.sizes)} | Variation:{" "}
                   {formatReceiptList(item.variation)}
@@ -94,7 +94,7 @@ export const PrintableOrderReceipt = ({
           </div>
         </div>
 
-        <div className="space-y-1 border-b border-dashed border-neutral-300 py-3">
+        <div className="space-y-1 border-b border-dashed border-black py-3">
           <div className="flex justify-between">
             <span>Cash</span>
             <span>{formatReceiptCurrency(receipt.cash)}</span>
@@ -103,7 +103,7 @@ export const PrintableOrderReceipt = ({
             <span>Change</span>
             <span>{formatReceiptCurrency(receipt.change)}</span>
           </div>
-          <div className="flex justify-between pt-1 text-sm font-bold">
+          <div className="flex justify-between pt-1 text-xs font-bold">
             <span>Total</span>
             <span>{formatReceiptCurrency(receipt.total)}</span>
           </div>
