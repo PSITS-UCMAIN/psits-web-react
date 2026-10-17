@@ -27,7 +27,7 @@ export const PrintableMembershipReceipt = ({
       <div className="px-2 py-3 text-[11px] leading-tight">
         <ReceiptHeader copyLabel="Membership Copy" />
 
-        <div className="space-y-1 border-b border-dashed border-neutral-300 pb-3">
+        <div className="space-y-1 border-b border-dashed border-black pb-3">
           <p>
             <span className="font-semibold">Name:</span> {receipt.name || "-"}
           </p>
@@ -53,7 +53,7 @@ export const PrintableMembershipReceipt = ({
           </p>
         </div>
 
-        <div className="border-b border-dashed border-neutral-300 py-3">
+        <div className="border-b border-dashed border-black py-3">
           <p className="mb-2 font-semibold">Item</p>
           <div className="flex justify-between gap-2">
             <p className="font-semibold">Membership</p>
@@ -63,7 +63,7 @@ export const PrintableMembershipReceipt = ({
           </div>
         </div>
 
-        <div className="space-y-1 border-b border-dashed border-neutral-300 py-3">
+        <div className="space-y-1 border-b border-dashed border-black py-3">
           <div className="flex justify-between pt-1 text-sm font-bold">
             <span>Total</span>
             <span>{formatReceiptCurrency(receipt.total)}</span>
