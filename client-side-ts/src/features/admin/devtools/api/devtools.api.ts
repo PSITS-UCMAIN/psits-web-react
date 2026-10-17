@@ -286,3 +286,12 @@ export const suspendOldStudents = async () => {
   );
   return data;
 };
+
+export const testEndpoint = async (payload: { path: string; method: string; body?: unknown }) => {
+  // Error statuses are part of the result here, so don't let axios throw on them.
+  const { data, status } = await api.post<unknown>("/api/v2/dev/test-endpoint", payload, {
+    headers: getAuthToken() ? { Authorization: `Bearer ${getAuthToken()}` } : {},
+    validateStatus: () => true,
+  });
+  return { data, status };
+};

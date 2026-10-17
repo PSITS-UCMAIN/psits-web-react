@@ -66,6 +66,11 @@ class MerchandiseController {
       if (!key) {
         return res.status(400).json({ message: "Image key is required" });
       }
+      // This route is public, and the bucket also holds private files such as
+      // recruitment resumes. Only serve keys under this route's own folder.
+      if (!key.startsWith("merchandise/") || key.includes("..")) {
+        return res.status(404).json({ message: "Image not found" });
+      }
 
       if (!r2BucketName) {
         return res

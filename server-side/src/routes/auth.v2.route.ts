@@ -31,6 +31,6 @@ router.post("/logout", logoutV2Controller);
  * POST /v2/auth/signup
  * Create a new student account using studentService.create, respond with success/failure
  */
-router.post("/signup", signupV2Controller);
+router.post("/signup", signupLimiter, signupV2Controller);
 
 export default router;

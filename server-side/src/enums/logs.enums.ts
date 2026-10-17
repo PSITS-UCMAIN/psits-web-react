@@ -21,6 +21,10 @@ export const logs_action = Object.freeze({
   TRIGGER_CRON: "Triggered Cron Job",
   CANCEL_EXPIRED_ORDERS: "Cancelled Expired Orders",
   REBUILD_DB_INDEXES: "Rebuilt Database Indexes",
+  EXPORT_COLLECTION: "Exported Collection CSV",
+  BULK_UPDATE_EMAIL_STATUS: "Bulk Updated Email Status",
+  CLEAR_SERVER_ERRORS: "Cleared Server Error Log",
+  DELETE_OLD_LOGS: "Deleted Old Logs",
   TOGGLE_STUDENT_SUSPEND_CRON: "Toggled Student Suspend Cron",
   // Orders
   APPROVE_ORDER: "Approved Order",

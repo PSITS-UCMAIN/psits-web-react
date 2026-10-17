@@ -10,6 +10,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { AccountListToolbar } from "./AccountListToolbar";
+import { useAccountListFilter } from "../hooks/useAccountListFilter";
+import type { AccountListFields } from "../hooks/useAccountListFilter";
 
 interface SuspendedOfficer {
   _id?: string;
@@ -22,6 +25,15 @@ interface SuspendedOfficer {
   access?: string;
 }
 
+const getSuspendedOfficerFields = (
+  officer: SuspendedOfficer
+): AccountListFields => ({
+  name: officer.name,
+  idNumber: officer.id_number,
+  campus: officer.campus,
+  searchable: [officer.position, officer.email, officer.access],
+});
+
 export const SuspendedOfficersPanel = () => {
   const [officers, setOfficers] = useState<SuspendedOfficer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,6 +43,17 @@ export const SuspendedOfficersPanel = () => {
     name: string;
   } | null>(null);
   const [mutating, setMutating] = useState(false);
+  const {
+    search,
+    setSearch,
+    campus,
+    setCampus,
+    sort,
+    setSort,
+    campusOptions,
+    visibleItems: visibleOfficers,
+    isFiltered,
+  } = useAccountListFilter(officers, getSuspendedOfficerFields);
 
   useEffect(() => {
     getSuspendOfficers()
@@ -73,6 +96,17 @@ export const SuspendedOfficersPanel = () => {
         </div>
       </div>
 
+      <AccountListToolbar
+        search={search}
+        onSearchChange={setSearch}
+        campus={campus}
+        onCampusChange={setCampus}
+        campusOptions={campusOptions}
+        sort={sort}
+        onSortChange={setSort}
+        searchPlaceholder="Search name, ID, position, email..."
+      />
+
       <div className="overflow-x-auto">
         <table className="w-full min-w-[700px] text-sm">
           <thead>
@@ -96,8 +130,8 @@ export const SuspendedOfficersPanel = () => {
                   ))}
                 </tr>
               ))
-            ) : officers.length > 0 ? (
-              officers.map((officer) => (
+            ) : visibleOfficers.length > 0 ? (
+              visibleOfficers.map((officer) => (
                 <tr key={officer.id_number} className="border-b border-[#ededed]">
                   <td className="px-3 py-2">{officer.id_number}</td>
                   <td className="px-3 py-2">{officer.name}</td>
@@ -139,7 +173,9 @@ export const SuspendedOfficersPanel = () => {
             ) : (
               <tr>
                 <td colSpan={6} className="px-3 py-12 text-center text-sm text-[#777]">
-                  No suspended officers.
+                  {isFiltered
+                    ? "No suspended officers match the current search or filters."
+                    : "No suspended officers."}
                 </td>
               </tr>
             )}

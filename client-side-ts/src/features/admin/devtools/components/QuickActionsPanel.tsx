@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { isAxiosError } from "axios";
 import {
   triggerCron,
   cancelExpiredOrders,
@@ -291,8 +292,12 @@ export const QuickActionsPanel = () => {
         await triggerCron(key);
         showToast("success", "Action completed successfully");
       }
-    } catch {
-      showToast("error", "Failed to execute action");
+    } catch (error: unknown) {
+      // Show the server's reason (e.g. the year-update cooldown) when it sent one.
+      const message = isAxiosError<{ message?: string }>(error)
+        ? error.response?.data?.message
+        : undefined;
+      showToast("error", message || "Failed to execute action");
     } finally {
       setLoading(null);
       setConfirmAction(null);
