@@ -24,7 +24,7 @@ export const PrintableMembershipReceipt = ({
 
   return (
     <PrintShell>
-      <div className="px-2 py-3 text-[9px] leading-tight">
+      <div className="px-2 pt-1 pb-3 text-[9px] leading-tight">
         <ReceiptHeader copyLabel="Membership Copy" />
 
         <div className="space-y-1 border-b border-dashed border-black pb-3">
