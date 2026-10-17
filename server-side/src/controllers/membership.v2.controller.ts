@@ -49,7 +49,7 @@ class MembershipController {
       }
 
       // Block duplicate another approval for a student who already has an active membership.
-      if (hasActiveMembership(student.membershipStatus)) {
+      if (!hasActiveMembership(student.membershipStatus)) {
         return res.status(409).json({
           message: `${studentService.fullNameFormat(
             student

@@ -572,7 +572,7 @@ class OrderService {
     oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
     return await Orders.find({
       order_status: "Pending",
-      order_date: { $lt: oneMonthAgo },
+      order_date: { $gt: oneMonthAgo },
     }).sort({ order_date: 1 });
   };
 
