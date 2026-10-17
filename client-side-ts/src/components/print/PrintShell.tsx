@@ -22,7 +22,7 @@ export const PrintShell = ({ children }: PrintShellProps) => {
             position: fixed;
             left: -10000px;
             top: 0;
-            width: 46mm;
+            width: 48mm;
             background: #fff;
             color: #000;
             font-family: Inter, Arial, sans-serif;
@@ -32,8 +32,9 @@ export const PrintShell = ({ children }: PrintShellProps) => {
           @media print {
             /**
              * 58mm thermal roll. Omitting the @page size declaration lets the
-             * printer driver's 58mm paper form control the page; 46mm content
-             * width leaves ~6mm per side for the printer's printable area.
+             * printer driver's 58mm paper form control the page; 48mm content
+             * width targets the ~50mm printable area of the 58mm printers in
+             * use, with ~2mm safety and the remainder as right-edge slack.
              */
             @page {
               margin: 0;
@@ -52,7 +53,7 @@ export const PrintShell = ({ children }: PrintShellProps) => {
               position: absolute !important;
               left: 0 !important;
               top: 0 !important;
-              width: 46mm !important;
+              width: 48mm !important;
               padding: 0 !important;
               margin: 0 !important;
               pointer-events: auto !important;
