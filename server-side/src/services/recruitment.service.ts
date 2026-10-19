@@ -377,7 +377,7 @@ export class RecruitmentService {
     }
 
     const positions = await RecruitmentPosition.find(query)
-      .sort({ sortOrder: 1, createdAt: -1 })
+      .sort({ hiringStatus: -1, sortOrder: 1, createdAt: -1 })
       .skip((currentPage - 1) * pageLimit)
       .limit(pageLimit);
 
@@ -812,6 +812,9 @@ export class RecruitmentService {
     const sort: Record<string, 1 | -1> = {};
 
     switch (sortField) {
+      case "createdAt":
+        sort.createdAt = sortDirection;
+        break;
       case "name":
         sort["applicantSnapshot.name"] = sortDirection;
         break;

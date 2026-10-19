@@ -16,7 +16,12 @@ export type RecruitmentTab =
   | "rejected";
 
 export type RecruitmentSortField =
-  "name" | "id_number" | "courseYear" | "roleApplied" | "status";
+  | "createdAt"
+  | "name"
+  | "id_number"
+  | "courseYear"
+  | "roleApplied"
+  | "status";
 
 export type RecruitmentAction =
   "approve" | "reject" | "verify" | "schedule" | "complete";

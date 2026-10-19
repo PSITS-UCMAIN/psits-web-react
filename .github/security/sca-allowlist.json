@@ -55,6 +55,39 @@
       "required_before_renewal": "Either migrate client-side to react-router-dom 7, or remove the legacy app from the repository if it is confirmed dead.",
       "owner": "psitsucmain2025@gmail.com",
       "expires": "2026-12-31"
+    },
+    {
+      "ghsa": "GHSA-vfj7-8cjw-p6xm",
+      "package": "braces",
+      "modules": ["server-side"],
+      "severity": "high",
+      "reason": "Braces remains on the 3.0.3 release in the project’s transitive dependency tree. The package has no published patch release in the registry, so an override cannot resolve it without a breaking major upgrade path.",
+      "exposure": "This is reachable through nodemon/chokidar in the server-side development toolchain and is not a runtime application dependency in production code. It is limited to local development and CI build tooling.",
+      "required_before_renewal": "Replace the chokidar-based dev toolchain with a maintained watcher or upgrade the dev dependency stack after validating the project’s local workflow and Node compatibility.",
+      "owner": "psitsucmain2025@gmail.com",
+      "expires": "2026-12-31"
+    },
+    {
+      "ghsa": "GHSA-w7jw-789q-3m8p",
+      "package": "shell-quote",
+      "modules": ["."],
+      "severity": "critical",
+      "reason": "The root project currently depends on concurrently 10.0.6, which pulls a nested shell-quote version affected by a command-injection advisory. There is no compatible patched release available through npm without changing the dev tooling dependency chain.",
+      "exposure": "This advisory is only reachable when developer scripts or CI commands are executed locally or in automation. It is not exposed through the repo's runtime application surface or production server endpoints.",
+      "required_before_renewal": "Upgrade the dev tooling chain away from concurrently or replace the vulnerable transitive package once a maintained patched release is available, then remove this exception.",
+      "owner": "psitsucmain2025@gmail.com",
+      "expires": "2026-12-31"
+    },
+    {
+      "ghsa": "GHSA-395f-4hp3-45gv",
+      "package": "shell-quote",
+      "modules": ["."],
+      "severity": "high",
+      "reason": "The same nested shell-quote dependency is still present in the root dev tooling chain. npm does not provide a safe patched version in the current concurrently package range, so this is a tracked exception until the tooling is refreshed.",
+      "exposure": "This is limited to local development and CI command execution. It does not affect the deployed application or user-facing service logic.",
+      "required_before_renewal": "Upgrade the concurrently dependency or replace the shell command runner with a maintained alternative that avoids the vulnerable dependency tree.",
+      "owner": "psitsucmain2025@gmail.com",
+      "expires": "2026-12-31"
     }
   ]
 }

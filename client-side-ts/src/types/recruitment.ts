@@ -87,7 +87,13 @@ export interface ApplicantFilters {
   role?: string;
   course?: string;
   year?: string;
-  sortField?: "name" | "id_number" | "courseYear" | "roleApplied" | "status";
+  sortField?:
+    | "createdAt"
+    | "name"
+    | "id_number"
+    | "courseYear"
+    | "roleApplied"
+    | "status";
   sortDirection?: "asc" | "desc";
   verificationOnly?: boolean;
 }
