@@ -19,7 +19,7 @@ export const PrintableOrderReceipt = ({
 
   return (
     <PrintShell>
-      <div className="px-2 pt-1 pb-3 text-[9px] leading-tight">
+      <div className="px-2 pt-1 pb-3 text-[10px] leading-tight">
         <ReceiptHeader copyLabel="Order Copy" />
 
         <div className="space-y-1 border-b border-dashed border-black pb-3">
@@ -78,13 +78,13 @@ export const PrintableOrderReceipt = ({
                     {formatReceiptCurrency(item.sub_total)}
                   </p>
                 </div>
-                <p className="text-[8px] text-black">
+                <p className="text-[10px] text-black">
                   Qty {item.quantity}
                   {item.price !== undefined
                     ? ` x ${formatReceiptCurrency(item.price)}`
                     : ""}
                 </p>
-                <p className="text-[8px] text-black">
+                <p className="text-[10px] text-black">
                   Batch: {item.batch ?? "-"} | Size:{" "}
                   {formatReceiptList(item.sizes)} | Variation:{" "}
                   {formatReceiptList(item.variation)}

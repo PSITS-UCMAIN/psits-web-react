@@ -24,7 +24,7 @@ export const PrintableMembershipReceipt = ({
 
   return (
     <PrintShell>
-      <div className="px-2 pt-1 pb-3 text-[12px] leading-tight">
+      <div className="px-2 pt-1 pb-3 text-[10px] leading-tight">
         <ReceiptHeader copyLabel="Membership Copy" />
 
         <div className="space-y-1 border-b border-dashed border-black pb-3">
@@ -63,7 +63,7 @@ export const PrintableMembershipReceipt = ({
         </div>
 
         <div className="space-y-1 border-b border-dashed border-black py-3">
-          <div className="flex justify-between pt-1 text-xs font-bold">
+          <div className="flex justify-between pt-1 text-md font-bold">
             <span>Total</span>
             <span>{formatReceiptCurrency(receipt.total)}</span>
           </div>
