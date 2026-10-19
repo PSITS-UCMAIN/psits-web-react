@@ -3098,6 +3098,11 @@ export const getEventImageController = async (req: Request, res: Response) => {
     if (!key) {
       return res.status(400).json({ message: "Image key is required" });
     }
+    // This route is public, and the bucket also holds private files such as
+    // recruitment resumes. Only serve keys under this route's own folder.
+    if (!key.startsWith("events/") || key.includes("..")) {
+      return res.status(404).json({ message: "Image not found" });
+    }
 
     if (!R2_BUCKET_NAME) {
       return res.status(500).json({ message: "Image storage not configured" });

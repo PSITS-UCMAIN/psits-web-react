@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { Types } from "mongoose";
 import { catchAsync } from "../util/catch.async.util";
 import {
   getEmailQueueEntries,
@@ -36,8 +37,13 @@ import {
   updateStudentYears,
   decrementStudentYears,
   suspendOldStudents,
+  isRefreshTokenExpired,
+  clearExpiredSessions,
+  StudentYearCooldownError,
+  EMAIL_QUEUE_STATUSES,
 } from "../services/devtools.service";
-import { emailService } from "../services/email.service";
+import { Admin } from "../models/admin.model";
+import { Student } from "../models/student.model";
 import { resendPendingEmails } from "../services/email.resend.service";
 import { checkPromos } from "../custom_function/check_promo";
 import { orderService } from "../services/order.service";
@@ -47,22 +53,39 @@ import { logs_action } from "../enums/logs.enums";
 
 const ALLOWED_CAMPUS = [campus_type.MAIN] as string[];
 
+// Express parses `?status[$ne]=x` into an object, which Mongoose would read as
+// a query operator. Filters only ever accept plain strings.
+const queryString = (value: unknown): string | undefined =>
+  typeof value === "string" && value.length > 0 ? value : undefined;
+
+// limit/skip/threshold from the query: anything missing or not a number falls
+// back to the default, and values are capped so one request can't pull a whole
+// collection.
+const queryInt = (
+  value: unknown,
+  fallback: number,
+  { min = 0, max = 1000 }: { min?: number; max?: number } = {}
+): number => {
+  const parsed = typeof value === "string" ? parseInt(value, 10) : NaN;
+  if (Number.isNaN(parsed)) return fallback;
+  return Math.min(Math.max(parsed, min), max);
+};
+
 class DevToolsController {
   getEmailQueue = catchAsync(async (req: Request, res: Response) => {
     if (!ALLOWED_CAMPUS.includes(req.userV2.campus)) {
       return res.status(403).json({ message: "Campus not authorized" });
     }
-    const { status, subtype, limit, skip } = req.query;
+    const { limit, skip } = req.query;
+    const status = queryString(req.query.status);
+    const subtype = queryString(req.query.subtype);
     const entries = await getEmailQueueEntries({
-      status: status as string,
-      subtype: subtype as string,
-      limit: limit ? parseInt(limit as string) : 100,
-      skip: skip ? parseInt(skip as string) : 0,
+      status,
+      subtype,
+      limit: queryInt(limit, 100, { min: 1 }),
+      skip: queryInt(skip, 0, { max: 100000 }),
     });
-    const total = await getEmailQueueCount({
-      status: status as string,
-      subtype: subtype as string,
-    });
+    const total = await getEmailQueueCount({ status, subtype });
     res.status(200).json({ data: entries, total });
   });
 
@@ -70,10 +93,9 @@ class DevToolsController {
     if (!ALLOWED_CAMPUS.includes(req.userV2.campus)) {
       return res.status(403).json({ message: "Campus not authorized" });
     }
-    const { status, subtype } = req.query;
     const entries = await getEmailQueueEntries({
-      status: status as string,
-      subtype: subtype as string,
+      status: queryString(req.query.status),
+      subtype: queryString(req.query.subtype),
       limit: 10000,
       skip: 0,
     });
@@ -123,14 +145,19 @@ class DevToolsController {
       return res.status(403).json({ message: "Campus not authorized" });
     }
     const { id } = req.params;
-    await resendSingleEmail(id as string);
-    await emailService.updateStatusById(id as string, "sent");
+    // resendSingleEmail marks the entry sent itself.
+    const result = await resendSingleEmail(id as string);
     await logService.create({
       admin: req.admin.name,
       admin_id: req.admin._id,
       action: logs_action.RESEND_EMAIL,
       target: String(id),
-      target_model: "Order",
+      target_model:
+        result.type === "automation-report"
+          ? "AutomationJob"
+          : result.subtype === "membership"
+            ? "Membership"
+            : "Order",
     });
     res.status(200).json({ message: "Email resent successfully" });
   });
@@ -153,21 +180,33 @@ class DevToolsController {
     if (!ALLOWED_CAMPUS.includes(req.userV2.campus)) {
       return res.status(403).json({ message: "Campus not authorized" });
     }
-    const { role, campus } = req.query;
+    const role = queryString(req.query.role);
+    const campus = queryString(req.query.campus);
 
-    const admins = await require("../models/admin.model")
-      .Admin.find({
-        currentRefreshToken: { $exists: true, $ne: null },
-      })
-      .lean();
+    const tokenFilter = { currentRefreshToken: { $exists: true, $ne: null } };
+    const [admins, students] = await Promise.all([
+      Admin.find(tokenFilter, {
+        name: 1,
+        id_number: 1,
+        campus: 1,
+        position: 1,
+        currentRefreshToken: 1,
+      }).lean(),
+      Student.find(tokenFilter, {
+        first_name: 1,
+        last_name: 1,
+        id_number: 1,
+        campus: 1,
+        currentRefreshToken: 1,
+      }).lean(),
+    ]);
 
-    const students = await require("../models/student.model")
-      .Student.find({
-        currentRefreshToken: { $exists: true, $ne: null },
-      })
-      .lean();
+    // A stored refresh token outlives its expiry until someone logs in again,
+    // so only tokens that are still valid count as active sessions.
+    const isActive = (doc: { currentRefreshToken?: string | null }) =>
+      !isRefreshTokenExpired(String(doc.currentRefreshToken));
 
-    let adminList = admins.map((a: any) => ({
+    const adminList = admins.filter(isActive).map((a) => ({
       id: a._id.toString(),
       name: a.name,
       idNumber: a.id_number,
@@ -176,7 +215,7 @@ class DevToolsController {
       position: a.position,
     }));
 
-    let studentList = students.map((s: any) => ({
+    const studentList = students.filter(isActive).map((s) => ({
       id: s._id.toString(),
       name: `${s.first_name} ${s.last_name}`,
       idNumber: s.id_number,
@@ -184,20 +223,10 @@ class DevToolsController {
       campus: s.campus,
     }));
 
-    if (role === "admin") {
-      adminList = adminList.filter((a: any) => !campus || a.campus === campus);
-    } else if (role === "student") {
-      studentList = studentList.filter(
-        (s: any) => !campus || s.campus === campus
-      );
-    } else {
-      if (campus) {
-        adminList = adminList.filter((a: any) => a.campus === campus);
-        studentList = studentList.filter((s: any) => s.campus === campus);
-      }
-    }
-
-    const sessions = [...adminList, ...studentList];
+    const sessions = [
+      ...(role === "student" ? [] : adminList),
+      ...(role === "admin" ? [] : studentList),
+    ].filter((s) => !campus || s.campus === campus);
 
     res.status(200).json({ data: sessions });
   });
@@ -206,30 +235,20 @@ class DevToolsController {
     if (!ALLOWED_CAMPUS.includes(req.userV2.campus)) {
       return res.status(403).json({ message: "Campus not authorized" });
     }
-    const { Admin } = await import("../models/admin.model");
-    const { Student } = await import("../models/student.model");
-    const now = new Date();
-
-    const adminResult = await Admin.updateMany(
-      { currentRefreshToken: { $exists: true }, updatedAt: { $lt: now } },
-      { $set: { currentRefreshToken: null } }
-    );
-    const studentResult = await Student.updateMany(
-      { currentRefreshToken: { $exists: true }, updatedAt: { $lt: now } },
-      { $set: { currentRefreshToken: null } }
-    );
-    const invalidatedCount =
-      (adminResult.modifiedCount || 0) + (studentResult.modifiedCount || 0);
+    const clearedCount = await clearExpiredSessions();
 
     await logService.create({
       admin: req.admin.name,
       admin_id: req.admin._id,
       action: logs_action.CLEAR_EXPIRED_SESSIONS,
-      target: `Cleared ${invalidatedCount} expired sessions`,
+      target: `Cleared ${clearedCount} expired sessions`,
       target_model: "Admin",
     });
 
-    res.status(200).json({ message: "Expired sessions cleared" });
+    res.status(200).json({
+      message: `${clearedCount} expired session(s) cleared`,
+      cleared: clearedCount,
+    });
   });
 
   invalidateSession = catchAsync(async (req: Request, res: Response) => {
@@ -237,18 +256,24 @@ class DevToolsController {
       return res.status(403).json({ message: "Campus not authorized" });
     }
     const { userId } = req.body;
-    const { Admin } = await import("../models/admin.model");
-    const { Student } = await import("../models/student.model");
+    if (typeof userId !== "string" || !Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "A valid userId is required" });
+    }
 
-    await Admin.findByIdAndUpdate(userId, { currentRefreshToken: null });
-    await Student.findByIdAndUpdate(userId, { currentRefreshToken: null });
+    const [adminResult, studentResult] = await Promise.all([
+      Admin.updateOne({ _id: userId }, { currentRefreshToken: null }),
+      Student.updateOne({ _id: userId }, { currentRefreshToken: null }),
+    ]);
+    if (adminResult.matchedCount + studentResult.matchedCount === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
     await logService.create({
       admin: req.admin.name,
       admin_id: req.admin._id,
       action: logs_action.INVALIDATE_SESSION,
       target: `Invalidated session for ${userId}`,
-      target_model: "Admin",
+      target_model: adminResult.matchedCount > 0 ? "Admin" : "Student",
     });
 
     res.status(200).json({ message: "Session invalidated" });
@@ -259,33 +284,41 @@ class DevToolsController {
       return res.status(403).json({ message: "Campus not authorized" });
     }
     const { userIds } = req.body;
-    const { Admin } = await import("../models/admin.model");
-    const { Student } = await import("../models/student.model");
 
-    if (!Array.isArray(userIds) || userIds.length === 0) {
-      return res.status(400).json({ message: "userIds is required" });
+    if (
+      !Array.isArray(userIds) ||
+      userIds.length === 0 ||
+      !userIds.every(
+        (id: unknown) => typeof id === "string" && Types.ObjectId.isValid(id)
+      )
+    ) {
+      return res
+        .status(400)
+        .json({ message: "userIds must be a non-empty list of valid IDs" });
     }
 
-    await Admin.updateMany(
-      { _id: { $in: userIds } },
-      { $set: { currentRefreshToken: null } }
-    );
-    await Student.updateMany(
-      { _id: { $in: userIds } },
-      { $set: { currentRefreshToken: null } }
-    );
+    const [adminResult, studentResult] = await Promise.all([
+      Admin.updateMany(
+        { _id: { $in: userIds } },
+        { $set: { currentRefreshToken: null } }
+      ),
+      Student.updateMany(
+        { _id: { $in: userIds } },
+        { $set: { currentRefreshToken: null } }
+      ),
+    ]);
+    const invalidated =
+      (adminResult.modifiedCount || 0) + (studentResult.modifiedCount || 0);
 
     await logService.create({
       admin: req.admin.name,
       admin_id: req.admin._id,
       action: logs_action.INVALIDATE_SESSION_BULK,
-      target: `Bulk invalidated ${userIds.length} sessions`,
+      target: `Bulk invalidated ${invalidated} sessions`,
       target_model: "Admin",
     });
 
-    res
-      .status(200)
-      .json({ message: `${userIds.length} session(s) invalidated` });
+    res.status(200).json({ message: `${invalidated} session(s) invalidated` });
   });
 
   triggerCron = catchAsync(async (req: Request, res: Response) => {
@@ -362,10 +395,9 @@ class DevToolsController {
     if (!ALLOWED_CAMPUS.includes(req.userV2.campus)) {
       return res.status(403).json({ message: "Campus not authorized" });
     }
-    const { jobName } = req.query;
     const logs = await getCronExecutionLogs(
-      jobName as string | undefined,
-      parseInt((req.query.limit as string) || "20")
+      queryString(req.query.jobName),
+      queryInt(req.query.limit, 20, { min: 1, max: 200 })
     );
     res.status(200).json({ data: logs });
   });
@@ -413,17 +445,18 @@ class DevToolsController {
     if (!ALLOWED_CAMPUS.includes(req.userV2.campus)) {
       return res.status(403).json({ message: "Campus not authorized" });
     }
-    const { action, admin, target, search, dateFrom, dateTo, limit, skip } =
-      req.query;
+    const { limit, skip } = req.query;
+    const dateFrom = queryString(req.query.dateFrom);
+    const dateTo = queryString(req.query.dateTo);
     const { entries, total } = await getLogEntries({
-      action: action as string,
-      admin: admin as string,
-      target: target as string,
-      search: search as string,
-      dateFrom: dateFrom ? new Date(dateFrom as string) : undefined,
-      dateTo: dateTo ? new Date(dateTo as string) : undefined,
-      limit: limit ? parseInt(limit as string) : 100,
-      skip: skip ? parseInt(skip as string) : 0,
+      action: queryString(req.query.action),
+      admin: queryString(req.query.admin),
+      target: queryString(req.query.target),
+      search: queryString(req.query.search),
+      dateFrom: dateFrom ? new Date(dateFrom) : undefined,
+      dateTo: dateTo ? new Date(dateTo) : undefined,
+      limit: queryInt(limit, 100, { min: 1 }),
+      skip: queryInt(skip, 0, { max: 100000 }),
     });
     res.status(200).json({ data: entries, total });
   });
@@ -447,7 +480,7 @@ class DevToolsController {
     await logService.create({
       admin: req.admin.name,
       admin_id: req.admin._id,
-      action: "DELETE_OLD_LOGS",
+      action: logs_action.DELETE_OLD_LOGS,
       target: `Deleted ${deletedCount} log entries older than ${parsedDays} days`,
       target_model: "Admin",
     });
@@ -460,12 +493,12 @@ class DevToolsController {
     if (!ALLOWED_CAMPUS.includes(req.userV2.campus)) {
       return res.status(403).json({ message: "Campus not authorized" });
     }
-    const { query, status, limit, skip } = req.query;
+    const { limit, skip } = req.query;
     const { entries, total } = await searchOrders({
-      query: query as string,
-      status: status as string,
-      limit: limit ? parseInt(limit as string) : 50,
-      skip: skip ? parseInt(skip as string) : 0,
+      query: queryString(req.query.query),
+      status: queryString(req.query.status),
+      limit: queryInt(limit, 50, { min: 1 }),
+      skip: queryInt(skip, 0, { max: 100000 }),
     });
     res.status(200).json({ data: entries, total });
   });
@@ -502,8 +535,8 @@ class DevToolsController {
     const docs = await exportCollection({
       collection,
       fields: fields ? String(fields).split(",") : undefined,
-      limit: limit ? parseInt(String(limit)) : 1000,
-      skip: skip ? parseInt(String(skip)) : 0,
+      limit: queryInt(limit, 1000, { min: 1 }),
+      skip: queryInt(skip, 0, { max: 100000 }),
     });
 
     const headers = docs.length > 0 ? Object.keys(docs[0]) : [];
@@ -521,6 +554,14 @@ class DevToolsController {
           .join(",")
       ),
     ];
+
+    await logService.create({
+      admin: req.admin.name,
+      admin_id: req.admin._id,
+      action: logs_action.EXPORT_COLLECTION,
+      target: `Exported ${docs.length} ${collection} record(s)`,
+      target_model: "Report",
+    });
 
     res.setHeader("Content-Type", "text/csv");
     res.setHeader(
@@ -544,7 +585,7 @@ class DevToolsController {
     }
     const { threshold } = req.query;
     const alerts = await getStockAlerts(
-      threshold ? parseInt(String(threshold)) : 5
+      queryInt(threshold, 5, { max: 100000 })
     );
     res.status(200).json({ data: alerts });
   });
@@ -563,7 +604,7 @@ class DevToolsController {
     }
     const { limit } = req.query;
     const violations = getRateLimitViolationsService(
-      limit ? parseInt(String(limit)) : 50
+      queryInt(limit, 50, { min: 1 })
     );
     res.status(200).json({ data: violations });
   });
@@ -582,7 +623,7 @@ class DevToolsController {
     }
     const { limit } = req.query;
     const details = await getFailedEmailDetails(
-      limit ? parseInt(String(limit)) : 100
+      queryInt(limit, 100, { min: 1 })
     );
     res.status(200).json({ data: details });
   });
@@ -592,12 +633,30 @@ class DevToolsController {
       return res.status(403).json({ message: "Campus not authorized" });
     }
     const { ids, status } = req.body;
-    if (!Array.isArray(ids) || !status) {
+    if (
+      !Array.isArray(ids) ||
+      !ids.every(
+        (id: unknown) => typeof id === "string" && Types.ObjectId.isValid(id)
+      )
+    ) {
       return res
         .status(400)
-        .json({ message: "ids (array) and status are required" });
+        .json({ message: "ids must be a list of valid email queue IDs" });
     }
-    const updated = await bulkUpdateEmailStatus(ids, status);
+    const validStatus = EMAIL_QUEUE_STATUSES.find((s) => s === status);
+    if (!validStatus) {
+      return res.status(400).json({
+        message: `status must be one of: ${EMAIL_QUEUE_STATUSES.join(", ")}`,
+      });
+    }
+    const updated = await bulkUpdateEmailStatus(ids, validStatus);
+    await logService.create({
+      admin: req.admin.name,
+      admin_id: req.admin._id,
+      action: logs_action.BULK_UPDATE_EMAIL_STATUS,
+      target: `Set ${updated} email(s) to ${validStatus}`,
+      target_model: "Settings",
+    });
     res.status(200).json({ message: `Updated ${updated} email(s)`, updated });
   });
 
@@ -606,7 +665,7 @@ class DevToolsController {
       return res.status(403).json({ message: "Campus not authorized" });
     }
     const { limit } = req.query;
-    const errors = getErrors(limit ? parseInt(String(limit)) : 50);
+    const errors = getErrors(queryInt(limit, 50, { min: 1 }));
     res.status(200).json({ data: errors });
   });
 
@@ -615,6 +674,13 @@ class DevToolsController {
       return res.status(403).json({ message: "Campus not authorized" });
     }
     const count = clearErrors();
+    await logService.create({
+      admin: req.admin.name,
+      admin_id: req.admin._id,
+      action: logs_action.CLEAR_SERVER_ERRORS,
+      target: `Cleared ${count} server error(s)`,
+      target_model: "Settings",
+    });
     res
       .status(200)
       .json({ message: `Cleared ${count} error(s)`, cleared: count });
@@ -626,8 +692,8 @@ class DevToolsController {
     }
     const { threshold, limit } = req.query;
     const logs = getBruteForceLogs(
-      threshold ? parseInt(String(threshold)) : 5,
-      limit ? parseInt(String(limit)) : 50
+      queryInt(threshold, 5, { max: 100000 }),
+      queryInt(limit, 50, { min: 1 })
     );
     res.status(200).json({ data: logs });
   });
@@ -645,7 +711,7 @@ class DevToolsController {
       return res.status(403).json({ message: "Campus not authorized" });
     }
     const { limit } = req.query;
-    const refunds = await getRefundQueue(limit ? parseInt(String(limit)) : 50);
+    const refunds = await getRefundQueue(queryInt(limit, 50, { min: 1 }));
     res.status(200).json({ data: refunds });
   });
 
@@ -659,11 +725,12 @@ class DevToolsController {
       return res.status(400).json({ message: "path and method are required" });
     }
 
+    // Keep in sync with ApiTesterPanel's list. Every path here must exist.
     const allowedEndpoints: Record<string, "GET" | "POST"> = {
       "/api/v2/auth/login": "POST",
-      "/api/v2/students": "GET",
-      "/api/v2/orders": "GET",
-      "/api/v2/events": "GET",
+      "/api/v2/merchandise": "GET",
+      "/api/v2/events/get-all-event": "GET",
+      "/api/v2/dev/health": "GET",
     };
 
     const normalizedMethod = method.toUpperCase() as "GET" | "POST";
@@ -677,7 +744,8 @@ class DevToolsController {
     }
 
     const axios = (await import("axios")).default;
-    const baseUrl = process.env.BASE_URL || "http://localhost:3001";
+    const baseUrl =
+      process.env.BASE_URL || `http://localhost:${Number(process.env.PORT) || 5000}`;
 
     try {
       const response = await axios({
@@ -723,12 +791,20 @@ class DevToolsController {
     if (!ALLOWED_CAMPUS.includes(req.userV2.campus)) {
       return res.status(403).json({ message: "Campus not authorized" });
     }
-    const result = await updateStudentYears();
+    let result: Awaited<ReturnType<typeof updateStudentYears>>;
+    try {
+      result = await updateStudentYears();
+    } catch (error: unknown) {
+      if (error instanceof StudentYearCooldownError) {
+        return res.status(409).json({ message: error.message });
+      }
+      throw error;
+    }
     await logService.create({
       admin: req.admin.name,
       admin_id: req.admin._id,
       action: logs_action.UPDATE_STUDENT_YEAR,
-      target: `Updated year for ${result.updated} student(s), skipped ${result.skippedYear4} (year 4 or deleted)`,
+      target: `Updated year for ${result.updated} student(s), skipped ${result.skippedYear4} (year 4+)`,
       target_model: "Student",
     });
     res.status(200).json({

@@ -12,8 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ChevronLeft, ChevronRight, Search, X } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -21,8 +20,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { AccountListToolbar } from "./AccountListToolbar";
+import { useAccountListFilter } from "../hooks/useAccountListFilter";
+import type { AccountListFields } from "../hooks/useAccountListFilter";
 
 const PAGE_SIZE = 10;
+
+const getSessionFields = (s: SessionInfo): AccountListFields => ({
+  name: s.name,
+  idNumber: s.idNumber,
+  campus: s.campus,
+  searchable: [s.position],
+});
 
 export const SessionManagerPanel = () => {
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
@@ -31,7 +40,6 @@ export const SessionManagerPanel = () => {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [invalidating, setInvalidating] = useState(false);
   const [roleFilter, setRoleFilter] = useState("");
-  const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [confirmAll, setConfirmAll] = useState<{
     open: boolean;
@@ -60,22 +68,30 @@ export const SessionManagerPanel = () => {
     setCurrentPage(1); // reset to first page when the role filter changes
   }, [roleFilter]);
 
-  useEffect(() => {
-    setCurrentPage(1); // reset to first page whenever the search term changes
-  }, [search]);
+  // Client-side search (name, ID, campus, position), campus filter and sort.
+  const roleSessions = useMemo(
+    () => sessions.filter((s) => !roleFilter || s.role === roleFilter),
+    [sessions, roleFilter]
+  );
+  const {
+    search,
+    setSearch,
+    campus,
+    setCampus,
+    sort,
+    setSort,
+    campusOptions,
+    visibleItems: filteredSessions,
+    isFiltered,
+  } = useAccountListFilter(roleSessions, getSessionFields);
 
-  // Client-side search across name, ID number, campus, and position,
-  const filteredSessions = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    return sessions
-      .filter((s) => !roleFilter || s.role === roleFilter)
-      .filter((s) => {
-        if (!query) return true;
-        return [s.name, s.idNumber, s.campus, s.position]
-          .filter(Boolean)
-          .some((field) => field!.toLowerCase().includes(query));
-      });
-  }, [sessions, search, roleFilter]);
+  // Go back to page 1 whenever the visible list changes because of a filter.
+  const withPageReset =
+    <V,>(setter: (value: V) => void) =>
+    (value: V) => {
+      setter(value);
+      setCurrentPage(1);
+    };
 
   // Clamp current page if the underlying data shrinks (e.g. after invalidation or search)
   const totalPages = Math.max(
@@ -178,7 +194,7 @@ export const SessionManagerPanel = () => {
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <span className="text-sm text-[#8a8a8a]">
-            {search.trim()
+            {isFiltered
               ? `${filteredSessions.length} of ${sessions.length} session(s)`
               : `${sessions.length} active session(s)`}
           </span>
@@ -188,26 +204,16 @@ export const SessionManagerPanel = () => {
             </span>
           )}
         </div>
-        <div className="flex w-full flex-wrap items-center gap-2 sm:flex-nowrap">
-          <div className="relative w-full sm:w-56">
-            <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[#9a9a9a]" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search name, ID, campus..."
-              className="h-9 rounded-2xl pr-8 pl-9 text-sm"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch("")}
-                className="absolute top-1/2 right-2 -translate-y-1/2 text-[#9a9a9a] hover:text-[#555]"
-                aria-label="Clear search"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </div>
+        <AccountListToolbar
+          search={search}
+          onSearchChange={withPageReset(setSearch)}
+          campus={campus}
+          onCampusChange={withPageReset(setCampus)}
+          campusOptions={campusOptions}
+          sort={sort}
+          onSortChange={withPageReset(setSort)}
+          searchPlaceholder="Search name, ID, campus, position..."
+        >
           <Select
             value={roleFilter || "all"}
             onValueChange={(value) =>
@@ -264,7 +270,7 @@ export const SessionManagerPanel = () => {
           >
             Refresh
           </Button>
-        </div>
+        </AccountListToolbar>
       </div>
 
       <div className="overflow-x-auto">
@@ -302,7 +308,7 @@ export const SessionManagerPanel = () => {
                   colSpan={7}
                   className="px-2 py-10 text-center text-sm text-[#777]"
                 >
-                  No sessions match "{search}".
+                  No sessions match the current search or filters.
                 </td>
               </tr>
             )}

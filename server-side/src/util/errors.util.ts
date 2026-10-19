@@ -1,5 +1,6 @@
 
 import { Response, Request, NextFunction } from "express";
+import { logServerError } from "../services/devtools.service";
 
 export interface IAuthError {
     statusCode: number;
@@ -93,12 +94,19 @@ export const errorHandler = (err: Error, req: Request, res: Response, next: Next
     };
 
     if (operationalError.isOperational && operationalError.statusCode) {
+        if (operationalError.statusCode >= 500) {
+            logServerError(err, req);
+        }
         return res.status(operationalError.statusCode).json({
             message: operationalError.message,
         });
     }
 
     // Handle other errors (e.g. Mongoose validation) here in the future
+
+    // This handler always responds, so globalErrorHandler never runs after it.
+    // Record unexpected failures here so the Devtools server error log sees them.
+    logServerError(err, req);
 
     return res.status(500).json({
         code: "SERVER_001",

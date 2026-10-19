@@ -15,6 +15,7 @@ import { Log } from "../models/log.model";
 import { AuthError, AuthErrorCodes } from "../util/errors.util";
 import { account_status } from "../enums/status.enums";
 import { campus_type, signup_campus_values } from "../enums/campus.enums";
+import { incrementFailedAuthAttempt } from "../services/devtools.service";
 import { studentService } from "../services/student.service";
 import {
   validateSignupData,
@@ -236,6 +237,14 @@ export const loginV2Controller = async (
       user: toUserResponse(user, role),
     });
   } catch (error) {
+    // Feed the Devtools brute-force detector with every wrong password, not
+    // only the requests the login rate limiter has already blocked.
+    if (
+      error instanceof AuthError &&
+      error.code === AuthErrorCodes.InvalidCredentials.code
+    ) {
+      incrementFailedAuthAttempt(req.ip || "unknown");
+    }
     next(error);
   }
 };

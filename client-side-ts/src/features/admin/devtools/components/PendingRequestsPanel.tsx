@@ -12,6 +12,9 @@ import {
 } from "@/components/ui/dialog";
 import { approveRole, declineRole, fetchAllStudentRequestRole } from "@/features/admin/api/admin";
 import { getRequestAdminAccount, approveAdminAccount, declineAdminAccount } from "@/features/admin/api/admin";
+import { AccountListToolbar } from "./AccountListToolbar";
+import { useAccountListFilter } from "../hooks/useAccountListFilter";
+import type { AccountListFields } from "../hooks/useAccountListFilter";
 
 interface MemberRequest {
   id_number: string;
@@ -34,6 +37,20 @@ interface AdminRequest {
   status?: string;
 }
 
+const getMemberRequestFields = (request: MemberRequest): AccountListFields => ({
+  name: request.name,
+  idNumber: request.id_number,
+  campus: request.campus,
+  searchable: [request.email, request.requestedRole],
+});
+
+const getAdminRequestFields = (request: AdminRequest): AccountListFields => ({
+  name: request.name,
+  idNumber: request.id_number,
+  campus: request.campus,
+  searchable: [request.email, request.position, request.course],
+});
+
 const formatDate = (value?: string) => {
   if (!value) return "-";
   const date = new Date(value);
@@ -45,6 +62,8 @@ export const PendingRequestsPanel = () => {
   const [adminRequests, setAdminRequests] = useState<AdminRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [mutatingId, setMutatingId] = useState<string | null>(null);
+  const memberFilter = useAccountListFilter(memberRequests, getMemberRequestFields);
+  const adminFilter = useAccountListFilter(adminRequests, getAdminRequestFields);
 
   const load = async () => {
     setLoading(true);
@@ -150,11 +169,25 @@ export const PendingRequestsPanel = () => {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="member" className="mt-4">
+        <TabsContent value="member" className="mt-4 space-y-3">
+          <AccountListToolbar
+            search={memberFilter.search}
+            onSearchChange={memberFilter.setSearch}
+            campus={memberFilter.campus}
+            onCampusChange={memberFilter.setCampus}
+            campusOptions={memberFilter.campusOptions}
+            sort={memberFilter.sort}
+            onSortChange={memberFilter.setSort}
+            searchPlaceholder="Search name, ID, email, role..."
+          />
           <RequestTable
             columns={["ID", "Name", "Campus", "Requested Role", "Date", "Actions"]}
-            emptyMessage="No pending member role requests."
-            rows={memberRequests}
+            emptyMessage={
+              memberFilter.isFiltered
+                ? "No member role requests match the current search or filters."
+                : "No pending member role requests."
+            }
+            rows={memberFilter.visibleItems}
             rowKey={(row) => row.id_number}
             renderRow={(request) => (
               <>
@@ -191,11 +224,25 @@ export const PendingRequestsPanel = () => {
           />
         </TabsContent>
 
-        <TabsContent value="admin" className="mt-4">
+        <TabsContent value="admin" className="mt-4 space-y-3">
+          <AccountListToolbar
+            search={adminFilter.search}
+            onSearchChange={adminFilter.setSearch}
+            campus={adminFilter.campus}
+            onCampusChange={adminFilter.setCampus}
+            campusOptions={adminFilter.campusOptions}
+            sort={adminFilter.sort}
+            onSortChange={adminFilter.setSort}
+            searchPlaceholder="Search name, ID, email, position..."
+          />
           <RequestTable
             columns={["ID", "Name", "Campus", "Position", "Course/Year", "Date", "Actions"]}
-            emptyMessage="No pending admin account requests."
-            rows={adminRequests}
+            emptyMessage={
+              adminFilter.isFiltered
+                ? "No admin account requests match the current search or filters."
+                : "No pending admin account requests."
+            }
+            rows={adminFilter.visibleItems}
             rowKey={(row) => row.id_number}
             renderRow={(request) => (
               <>

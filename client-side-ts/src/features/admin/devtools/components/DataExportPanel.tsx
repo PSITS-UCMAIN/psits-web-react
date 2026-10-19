@@ -22,9 +22,9 @@ const COLLECTION_FIELDS: Record<string, string[]> = {
   Student: ["first_name", "last_name", "id_number", "course", "year", "campus", "status"],
   Orders: ["reference_code", "student_name", "id_number", "order_status", "total", "order_date"],
   EmailQueue: ["email", "type", "subtype", "status", "referenceCode"],
-  Merch: ["name", "price", "stock", "is_active"],
-  Event: ["name", "description", "date_start", "date_end", "location"],
-  MembershipHistory: ["name", "reference_code", "course", "year", "total", "date"],
+  Merch: ["name", "price", "stocks", "category", "is_active"],
+  Event: ["eventName", "eventDate", "eventVenue", "attendanceType", "status"],
+  MembershipHistory: ["reference_code", "admin", "total", "date"],
   CertificateTemplate: ["name", "description", "ejsRelativePath", "isActive"],
   Log: ["admin", "action", "target", "timestamp"],
   Settings: ["membership_price"],
@@ -32,12 +32,26 @@ const COLLECTION_FIELDS: Record<string, string[]> = {
 
 export const DataExportPanel = () => {
   const [selectedCollection, setSelectedCollection] = useState("Admin");
+  const [fields, setFields] = useState(COLLECTION_FIELDS.Admin.join(", "));
   const [exporting, setExporting] = useState(false);
+
+  const handleCollectionChange = (collection: string) => {
+    setSelectedCollection(collection);
+    setFields(COLLECTION_FIELDS[collection]?.join(", ") ?? "");
+  };
 
   const handleExport = async () => {
     setExporting(true);
     try {
-      const blob = await exportCollection({ collection: selectedCollection });
+      const fieldList = fields
+        .split(",")
+        .map((f) => f.trim())
+        .filter(Boolean)
+        .join(",");
+      const blob = await exportCollection({
+        collection: selectedCollection,
+        fields: fieldList || undefined,
+      });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -68,7 +82,7 @@ export const DataExportPanel = () => {
           </label>
           <select
             value={selectedCollection}
-            onChange={(e) => setSelectedCollection(e.target.value)}
+            onChange={(e) => handleCollectionChange(e.target.value)}
             className="h-10 w-full rounded-lg border-[#ececec] bg-white px-3 text-sm"
           >
             {COLLECTIONS.map((col) => (
@@ -86,7 +100,8 @@ export const DataExportPanel = () => {
           <input
             type="text"
             placeholder="name, id_number, email..."
-            defaultValue={COLLECTION_FIELDS[selectedCollection]?.join(", ")}
+            value={fields}
+            onChange={(e) => setFields(e.target.value)}
             className="h-10 w-full rounded-lg border-[#ececec] bg-white px-3 text-sm"
           />
         </div>

@@ -9,10 +9,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { showToast } from "@/utils/alertHelper";
+import { testEndpoint } from "../api/devtools.api";
 
+// Keep in sync with the server allowlist in devtools.v2.controller.ts.
 const allowedEndpoints: Record<string, string[]> = {
   "/api/v2/auth/login": ["POST"],
-  "/api/v2/students": ["GET"],
+  "/api/v2/merchandise": ["GET"],
+  "/api/v2/events/get-all-event": ["GET"],
+  "/api/v2/dev/health": ["GET"],
 };
 
 const allMethods = Object.values(allowedEndpoints).flat();
@@ -46,23 +50,16 @@ export const ApiTesterPanel = () => {
     setResponse(null);
 
     try {
-      const res = await fetch("/api/v2/dev/test-endpoint", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${sessionStorage.getItem("Token")}`,
-        },
-        body: JSON.stringify({
-          path,
-          method,
-          body: body ? JSON.parse(body) : undefined,
-        }),
+      // A relative fetch("/api/...") only works behind the Vite dev proxy; in
+      // production Vercel serves index.html for it. Go through the backend URL.
+      const { data } = await testEndpoint({
+        path,
+        method,
+        body: body ? JSON.parse(body) : undefined,
       });
-
-      const data = await res.json();
       setResponse(JSON.stringify(data, null, 2));
-    } catch (err: any) {
-      setResponse(`Error: ${err.message}`);
+    } catch (err: unknown) {
+      setResponse(`Error: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setLoading(false);
     }

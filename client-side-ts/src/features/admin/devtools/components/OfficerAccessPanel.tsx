@@ -13,6 +13,16 @@ import type { Officer } from "@/features/admin/settings/types/settings.types";
 import { PSITS_ROLES } from "@/features/admin/constants/adminAccess";
 import type { PsitsRole } from "@/features/admin/constants/adminAccess";
 import { useOfficerAccess } from "../hooks/useOfficerAccess";
+import { useAccountListFilter } from "../hooks/useAccountListFilter";
+import type { AccountListFields } from "../hooks/useAccountListFilter";
+import { AccountListToolbar } from "./AccountListToolbar";
+
+const getOfficerFields = (officer: Officer): AccountListFields => ({
+  name: officer.name,
+  idNumber: officer.id_number,
+  campus: officer.campus,
+  searchable: [officer.position],
+});
 
 const ROLE_FILTER_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "all", label: "All Roles" },
@@ -47,6 +57,16 @@ export const OfficerAccessPanel = () => {
     canEditAccess,
     handleUpdateAccess,
   } = useOfficerAccess();
+  const {
+    search,
+    setSearch,
+    campus,
+    setCampus,
+    sort,
+    setSort,
+    campusOptions,
+    visibleItems: visibleOfficers,
+  } = useAccountListFilter(officers, getOfficerFields);
 
   return (
     <div className="space-y-4">
@@ -60,10 +80,19 @@ export const OfficerAccessPanel = () => {
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
+      <AccountListToolbar
+        search={search}
+        onSearchChange={setSearch}
+        campus={campus}
+        onCampusChange={setCampus}
+        campusOptions={campusOptions}
+        sort={sort}
+        onSortChange={setSort}
+        searchPlaceholder="Search name, ID, position..."
+      >
         <Filter className="h-4 w-4 text-[#858585]" />
         <Select value={roleFilter} onValueChange={setRoleFilter}>
-          <SelectTrigger className="h-8 w-[180px] rounded-lg border-[#ececec] text-xs">
+          <SelectTrigger className="h-9 w-[160px] rounded-full text-sm" aria-label="Filter by access">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -74,7 +103,7 @@ export const OfficerAccessPanel = () => {
             ))}
           </SelectContent>
         </Select>
-      </div>
+      </AccountListToolbar>
 
       {!isAdminAccess && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
@@ -105,8 +134,8 @@ export const OfficerAccessPanel = () => {
                   ))}
                 </tr>
               ))
-            ) : officers.length > 0 ? (
-              officers.map((officer) => (
+            ) : visibleOfficers.length > 0 ? (
+              visibleOfficers.map((officer) => (
                 <AccessRow
                   key={officer.id_number}
                   officer={officer}
