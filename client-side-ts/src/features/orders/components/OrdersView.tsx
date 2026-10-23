@@ -5,6 +5,7 @@ import {
   ChevronRight,
   Clock3,
   Printer,
+  RotateCcw,
   Search,
   X,
 } from "lucide-react";
@@ -279,6 +280,9 @@ export const OrdersView = () => {
     paidData,
     paidTotal,
     paidStatus,
+    refundedData,
+    refundedTotal,
+    refundedStatus,
     isMutating,
     selectedIds,
     selectedCount,
@@ -290,6 +294,7 @@ export const OrdersView = () => {
     handleRefund,
     refetchPending,
     refetchPaid,
+    refetchRefunded,
   } = useOrdersData();
 
   const [approveOrder, setApproveOrder] = useState<OrderRowData | null>(null);
@@ -300,11 +305,30 @@ export const OrdersView = () => {
     usePrintReceipt<PrintableOrderReceiptData>();
   const [printingOrderId, setPrintingOrderId] = useState<string | null>(null);
 
-  const data = activeTab === "pending" ? pendingData : paidData;
-  const status = activeTab === "pending" ? pendingStatus : paidStatus;
-  const rowCount =
-    activeTab === "pending" ? pendingData.length : paidData.length;
-  const total = activeTab === "pending" ? pendingTotal : paidTotal;
+  const tabState = {
+    pending: {
+      data: pendingData,
+      status: pendingStatus,
+      total: pendingTotal,
+      refetch: refetchPending,
+    },
+    paid: {
+      data: paidData,
+      status: paidStatus,
+      total: paidTotal,
+      refetch: refetchPaid,
+    },
+    refunded: {
+      data: refundedData,
+      status: refundedStatus,
+      total: refundedTotal,
+      refetch: refetchRefunded,
+    },
+  }[activeTab];
+  const { data, status, total } = tabState;
+  const rowCount = data.length;
+  // Paid and refunded orders share one column layout; pending has its own.
+  const isPending = activeTab === "pending";
   const tabs = [
     {
       key: "pending" as const,
@@ -317,6 +341,12 @@ export const OrdersView = () => {
       label: "Paid",
       icon: Check,
       count: paidTotal,
+    },
+    {
+      key: "refunded" as const,
+      label: "Refunded",
+      icon: RotateCcw,
+      count: refundedTotal,
     },
   ];
 
@@ -398,7 +428,7 @@ export const OrdersView = () => {
             <button
               type="button"
               className="ml-3 underline hover:no-underline"
-              onClick={activeTab === "pending" ? refetchPending : refetchPaid}
+              onClick={tabState.refetch}
             >
               Retry
             </button>
@@ -426,7 +456,7 @@ export const OrdersView = () => {
                 <col className="w-12" />
                 <col className="w-[22%]" />
                 <col className="w-[12%]" />
-                {activeTab === "paid" && <col className="w-[14%]" />}
+                {!isPending && <col className="w-[14%]" />}
                 <col className="w-[14%]" />
                 <col className="w-[18%]" />
                 <col className="w-[12%]" />
@@ -453,7 +483,7 @@ export const OrdersView = () => {
                   <th className="px-2 py-2 text-left align-middle font-medium">
                     {activeTab === "pending" ? "Student ID" : "Student Name"}
                   </th>
-                  {activeTab === "paid" && (
+                  {!isPending && (
                     <th className="px-2 py-2 text-left align-middle font-medium">
                       Transaction Date
                     </th>
@@ -475,14 +505,11 @@ export const OrdersView = () => {
                 {status === "loading" ? (
                   Array.from({ length: 8 }, (_, index) => (
                     <tr key={index} className="border-b border-[#ededed]">
-                      {Array.from(
-                        { length: activeTab === "paid" ? 8 : 7 },
-                        (_, cell) => (
-                          <td key={cell} className="px-2 py-3">
-                            <Skeleton className="h-4 w-full rounded-full" />
-                          </td>
-                        )
-                      )}
+                      {Array.from({ length: isPending ? 7 : 8 }, (_, cell) => (
+                        <td key={cell} className="px-2 py-3">
+                          <Skeleton className="h-4 w-full rounded-full" />
+                        </td>
+                      ))}
                     </tr>
                   ))
                 ) : status === "error" ? null : data.length > 0 ? (
@@ -519,7 +546,7 @@ export const OrdersView = () => {
                           ? order.id_number
                           : order.student_name}
                       </td>
-                      {activeTab === "paid" && (
+                      {!isPending && (
                         <td className="px-2 py-3 text-left align-middle">
                           {formatDate(
                             order.transaction_date || order.order_date
@@ -576,7 +603,7 @@ export const OrdersView = () => {
                               Cancel
                             </Button>
                           )}
-                          {activeTab === "paid" && (
+                          {!isPending && (
                             <Button
                               type="button"
                               size="sm"
@@ -621,7 +648,7 @@ export const OrdersView = () => {
                 ) : (
                   <tr>
                     <td
-                      colSpan={activeTab === "paid" ? 8 : 7}
+                      colSpan={isPending ? 7 : 8}
                       className="px-3 py-16 text-center text-sm text-[#777]"
                     >
                       No {activeTab} orders found.
@@ -645,7 +672,7 @@ export const OrdersView = () => {
       </div>
 
       {/* Bulk action bar */}
-      {selectedCount > 0 && canManageOrders && (
+      {selectedCount > 0 && canManageOrders && activeTab !== "refunded" && (
         <div className="fixed bottom-8 left-1/2 z-30 flex -translate-x-1/2 items-center overflow-hidden rounded-full bg-[#2f2f2f] px-4 py-3 text-sm text-white shadow-2xl">
           <span className="pr-5">
             {selectedCount} of {rowCount} selected

@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   exportMerchandiseReports,
+  exportRefundReports,
   membershipHistory,
   membershipOptions,
   merchandiseReportFilterOptions,
   merchandiseReports,
+  refundReports,
 } from "@/features/admin/api/admin";
 import type { MembershipOption } from "@/features/admin/api/admin";
 import { showToast } from "@/utils/alertHelper";
@@ -12,6 +14,8 @@ import type {
   MembershipReportRow,
   MerchandiseOrderDetail,
   MerchandiseReportProductOption,
+  RefundReportRow,
+  RefundReportSummary,
   ReportsFilters,
   ReportsStatus,
   ReportsTab,
@@ -20,6 +24,10 @@ import type {
 export const ROWS_PER_PAGE = 10;
 const SEARCH_DEBOUNCE_MS = 250;
 const EMPTY_MEMBERSHIP_ROWS: MembershipReportRow[] = [];
+const EMPTY_REFUND_SUMMARY: RefundReportSummary = {
+  refundCount: 0,
+  totalRefunded: 0,
+};
 
 export const DEFAULT_FILTERS: ReportsFilters = {
   id: "",
@@ -83,6 +91,13 @@ export const useReportsData = () => {
   const [merchandiseStatus, setMerchandiseStatus] =
     useState<ReportsStatus>("idle");
 
+  const [refundRows, setRefundRows] = useState<RefundReportRow[]>([]);
+  const [refundTotal, setRefundTotal] = useState(0);
+  const [refundTotalPages, setRefundTotalPages] = useState(1);
+  const [refundSummary, setRefundSummary] =
+    useState<RefundReportSummary>(EMPTY_REFUND_SUMMARY);
+  const [refundStatus, setRefundStatus] = useState<ReportsStatus>("idle");
+
   const [filters, setFiltersState] = useState<ReportsFilters>(DEFAULT_FILTERS);
   const [search, setSearchState] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -113,6 +128,8 @@ export const useReportsData = () => {
   const merchandiseOverviewRequestRef = useRef(0);
   const merchandiseOptionsRequestedRef = useRef(false);
   const merchandiseViewRequestedRef = useRef(false);
+  const refundRequestRef = useRef(0);
+  const refundViewRequestedRef = useRef(false);
 
   const setActiveTab = useCallback((value: ReportsTab) => {
     setActiveTabState(value);
@@ -233,6 +250,39 @@ export const useReportsData = () => {
     }
   }, []);
 
+  const fetchRefunds = useCallback(
+    async (requestedPage: number) => {
+      refundViewRequestedRef.current = true;
+      const requestId = ++refundRequestRef.current;
+      setRefundStatus("loading");
+
+      try {
+        const result = await refundReports({
+          page: requestedPage,
+          limit: ROWS_PER_PAGE,
+          search: debouncedSearch,
+        });
+
+        if (requestId !== refundRequestRef.current) return;
+        if (!result) throw new Error("No refund reports returned");
+
+        setRefundRows(result.data);
+        setRefundTotal(result.total);
+        setRefundTotalPages(result.totalPages);
+        setRefundSummary(result.summary ?? EMPTY_REFUND_SUMMARY);
+        setRefundStatus("success");
+      } catch {
+        if (requestId !== refundRequestRef.current) return;
+        setRefundRows([]);
+        setRefundTotal(0);
+        setRefundTotalPages(1);
+        setRefundSummary(EMPTY_REFUND_SUMMARY);
+        setRefundStatus("error");
+      }
+    },
+    [debouncedSearch]
+  );
+
   const membershipFetchKey = `${activeTab}|${filters.type}`;
   const membershipFetchKeyRef = useRef("");
 
@@ -255,11 +305,29 @@ export const useReportsData = () => {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
+      if (activeTab === "refunds") {
+        void fetchRefunds(page);
+      }
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [activeTab, page, fetchRefunds]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
       void preloadMerchandiseOverview();
     }, 0);
 
     return () => window.clearTimeout(timer);
   }, [preloadMerchandiseOverview]);
+
+  // Fills the Refunds tab count before the tab is opened.
+  useEffect(() => {
+    void refundReports({ page: 1, limit: 1 }).then((result) => {
+      if (!result || refundViewRequestedRef.current) return;
+      setRefundTotal(result.total);
+    });
+  }, []);
 
   const filteredMembership = useMemo(() => {
     if (activeTab !== "membership") return EMPTY_MEMBERSHIP_ROWS;
@@ -318,12 +386,12 @@ export const useReportsData = () => {
     [membershipOptionsList]
   );
 
-  const activeRowCount =
-    activeTab === "membership" ? filteredMembership.length : merchandiseTotal;
   const totalPages =
     activeTab === "membership"
-      ? Math.max(1, Math.ceil(activeRowCount / ROWS_PER_PAGE))
-      : merchandiseTotalPages;
+      ? Math.max(1, Math.ceil(filteredMembership.length / ROWS_PER_PAGE))
+      : activeTab === "refunds"
+        ? refundTotalPages
+        : merchandiseTotalPages;
   const currentPage = Math.min(page, totalPages);
 
   const pagedMembership = useMemo(
@@ -341,8 +409,9 @@ export const useReportsData = () => {
     () => ({
       membership: membershipData.length,
       merchandise: merchandiseTotal,
+      refunds: refundTotal,
     }),
-    [membershipData.length, merchandiseTotal]
+    [membershipData.length, merchandiseTotal, refundTotal]
   );
 
   const buildMembershipExportRows = () =>
@@ -377,11 +446,33 @@ export const useReportsData = () => {
     }
   };
 
+  const exportRefundReport = async () => {
+    setIsExporting(true);
+    try {
+      const blob = await exportRefundReports({ search: debouncedSearch });
+      if (!blob) throw new Error("No refund report export returned");
+
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `refund-report-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.URL.revokeObjectURL(url);
+    } catch {
+      showToast("error", "Unable to export the refund report.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return {
     activeTab,
     setActiveTab,
     membershipStatus,
     merchandiseStatus,
+    refundStatus,
     search,
     setSearch,
     filters,
@@ -396,6 +487,9 @@ export const useReportsData = () => {
     tabCounts,
     totalMembershipRows: filteredMembership.length,
     totalMerchandiseRows: merchandiseTotal,
+    refundRows,
+    totalRefundRows: refundTotal,
+    refundSummary,
     membershipSummary,
     merchandiseSummary,
     merchandiseProductOptions,
@@ -403,7 +497,9 @@ export const useReportsData = () => {
     isExporting,
     buildMembershipExportRows,
     exportMerchandiseReport,
+    exportRefundReport,
     refetchMembership: fetchMembership,
     refetchMerchandise: () => fetchMerchandise(page),
+    refetchRefunds: () => fetchRefunds(page),
   };
 };

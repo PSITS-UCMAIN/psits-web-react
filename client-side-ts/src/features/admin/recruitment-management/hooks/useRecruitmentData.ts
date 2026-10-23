@@ -44,8 +44,8 @@ export const DEFAULT_FILTERS: RecruitmentFilters = {
 };
 
 const DEFAULT_SORT: RecruitmentSort = {
-  field: "name",
-  direction: "asc",
+  field: "createdAt",
+  direction: "desc",
 };
 
 type ApplicantPagination = {
