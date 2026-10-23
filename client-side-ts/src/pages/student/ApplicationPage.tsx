@@ -7,7 +7,6 @@ import {
   getApplicationsForUser,
 } from "@/api/recruitment.api";
 import type { Application, RecruitmentPosition } from "@/types/recruitment";
-import { RECRUITMENT_ROLE_CATALOG } from "@/constants/recruitmentRoles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -21,20 +20,25 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Upload, Check, X, ChevronDown } from "lucide-react";
+import { ChevronLeft, ChevronRight, Upload, Check, X } from "lucide-react";
 import { toast } from "sonner";
 
 const COURSES = ["BSIT", "BSCS"];
 const YEARS = ["1st Year", "2nd Year", "3rd Year", "4th Year"];
 const POSITIONS_PAGE_LIMIT = 100;
+const ROLE_CARDS_PER_PAGE = 6;
+const ROLE_CATEGORIES = [
+  "All",
+  "Officer",
+  "Media",
+  "Devs",
+  "Associate(Volunteer)",
+] as const;
+type RoleCategory = (typeof ROLE_CATEGORIES)[number];
 const YEAR_MAP: Record<string, string> = {
   "1": "1st Year",
   "2": "2nd Year",
@@ -49,11 +53,35 @@ const getPositionTimestamp = (position: RecruitmentPosition) => {
   return Number.isFinite(timestamp) ? timestamp : 0;
 };
 
+const formatApplicationDeadline = (value?: string) => {
+  if (!value) return null;
+
+  const deadline = new Date(value);
+  if (!Number.isFinite(deadline.getTime())) return null;
+
+  return deadline.toLocaleDateString();
+};
+
 const normalizePositionLabel = (value: string) =>
   value.toLowerCase().replace(/[^a-z0-9]/g, "");
 
 const getPositionKey = (role: string, position: string | null) =>
   `${normalizePositionLabel(role)}:${normalizePositionLabel(position || role)}`;
+
+const getPositionCategory = (position: RecruitmentPosition): RoleCategory => {
+  const title = position.title.toLowerCase();
+
+  if (title.includes("officer")) return "Officer";
+  if (title.includes("media") || title.includes("videographer")) {
+    return "Media";
+  }
+  if (title.includes("associate") || title.includes("volunteer")) {
+    return "Associate(Volunteer)";
+  }
+  if (title.includes("developer") || title.includes("dev")) return "Devs";
+
+  return "All";
+};
 
 const parsePositionTitle = (title: string) => {
   const [base, ...rest] = title.split(" - ");
@@ -404,6 +432,7 @@ export const ApplicationPage = () => {
 
   const [positions, setPositions] = useState<RecruitmentPosition[]>([]);
   const [positionsLoading, setPositionsLoading] = useState(true);
+  const [positionsLoadFailed, setPositionsLoadFailed] = useState(false);
 
   const [existingApplication, setExistingApplication] =
     useState<Application | null>(null);
@@ -415,9 +444,13 @@ export const ApplicationPage = () => {
   const [reapplying, setReapplying] = useState(false);
 
   const [selectedPositionId, setSelectedPositionId] = useState("");
+  const [roleCardsPage, setRoleCardsPage] = useState(1);
+  const [roleSearch, setRoleSearch] = useState("");
+  const [activeRoleCategory, setActiveRoleCategory] =
+    useState<RoleCategory>("All");
+  const [requirementsDialogPosition, setRequirementsDialogPosition] =
+    useState<RecruitmentPosition | null>(null);
   const [subPosition, setSubPosition] = useState("");
-  const [selectedBaseRole, setSelectedBaseRole] = useState("");
-  const [positionSelectOpen, setPositionSelectOpen] = useState(false);
   const [acknowledged, setAcknowledged] = useState(false);
   const [resume, setResume] = useState<File | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -528,6 +561,7 @@ export const ApplicationPage = () => {
         setPositions(allPositions);
       } catch (err) {
         console.error("Failed to load positions:", err);
+        setPositionsLoadFailed(true);
         toast.error("Couldn't load open positions. Try refreshing.");
       } finally {
         setPositionsLoading(false);
@@ -575,66 +609,68 @@ export const ApplicationPage = () => {
     return byKey;
   }, [positions]);
 
-  const groupedPositions = useMemo(() => {
-    const groups: Record<
-      string,
-      {
-        id: string;
-        positionId: string;
-        subLabel: string | null;
-        isOpen: boolean;
-        position?: RecruitmentPosition;
-      }[]
-    > = {};
-
-    RECRUITMENT_ROLE_CATALOG.forEach((role) => {
-      if (role.positions.length === 0) {
-        const position = positionsByCatalogKey.get(
-          getPositionKey(role.title, null)
-        );
-        groups[role.title] = [
-          {
-            id: role.id,
-            positionId: position?._id || "",
-            subLabel: null,
-            isOpen: isPositionCurrentlyOpen(position),
-            position,
-          },
-        ];
-        return;
-      }
-
-      groups[role.title] = role.positions.map((catalogPosition) => {
-        const position = positionsByCatalogKey.get(
-          getPositionKey(role.title, catalogPosition.name)
-        );
-
-        return {
-          id: catalogPosition.id,
-          positionId: position?._id || "",
-          subLabel: catalogPosition.name,
-          isOpen: isPositionCurrentlyOpen(position),
-          position,
-        };
-      });
-    });
-
-    return groups;
-  }, [positionsByCatalogKey]);
-
-  const baseRoleOptions = RECRUITMENT_ROLE_CATALOG.map((role) => role.title);
-  const selectedRolePositionOptions = groupedPositions[selectedBaseRole] || [];
-  const hasPositionOptions = selectedRolePositionOptions.length > 0;
-  const selectedPositionOption = selectedRolePositionOptions.find(
-    (item) => item.positionId && item.positionId === selectedPositionId
+  const openPositions = useMemo(
+    () =>
+      Array.from(positionsByCatalogKey.values())
+        .filter(isPositionCurrentlyOpen)
+        .sort(
+          (first, second) =>
+            first.sortOrder - second.sortOrder ||
+            first.title.localeCompare(second.title)
+        ),
+    [positionsByCatalogKey]
   );
-  const selectedPositionLabel = selectedPositionOption
-    ? selectedPositionOption.subLabel ||
-      selectedPositionOption.position?.title ||
-      selectedBaseRole
-    : "";
 
-  const selectedPosition = positions.find((p) => p._id === selectedPositionId);
+  useEffect(() => {
+    setRoleCardsPage(1);
+  }, [activeRoleCategory]);
+
+  const filteredOpenPositions = useMemo(() => {
+    const byCategory =
+      activeRoleCategory === "All"
+        ? openPositions
+        : openPositions.filter(
+            (position) => getPositionCategory(position) === activeRoleCategory
+          );
+
+    const normalizedSearch = roleSearch.trim().toLowerCase();
+    if (!normalizedSearch) return byCategory;
+
+    return byCategory.filter((position) => {
+      const title = position.title.toLowerCase();
+      const description = (position.description || "").toLowerCase();
+      const responsibilities = (position.responsibilities || [])
+        .join(" ")
+        .toLowerCase();
+      const requirements = (position.requirements || [])
+        .join(" ")
+        .toLowerCase();
+
+      return [title, description, responsibilities, requirements].some(
+        (value) => value.includes(normalizedSearch)
+      );
+    });
+  }, [activeRoleCategory, openPositions, roleSearch]);
+
+  const hasAnyOpenPositions = openPositions.length > 0;
+  const totalRoleCardPages = Math.max(
+    1,
+    Math.ceil(filteredOpenPositions.length / ROLE_CARDS_PER_PAGE)
+  );
+  const currentRoleCardsPage = Math.min(roleCardsPage, totalRoleCardPages);
+  const visibleOpenPositions = filteredOpenPositions.slice(
+    (currentRoleCardsPage - 1) * ROLE_CARDS_PER_PAGE,
+    currentRoleCardsPage * ROLE_CARDS_PER_PAGE
+  );
+  const selectedPosition = openPositions.find(
+    (position) => position._id === selectedPositionId
+  );
+  const selectedPositionResponsibilities =
+    selectedPosition?.responsibilities ?? [];
+  const selectedPositionRequirements = selectedPosition?.requirements ?? [];
+  const selectedPositionDeadline = formatApplicationDeadline(
+    selectedPosition?.applicationDeadline
+  );
 
   const isFormValid =
     selectedPositionId &&
@@ -770,6 +806,279 @@ export const ApplicationPage = () => {
     );
   }
 
+  if (positionsLoading || positionsLoadFailed || !hasAnyOpenPositions) {
+    const message = positionsLoading
+      ? "Loading..."
+      : positionsLoadFailed
+        ? "Couldn't load open positions. Refresh to retry."
+        : "Thank you to everyone who applied! Applications are now closed. Stay tuned for the next Application Period.";
+
+    return (
+      <div className="mx-auto max-w-4xl">
+        <h1 className="mb-6 text-2xl font-light text-gray-800">
+          PSITS Membership Application
+        </h1>
+        <div className="h-[30vh] rounded-2xl border border-sky-200 bg-white p-8 text-center shadow-sm">
+          {positionsLoading ? (
+            <p className="text-gray-500">{message}</p>
+          ) : positionsLoadFailed ? (
+            <p className="text-gray-600">{message}</p>
+          ) : (
+            <>
+              <h2 className="align-center text-3xl font-medium text-gray-800 md:mt-9">
+                Application Period is Over
+              </h2>
+              <p className="text-gray-600">{message}</p>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (!selectedPosition) {
+    return (
+      <div className="mx-auto max-w-4xl">
+        <div className="mb-6 flex flex-col gap-4 md:w-[65vw] lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center justify-between gap-3">
+            <h1 className="text-2xl font-light whitespace-nowrap text-gray-800">
+              Available Roles
+            </h1>
+
+            <div className="relative -top-2 w-36 sm:w-44 md:w-[210px]">
+              <Input
+                type="search"
+                value={roleSearch}
+                onChange={(event) => setRoleSearch(event.target.value)}
+                placeholder="Search roles"
+                className="h-9 w-full rounded-full border-sky-200 bg-white pl-9 text-sm focus-visible:ring-sky-200"
+              />
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="11" cy="11" r="6" />
+                <path d="m16 16 4 4" />
+              </svg>
+            </div>
+          </div>
+
+          {/* Category chips */}
+          <div className="flex flex-wrap items-center gap-2">
+            {ROLE_CATEGORIES.map((category) => {
+              const isActive = activeRoleCategory === category;
+              return (
+                <button
+                  key={category}
+                  type="button"
+                  onClick={() => setActiveRoleCategory(category)}
+                  className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
+                    isActive
+                      ? "border-sky-500 bg-sky-500 text-white shadow-sm"
+                      : "border-slate-200 bg-white text-slate-600 hover:border-sky-300 hover:text-sky-700"
+                  }`}
+                >
+                  {category}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {visibleOpenPositions.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-slate-500 shadow-sm">
+            {roleSearch.trim()
+              ? `No open roles match "${roleSearch.trim()}" in this category.`
+              : "No open roles in this category yet."}
+          </div>
+        ) : (
+          <>
+            <div className="md:max-h-auto grid gap-3 md:w-[65vw] md:grid-cols-3 md:overflow-y-auto">
+              {visibleOpenPositions.map((position) => {
+                const responsibilities = position.responsibilities ?? [];
+                const requirements = position.requirements ?? [];
+                const deadline = formatApplicationDeadline(
+                  position.applicationDeadline
+                );
+
+                return (
+                  <article
+                    key={position._id}
+                    className="flex flex-col rounded-2xl border border-l-4 border-gray-200 border-l-sky-300 bg-white p-6 shadow-sm hover:border-sky-500 hover:shadow-md"
+                  >
+                    <div className="mb-3 flex items-start justify-between gap-3">
+                      <h2 className="text-xl font-medium text-gray-800">
+                        {position.title}
+                      </h2>
+                      <span className="shrink-0 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
+                        Open
+                      </span>
+                    </div>
+
+                    {position.description && (
+                      <p className="mb-4 text-sm text-gray-600">
+                        {position.description}
+                      </p>
+                    )}
+
+                    {responsibilities.length > 0 && (
+                      <div className="mb-4 text-sm text-gray-700">
+                        <p className="mb-1 font-medium">Responsibilities</p>
+                        <ul className="list-disc space-y-1 pl-5">
+                          {responsibilities.map((responsibility, index) => (
+                            <li key={`${responsibility}-${index}`}>
+                              {responsibility}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {requirements.length > 0 && (
+                      <div className="mb-4 text-sm break-all text-gray-700">
+                        {requirements.length > 0 && (
+                          <Button
+                            type="button"
+                            variant="link"
+                            className="mt-1 h-auto p-0 text-sky-600"
+                            onClick={() =>
+                              setRequirementsDialogPosition(position)
+                            }
+                          >
+                            View requirements
+                          </Button>
+                        )}
+                      </div>
+                    )}
+
+                    {deadline && (
+                      <p className="mb-4 text-sm text-gray-500">
+                        Application will close on {deadline}
+                      </p>
+                    )}
+
+                    <Button
+                      type="button"
+                      className="mt-auto w-full"
+                      onClick={() => {
+                        const { subLabel } = parsePositionTitle(position.title);
+                        setSelectedPositionId(position._id);
+                        setSubPosition(subLabel || "");
+                        setAcknowledged(false);
+                      }}
+                    >
+                      Apply
+                    </Button>
+                  </article>
+                );
+              })}
+            </div>
+
+            {totalRoleCardPages > 1 && (
+              <div className="mt-7 flex flex-col items-center justify-between gap-3 text-sm text-gray-500 sm:flex-row">
+                <span>
+                  Showing {(currentRoleCardsPage - 1) * ROLE_CARDS_PER_PAGE + 1}{" "}
+                  to{" "}
+                  {Math.min(
+                    currentRoleCardsPage * ROLE_CARDS_PER_PAGE,
+                    filteredOpenPositions.length
+                  )}{" "}
+                  of {filteredOpenPositions.length} roles
+                </span>
+                <nav
+                  aria-label="Role card pages"
+                  className="flex items-center gap-1"
+                >
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Previous roles page"
+                    disabled={currentRoleCardsPage === 1}
+                    onClick={() =>
+                      setRoleCardsPage((page) => Math.max(1, page - 1))
+                    }
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous
+                  </Button>
+                  {Array.from({ length: totalRoleCardPages }, (_, index) => {
+                    const page = index + 1;
+
+                    return (
+                      <Button
+                        key={page}
+                        type="button"
+                        variant={
+                          page === currentRoleCardsPage ? "default" : "ghost"
+                        }
+                        size="sm"
+                        aria-label={`Page ${page}`}
+                        aria-current={
+                          page === currentRoleCardsPage ? "page" : undefined
+                        }
+                        onClick={() => setRoleCardsPage(page)}
+                      >
+                        {page}
+                      </Button>
+                    );
+                  })}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Next roles page"
+                    disabled={currentRoleCardsPage === totalRoleCardPages}
+                    onClick={() =>
+                      setRoleCardsPage((page) =>
+                        Math.min(totalRoleCardPages, page + 1)
+                      )
+                    }
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </nav>
+              </div>
+            )}
+          </>
+        )}
+        <Dialog
+          open={requirementsDialogPosition !== null}
+          onOpenChange={(open) => {
+            if (!open) setRequirementsDialogPosition(null);
+          }}
+        >
+          <DialogContent className="max-h-[85vh] overflow-hidden rounded-2xl sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>
+                {requirementsDialogPosition?.title} Requirements
+              </DialogTitle>
+              <DialogDescription>
+                Full requirements for this role.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="max-h-[60vh] overflow-y-auto overscroll-contain pr-2">
+              <ul className="list-disc space-y-2 pl-5 text-sm break-all text-gray-700">
+                {requirementsDialogPosition?.requirements.map(
+                  (requirement, index) => (
+                    <li key={`${requirement}-${index}`}>{requirement}</li>
+                  )
+                )}
+              </ul>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-4xl">
       <h1 className="mb-6 text-2xl font-light text-gray-800">
@@ -787,138 +1096,54 @@ export const ApplicationPage = () => {
               Role Information
             </h2>
 
-            <div className="flex gap-3">
-              <Select
-                value={selectedBaseRole}
-                onValueChange={(v) => {
-                  setSelectedBaseRole(v);
-                  setSubPosition("");
-                  setPositionSelectOpen(false);
-                  // If this base role has no sub-labels (e.g. "Volunteer"),
-                  // there's only one matching position — select it right away.
-                  const group = groupedPositions[v] || [];
-                  if (
-                    group.length === 1 &&
-                    group[0].subLabel === null &&
-                    group[0].isOpen
-                  ) {
-                    setSelectedPositionId(group[0].positionId);
-                  } else {
-                    setSelectedPositionId("");
-                  }
-                }}
-                disabled={positionsLoading}
-              >
-                <SelectTrigger className="flex-1">
-                  <SelectValue
-                    placeholder={
-                      <span>
-                        Select role <span className="text-red-500">*</span>
-                      </span>
-                    }
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {baseRoleOptions.map((role) => (
-                    <SelectItem key={role} value={role}>
-                      {role}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Popover
-                open={positionSelectOpen}
-                onOpenChange={(open) =>
-                  setPositionSelectOpen(
-                    open && !!selectedBaseRole && hasPositionOptions
-                  )
-                }
-              >
-                <PopoverTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={!selectedBaseRole}
-                    className="h-10 flex-1 justify-between rounded-md border-gray-200 bg-white px-3 text-left text-sm font-normal shadow-none hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <span
-                      className={
-                        selectedPositionLabel
-                          ? "truncate text-gray-900"
-                          : "truncate text-gray-400"
-                      }
-                    >
-                      {selectedPositionLabel || "Position"}
-                    </span>
-                    <ChevronDown className="h-4 w-4 shrink-0 text-gray-400" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent
-                  align="start"
-                  className="w-[var(--radix-popover-trigger-width)] p-1"
-                >
-                  {selectedRolePositionOptions.map((item) => {
-                    const label =
-                      item.subLabel || item.position?.title || selectedBaseRole;
-
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        disabled={!item.isOpen}
-                        onClick={() => {
-                          if (!item.isOpen || !item.positionId) return;
-                          setSubPosition(item.subLabel || "");
-                          setSelectedPositionId(item.positionId);
-                          setPositionSelectOpen(false);
-                        }}
-                        className={
-                          item.isOpen
-                            ? "flex w-full cursor-pointer items-center justify-between gap-3 rounded-sm px-2 py-1.5 text-left text-sm text-[#0274b8] hover:bg-sky-50"
-                            : "flex w-full cursor-not-allowed items-center justify-between gap-3 rounded-sm px-2 py-1.5 text-left text-sm text-slate-400 opacity-60"
-                        }
-                      >
-                        <span className="truncate">{label}</span>
-                        <span className="shrink-0 text-[11px]">
-                          {item.isOpen ? "Open" : "Closed"}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            <div className="min-h-[180px] rounded-lg border border-gray-200 p-4 text-sm text-gray-500">
-              {selectedPosition ? (
-                <div className="space-y-3 text-gray-700">
-                  {selectedPosition.description && (
-                    <p>{selectedPosition.description}</p>
-                  )}
-                  {selectedPosition.requirements &&
-                    selectedPosition.requirements.length > 0 && (
-                      <div>
-                        <p className="font-semibold">REQUIREMENTS:</p>
-                        <ul className="list-disc pl-4">
-                          {selectedPosition.requirements.map((req, i) => (
-                            <li key={i}>{req}</li>
-                          ))}
-                        </ul>
-                      </div>
+            <div className="overflow-y-auto rounded-xl border border-gray-200 bg-slate-50 p-4 break-all">
+              <h3 className="font-medium text-gray-800">
+                {selectedPosition.title}
+              </h3>
+              {selectedPosition.description && (
+                <p className="mt-2 text-sm text-gray-600">
+                  {selectedPosition.description}
+                </p>
+              )}
+              {selectedPositionResponsibilities.length > 0 && (
+                <div className="mt-3 text-sm text-gray-700">
+                  <p className="mb-1 font-medium">Responsibilities</p>
+                  <ul className="list-disc space-y-1 pl-5">
+                    {selectedPositionResponsibilities.map(
+                      (responsibility, index) => (
+                        <li key={`${responsibility}-${index}`}>
+                          {responsibility}
+                        </li>
+                      )
                     )}
-                  {!selectedPosition.description &&
-                    (!selectedPosition.requirements ||
-                      selectedPosition.requirements.length === 0) && (
-                      <p className="text-gray-400">
-                        No additional details provided for this role yet.
-                      </p>
-                    )}
+                  </ul>
                 </div>
-              ) : (
-                <div className="flex h-full min-h-[148px] items-center justify-center text-center text-gray-500">
-                  Select a role to view role requirements and overview
+              )}
+              {selectedPositionRequirements.length > 0 && (
+                <div className="mt-3 text-sm text-gray-700">
+                  <p className="mb-1 font-medium">Requirements</p>
+                  <div className="max-h-32 overflow-y-auto overscroll-contain pr-2">
+                    <ul className="list-disc space-y-1 pl-5">
+                      {selectedPositionRequirements.map(
+                        (requirement, index) => (
+                          <li key={`${requirement}-${index}`}>{requirement}</li>
+                        )
+                      )}
+                    </ul>
+                  </div>
                 </div>
+              )}
+              {!selectedPosition.description &&
+                selectedPositionResponsibilities.length === 0 &&
+                selectedPositionRequirements.length === 0 && (
+                  <p className="mt-2 text-sm text-gray-500">
+                    No additional details provided for this role yet.
+                  </p>
+                )}
+              {selectedPositionDeadline && (
+                <p className="mt-3 text-sm text-gray-500">
+                  Application will close on {selectedPositionDeadline}
+                </p>
               )}
             </div>
 
@@ -1038,11 +1263,24 @@ export const ApplicationPage = () => {
           </div>
         </div>
 
-        <div className="mt-8 flex justify-center">
+        <div className="mt-8 flex flex-col-reverse justify-center gap-3 sm:flex-row">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={submitting}
+            onClick={() => {
+              setSelectedPositionId("");
+              setSubPosition("");
+              setAcknowledged(false);
+            }}
+            className="w-full max-w-xs"
+          >
+            Back to roles
+          </Button>
           <Button
             type="submit"
             disabled={!isFormValid || submitting}
-            className="w-full max-w-md"
+            className="w-full max-w-xs"
           >
             {submitting ? "Submitting..." : "Submit application"}
           </Button>
