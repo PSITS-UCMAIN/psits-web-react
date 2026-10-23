@@ -5,6 +5,7 @@ import {
   type PipelineStage,
 } from "mongoose";
 import { Orders } from "../models/orders.model";
+import { Refund } from "../models/refund.model";
 import { Report } from "../models/report.model";
 import { IOrdersItems } from "../models/orders.interface";
 
@@ -90,6 +91,46 @@ export interface MerchandiseReportResult {
   limit: number;
   totalPages: number;
   summary: MerchandiseReportSummary;
+}
+
+export interface RefundReportRow {
+  _id: string;
+  refund_id: string;
+  order_id: string;
+  order_reference: string;
+  product_name: string;
+  student_name: string;
+  id_number: string;
+  course: string;
+  year: string;
+  refund_price: number;
+  refund_admin: string;
+  refund_date: Date | null;
+}
+
+export interface RefundReportFilters {
+  search?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+export interface RefundReportQuery extends RefundReportFilters {
+  page?: number;
+  limit?: number;
+}
+
+export interface RefundReportSummary {
+  refundCount: number;
+  totalRefunded: number;
+}
+
+export interface RefundReportResult {
+  data: RefundReportRow[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  summary: RefundReportSummary;
 }
 
 const normalizePage = (value?: number) => {
@@ -421,6 +462,155 @@ export const getMerchandiseReportExportRows = async (
   return (rows as Record<string, unknown>[]).map(mapToRow);
 };
 
+// Refund docs are written one per order item by refundService.processRefund;
+// student details come from the refunded order.
+const buildRefundPipeline = (
+  filters: RefundReportFilters = {}
+): PipelineStage[] => {
+  const stages: PipelineStage[] = [];
+
+  const dateFrom = parseDateBoundary(filters.dateFrom, false);
+  const dateTo = parseDateBoundary(filters.dateTo, true);
+  if (dateFrom || dateTo) {
+    const dateMatch: Record<string, Date> = {};
+    if (dateFrom) dateMatch.$gte = dateFrom;
+    if (dateTo) dateMatch.$lt = dateTo;
+    stages.push({ $match: { refund_date: dateMatch } });
+  }
+
+  stages.push(
+    {
+      $lookup: {
+        from: Orders.collection.name,
+        localField: "order_id",
+        foreignField: "_id",
+        as: "order",
+      },
+    },
+    { $unwind: { path: "$order", preserveNullAndEmptyArrays: true } }
+  );
+
+  if (filters.search?.trim()) {
+    const query = containsMatch(filters.search);
+    stages.push({
+      $match: {
+        $or: [
+          { refund_id: query },
+          { order_reference: query },
+          { product_name: query },
+          { refund_admin: query },
+          { "order.student_name": query },
+          { "order.id_number": query },
+        ],
+      },
+    });
+  }
+
+  return stages;
+};
+
+const refundRowSort: PipelineStage.Sort = {
+  $sort: { refund_date: -1, _id: -1 },
+};
+
+const refundRowProjection: PipelineStage.Project = {
+  $project: {
+    _id: { $toString: "$_id" },
+    refund_id: "$refund_id",
+    order_id: {
+      $convert: { input: "$order_id", to: "string", onError: "", onNull: "" },
+    },
+    order_reference: "$order_reference",
+    product_name: "$product_name",
+    student_name: "$order.student_name",
+    id_number: "$order.id_number",
+    course: "$order.course",
+    year: {
+      $convert: { input: "$order.year", to: "string", onError: "", onNull: "" },
+    },
+    refund_price: { $ifNull: ["$refund_price", 0] },
+    refund_admin: "$refund_admin",
+    refund_date: "$refund_date",
+  },
+};
+
+const textOrDash = (value: unknown): string =>
+  toLowerTrim(value) ? String(value) : "-";
+
+const mapToRefundRow = (doc: Record<string, unknown>): RefundReportRow => ({
+  _id: String(doc._id),
+  refund_id: textOrDash(doc.refund_id),
+  order_id: String(doc.order_id ?? ""),
+  order_reference: textOrDash(doc.order_reference),
+  product_name: textOrDash(doc.product_name),
+  student_name: textOrDash(doc.student_name),
+  id_number: textOrDash(doc.id_number),
+  course: textOrDash(doc.course),
+  year: textOrDash(doc.year),
+  refund_price: Number(doc.refund_price ?? 0),
+  refund_admin: textOrDash(doc.refund_admin),
+  refund_date: doc.refund_date instanceof Date ? doc.refund_date : null,
+});
+
+export const getRefundReport = async (
+  params: RefundReportQuery = {}
+): Promise<RefundReportResult> => {
+  const page = normalizePage(params.page);
+  const limit = normalizeLimit(params.limit);
+  const skip = (page - 1) * limit;
+
+  const [result] = await Refund.aggregate([
+    ...buildRefundPipeline(params),
+    {
+      $facet: {
+        data: [
+          refundRowSort,
+          { $skip: skip },
+          { $limit: limit },
+          refundRowProjection,
+        ],
+        metadata: [{ $count: "total" }],
+        summary: [
+          {
+            $group: {
+              _id: null,
+              totalRefunded: { $sum: { $ifNull: ["$refund_price", 0] } },
+            },
+          },
+        ],
+      },
+    },
+  ]);
+
+  const rows = ((result?.data ?? []) as Record<string, unknown>[]).map(
+    mapToRefundRow
+  );
+  const total = Number(result?.metadata?.[0]?.total ?? 0);
+
+  return {
+    data: rows,
+    total,
+    page,
+    limit,
+    totalPages: Math.max(1, Math.ceil(total / limit)),
+    summary: {
+      refundCount: total,
+      totalRefunded: Number(result?.summary?.[0]?.totalRefunded ?? 0),
+    },
+  };
+};
+
+export const getRefundReportExportRows = async (
+  filters: RefundReportFilters = {}
+): Promise<RefundReportRow[]> => {
+  const rows = await Refund.aggregate([
+    ...buildRefundPipeline(filters),
+    refundRowSort,
+    refundRowProjection,
+  ]);
+  return (rows as Record<string, unknown>[]).map(mapToRefundRow);
+};
+
 export const getMerchandiseProductNames = async (): Promise<string[]> => {
   const options = await getMerchandiseReportFilterOptions();
   return Array.from(new Set(options.map((option) => option.productName)));
@@ -551,6 +741,8 @@ export const reportService = {
   getMerchandiseProductNames,
   getMerchandiseReportFilterOptions,
   getMerchandiseReportExportRows,
+  getRefundReport,
+  getRefundReportExportRows,
 };
 
 export default reportService;

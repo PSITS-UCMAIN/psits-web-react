@@ -6,6 +6,7 @@ import {
   Package,
   Pencil,
   Printer,
+  RotateCcw,
   Search,
   ShoppingBag,
   Wallet,
@@ -41,6 +42,7 @@ import type {
   MembershipReportRow,
   MerchandiseOrderDetail,
   MerchandiseReportProductOption,
+  RefundReportRow,
   ReportsFilters,
 } from "../types/reports.types";
 
@@ -516,6 +518,7 @@ export const ReportsView = () => {
     setActiveTab,
     membershipStatus,
     merchandiseStatus,
+    refundStatus,
     search,
     setSearch,
     filters,
@@ -529,6 +532,9 @@ export const ReportsView = () => {
     tabCounts,
     totalMembershipRows,
     totalMerchandiseRows,
+    refundRows,
+    totalRefundRows,
+    refundSummary,
     membershipSummary,
     merchandiseSummary,
     merchandiseProductOptions,
@@ -536,12 +542,19 @@ export const ReportsView = () => {
     isExporting,
     buildMembershipExportRows,
     exportMerchandiseReport,
+    exportRefundReport,
     refetchMembership,
     refetchMerchandise,
+    refetchRefunds,
   } = useReportsData();
 
   const isMembership = activeTab === "membership";
-  const status = isMembership ? membershipStatus : merchandiseStatus;
+  const isRefunds = activeTab === "refunds";
+  const status = isMembership
+    ? membershipStatus
+    : isRefunds
+      ? refundStatus
+      : merchandiseStatus;
 
   // Membership rows already carry every receipt field, so unlike orders there is
   // no receipt endpoint to call here.
@@ -555,6 +568,8 @@ export const ReportsView = () => {
   const handleExport = async () => {
     if (isMembership) {
       downloadCsv(buildMembershipExportRows(), "membership-report.csv");
+    } else if (isRefunds) {
+      await exportRefundReport();
     } else {
       await exportMerchandiseReport();
     }
@@ -565,7 +580,7 @@ export const ReportsView = () => {
       <header className="px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
         <h1 className="text-2xl font-bold sm:text-3xl">Reports</h1>
         <p className="text-muted-foreground mt-1 text-sm sm:text-base">
-          Membership and merchandise sales summaries
+          Membership, merchandise sales and refund summaries
         </p>
       </header>
 
@@ -595,7 +610,7 @@ export const ReportsView = () => {
             className={cn(
               "relative flex flex-1 cursor-pointer items-center justify-center gap-2 pb-3 text-sm text-[#858585]",
               "sm:flex-initial sm:justify-start",
-              !isMembership && "font-medium text-[#1c9dde]"
+              activeTab === "merchandise" && "font-medium text-[#1c9dde]"
             )}
             onClick={() => setActiveTab("merchandise")}
           >
@@ -604,7 +619,25 @@ export const ReportsView = () => {
             <span className="text-xs text-current/70">
               ({tabCounts.merchandise.toLocaleString()})
             </span>
-            {!isMembership && (
+            {activeTab === "merchandise" && (
+              <span className="absolute right-0 bottom-0 left-0 h-0.5 bg-[#1c9dde]" />
+            )}
+          </button>
+          <button
+            type="button"
+            className={cn(
+              "relative flex flex-1 cursor-pointer items-center justify-center gap-2 pb-3 text-sm text-[#858585]",
+              "sm:flex-initial sm:justify-start",
+              isRefunds && "font-medium text-[#1c9dde]"
+            )}
+            onClick={() => setActiveTab("refunds")}
+          >
+            <RotateCcw className="h-4 w-4 shrink-0" />
+            <span>Refunds</span>
+            <span className="text-xs text-current/70">
+              ({tabCounts.refunds.toLocaleString()})
+            </span>
+            {isRefunds && (
               <span className="absolute right-0 bottom-0 left-0 h-0.5 bg-[#1c9dde]" />
             )}
           </button>
@@ -631,6 +664,19 @@ export const ReportsView = () => {
                   value={formatCurrency(membershipSummary.totalRevenue)}
                 />
               </>
+            ) : isRefunds ? (
+              <>
+                <SummaryCard
+                  icon={RotateCcw}
+                  label="Items Refunded"
+                  value={refundSummary.refundCount.toLocaleString()}
+                />
+                <SummaryCard
+                  icon={BadgeDollarSign}
+                  label="Total Refunded"
+                  value={formatCurrency(refundSummary.totalRefunded)}
+                />
+              </>
             ) : (
               <>
                 <SummaryCard
@@ -651,7 +697,12 @@ export const ReportsView = () => {
         {status === "error" && (
           <div className="mb-4 flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             <span>
-              Unable to load {isMembership ? "membership" : "merchandise"}{" "}
+              Unable to load{" "}
+              {isMembership
+                ? "membership"
+                : isRefunds
+                  ? "refund"
+                  : "merchandise"}{" "}
               report data.
             </span>
             <Button
@@ -659,7 +710,13 @@ export const ReportsView = () => {
               size="sm"
               variant="outline"
               className="h-8 border-red-300 bg-white text-red-700 hover:bg-red-100"
-              onClick={isMembership ? refetchMembership : refetchMerchandise}
+              onClick={
+                isMembership
+                  ? refetchMembership
+                  : isRefunds
+                    ? refetchRefunds
+                    : refetchMerchandise
+              }
             >
               Retry
             </Button>
@@ -678,13 +735,15 @@ export const ReportsView = () => {
               />
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              <ReportsFilterPopover
-                activeTab={activeTab}
-                filters={filters}
-                productOptions={merchandiseProductOptions}
-                membershipNameOptions={membershipNameOptions}
-                onApply={setFilters}
-              />
+              {activeTab !== "refunds" && (
+                <ReportsFilterPopover
+                  activeTab={activeTab}
+                  filters={filters}
+                  productOptions={merchandiseProductOptions}
+                  membershipNameOptions={membershipNameOptions}
+                  onApply={setFilters}
+                />
+              )}
               <Button
                 type="button"
                 variant="outline"
@@ -709,6 +768,12 @@ export const ReportsView = () => {
               onPrint={printMembershipReceipt}
               onEditReference={setEditingRow}
             />
+          ) : isRefunds ? (
+            <RefundsTable
+              rows={refundRows}
+              isLoading={status === "loading"}
+              hasError={status === "error"}
+            />
           ) : (
             <MerchandiseTable
               rows={pagedMerchandise}
@@ -720,7 +785,13 @@ export const ReportsView = () => {
           <PaginationFooter
             page={page}
             totalPages={totalPages}
-            total={isMembership ? totalMembershipRows : totalMerchandiseRows}
+            total={
+              isMembership
+                ? totalMembershipRows
+                : isRefunds
+                  ? totalRefundRows
+                  : totalMerchandiseRows
+            }
             onPageChange={setPage}
           />
         </section>
@@ -926,6 +997,96 @@ const MerchandiseTable = ({
               className="px-3 py-16 text-center text-sm text-[#777]"
             >
               No merchandise records found.
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+);
+
+const RefundsTable = ({
+  rows,
+  isLoading,
+  hasError,
+}: {
+  rows: RefundReportRow[];
+  isLoading: boolean;
+  hasError: boolean;
+}) => (
+  <div className="overflow-x-auto">
+    <table className="w-full min-w-[1080px] table-fixed border-collapse text-sm">
+      <thead>
+        <tr className="rounded-md bg-[#efefef] text-[#2f2f2f]">
+          <th className="w-[14%] rounded-l-md px-2 py-2 text-left font-medium">
+            Refund ID
+          </th>
+          <th className="w-[12%] px-2 py-2 text-left font-medium">
+            Order Reference
+          </th>
+          <th className="w-[15%] px-2 py-2 text-left font-medium">Product</th>
+          <th className="w-[15%] px-2 py-2 text-left font-medium">Student</th>
+          <th className="w-[10%] px-2 py-2 text-left font-medium">
+            Course &amp; Year
+          </th>
+          <th className="w-[10%] px-2 py-2 text-right font-medium">Amount</th>
+          <th className="w-[14%] px-2 py-2 text-left font-medium">
+            Refunded By
+          </th>
+          <th className="w-[10%] rounded-r-md px-2 py-2 text-left font-medium">
+            Date
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {isLoading ? (
+          Array.from({ length: 8 }, (_, index) => (
+            <tr key={index} className="border-b border-[#ededed]">
+              {Array.from({ length: 8 }, (_, cell) => (
+                <td key={cell} className="px-2 py-3">
+                  <Skeleton className="h-4 w-full rounded-full" />
+                </td>
+              ))}
+            </tr>
+          ))
+        ) : hasError ? null : rows.length > 0 ? (
+          rows.map((row) => (
+            <tr
+              key={row._id}
+              className="border-b border-[#ededed] text-[#303030]"
+            >
+              <td className="truncate px-2 py-3" title={row.refund_id}>
+                {row.refund_id}
+              </td>
+              <td className="truncate px-2 py-3">{row.order_reference}</td>
+              <td className="truncate px-2 py-3">{row.product_name}</td>
+              <td className="px-2 py-3">
+                <p className="truncate font-medium">{row.student_name}</p>
+                <p className="truncate text-xs text-[#858585]">
+                  {row.id_number}
+                </p>
+              </td>
+              <td className="px-2 py-3">
+                {row.course} {row.year !== "-" ? `- ${row.year}` : ""}
+              </td>
+              <td className="px-2 py-3 text-right font-medium">
+                {formatCurrency(row.refund_price || 0)}
+              </td>
+              <td className="truncate px-2 py-3" title={row.refund_admin}>
+                {row.refund_admin}
+              </td>
+              <td className="px-2 py-3">
+                {row.refund_date ? formatDate(row.refund_date) : "-"}
+              </td>
+            </tr>
+          ))
+        ) : (
+          <tr>
+            <td
+              colSpan={8}
+              className="px-3 py-16 text-center text-sm text-[#777]"
+            >
+              No refunds found.
             </td>
           </tr>
         )}

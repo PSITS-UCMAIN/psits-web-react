@@ -381,7 +381,7 @@ export const getAllPendingPaidOrdersV2 = async ({
   limit = 8,
   search = "",
 }: {
-  status?: "Pending" | "Paid";
+  status?: "Pending" | "Paid" | "Refunded";
   page?: number;
   limit?: number;
   search?: string;

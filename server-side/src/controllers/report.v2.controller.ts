@@ -2,6 +2,8 @@ import {
   reportService,
   type MerchandiseReportFilters,
   type MerchandiseReportRow,
+  type RefundReportFilters,
+  type RefundReportRow,
 } from "../services/report.service";
 import { catchAsync } from "../util/catch.async.util";
 import { Request, Response } from "express";
@@ -61,6 +63,34 @@ const toCsv = (rows: MerchandiseReportRow[]) => {
   ].join("\n");
 };
 
+const getRefundFiltersFromQuery = (req: Request): RefundReportFilters => ({
+  search: req.query.search as string,
+  dateFrom: req.query.dateFrom as string,
+  dateTo: req.query.dateTo as string,
+});
+
+const toRefundCsv = (rows: RefundReportRow[]) => {
+  const columns: Array<[string, (row: RefundReportRow) => unknown]> = [
+    ["Refund ID", (row) => row.refund_id],
+    ["Order Reference", (row) => row.order_reference],
+    ["Product", (row) => row.product_name],
+    ["Student ID", (row) => row.id_number],
+    ["Name", (row) => row.student_name],
+    ["Course", (row) => row.course],
+    ["Year Level", (row) => row.year],
+    ["Amount", (row) => row.refund_price],
+    ["Refunded By", (row) => row.refund_admin],
+    ["Refund Date", (row) => row.refund_date],
+  ];
+
+  return [
+    columns.map(([heading]) => escapeCsvCell(heading)).join(","),
+    ...rows.map((row) =>
+      columns.map(([, getValue]) => escapeCsvCell(getValue(row))).join(",")
+    ),
+  ].join("\n");
+};
+
 class ReportController {
   fetchReport = catchAsync(async (req: Request, res: Response) => {
     const page = parseInt(req.query.page as string, 10) || 1;
@@ -101,6 +131,39 @@ class ReportController {
       `attachment; filename="merchandise-report-${date}.csv"`
     );
     return res.status(200).send(`\uFEFF${toCsv(rows)}`);
+  });
+
+  fetchRefundReport = catchAsync(async (req: Request, res: Response) => {
+    const page = parseInt(req.query.page as string, 10) || 1;
+    const limit = parseInt(req.query.limit as string, 10) || 10;
+    const result = await reportService.getRefundReport({
+      page,
+      limit,
+      ...getRefundFiltersFromQuery(req),
+    });
+    return res.status(200).json({
+      message: "Successfully retrieved refund reports",
+      data: result.data,
+      total: result.total,
+      page: result.page,
+      limit: result.limit,
+      totalPages: result.totalPages,
+      summary: result.summary,
+    });
+  });
+
+  exportRefundReport = catchAsync(async (req: Request, res: Response) => {
+    const rows = await reportService.getRefundReportExportRows(
+      getRefundFiltersFromQuery(req)
+    );
+    const date = new Date().toISOString().slice(0, 10);
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="refund-report-${date}.csv"`
+    );
+    return res.status(200).send(`\uFEFF${toRefundCsv(rows)}`);
   });
 }
 

@@ -37,6 +37,13 @@ export const useOrdersData = () => {
   const [paidStatus, setPaidStatus] = useState<OrdersStatus>("idle");
   const paidRef = useRef(0);
 
+  // Refunded state
+  const [refundedData, setRefundedData] = useState<OrderRow[]>([]);
+  const [refundedTotal, setRefundedTotal] = useState(0);
+  const [refundedTotalPages, setRefundedTotalPages] = useState(1);
+  const [refundedStatus, setRefundedStatus] = useState<OrdersStatus>("idle");
+  const refundedRef = useRef(0);
+
   useEffect(() => {
     const timer = setTimeout(
       () => setDebouncedSearch(search),
@@ -113,15 +120,47 @@ export const useOrdersData = () => {
     [debouncedSearch]
   );
 
+  const fetchRefunded = useCallback(
+    async (requestedPage: number) => {
+      const requestId = ++refundedRef.current;
+      setRefundedStatus("loading");
+      try {
+        const result = await getAllPendingPaidOrdersV2({
+          status: "Refunded",
+          page: requestedPage,
+          limit: ROWS_PER_PAGE,
+          search: debouncedSearch,
+        });
+        if (requestId !== refundedRef.current) return;
+        if (!result || !result.data) {
+          setRefundedData([]);
+          setRefundedTotal(0);
+          setRefundedTotalPages(1);
+          setRefundedStatus("error");
+          return;
+        }
+        setRefundedData(result.data as OrderRow[]);
+        setRefundedTotal(result.total);
+        setRefundedTotalPages(result.totalPages);
+        setRefundedStatus("success");
+      } catch {
+        if (requestId !== refundedRef.current) return;
+        setRefundedData([]);
+        setRefundedTotal(0);
+        setRefundedTotalPages(1);
+        setRefundedStatus("error");
+      }
+    },
+    [debouncedSearch]
+  );
+
   useEffect(() => {
-    if (activeTab === "pending") {
-      void fetchPending(page);
-      void fetchPaid(1);
-    } else if (activeTab === "paid") {
-      void fetchPaid(page);
-      void fetchPending(1);
-    }
-  }, [activeTab, page, fetchPending, fetchPaid]);
+    // The active tab loads the requested page; the others load page 1 so
+    // their tab counts stay current.
+    void fetchPending(activeTab === "pending" ? page : 1);
+    void fetchPaid(activeTab === "paid" ? page : 1);
+    void fetchRefunded(activeTab === "refunded" ? page : 1);
+  }, [activeTab, page, fetchPending, fetchPaid, fetchRefunded]);
 
   useEffect(() => {
     setPage(1);
@@ -190,6 +229,7 @@ export const useOrdersData = () => {
         const success = await refundOrderV2(orderId);
         if (success) {
           await fetchPaid(page);
+          await fetchRefunded(1);
           return true;
         }
         return false;
@@ -197,7 +237,7 @@ export const useOrdersData = () => {
         setIsMutating(false);
       }
     },
-    [canManageOrders, page, fetchPaid]
+    [canManageOrders, page, fetchPaid, fetchRefunded]
   );
 
   const toggleSelection = useCallback((id: string) => {
@@ -234,6 +274,10 @@ export const useOrdersData = () => {
     paidTotal,
     paidTotalPages,
     paidStatus,
+    refundedData,
+    refundedTotal,
+    refundedTotalPages,
+    refundedStatus,
     isMutating,
     selectedIds,
     selectedCount,
@@ -245,5 +289,6 @@ export const useOrdersData = () => {
     handleRefund,
     refetchPending: () => fetchPending(page),
     refetchPaid: () => fetchPaid(page),
+    refetchRefunded: () => fetchRefunded(page),
   };
 };
