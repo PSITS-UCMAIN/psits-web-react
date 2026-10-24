@@ -13,28 +13,6 @@
   ],
   "exceptions": [
     {
-      "ghsa": "GHSA-4r6h-8v6p-xvw6",
-      "package": "xlsx",
-      "modules": ["server-side"],
-      "severity": "high",
-      "reason": "Prototype pollution in SheetJS. No patched release exists on the npm registry; SheetJS publishes 0.20.x only from cdn.sheetjs.com. Changing the install source away from the registry is a maintainer decision that is still open.",
-      "exposure": "Reachable from POST /api/v2/certificates/:eventId/eligibility/csv, which requires an authenticated admin token. The upload has no size limit and no rate limit, so this risk is NOT currently mitigated by a compensating control.",
-      "required_before_renewal": "Add multer limits and a fileFilter to the certificate upload route, or migrate off the registry build of xlsx. Tracked as SAST-06 in the maintainer security backlog.",
-      "owner": "psitsucmain2025@gmail.com",
-      "expires": "2026-12-31"
-    },
-    {
-      "ghsa": "GHSA-5pgg-2g8v-p4x9",
-      "package": "xlsx",
-      "modules": ["server-side"],
-      "severity": "high",
-      "reason": "ReDoS in SheetJS. Same npm registry limitation as GHSA-4r6h-8v6p-xvw6: no patched version is published to the registry, so npm audit fix cannot resolve it.",
-      "exposure": "Same admin-authenticated upload path as GHSA-4r6h-8v6p-xvw6, with no upload size limit and no rate limit in place today.",
-      "required_before_renewal": "Add multer limits and a fileFilter to the certificate upload route, or migrate off the registry build of xlsx. Tracked as SAST-06 in the maintainer security backlog.",
-      "owner": "psitsucmain2025@gmail.com",
-      "expires": "2026-12-31"
-    },
-    {
       "ghsa": "GHSA-wrjc-x8rr-h8h6",
       "package": "react-router",
       "modules": ["client-side"],
@@ -53,6 +31,17 @@
       "reason": "Constructor injection via SSR hydration in react-router 6. Same breaking-major limitation as GHSA-wrjc-x8rr-h8h6, and this application does not use server-side rendering.",
       "exposure": "client-side is a client-rendered SPA with no SSR hydration path, and no workflow builds or deploys it.",
       "required_before_renewal": "Either migrate client-side to react-router-dom 7, or remove the legacy app from the repository if it is confirmed dead.",
+      "owner": "psitsucmain2025@gmail.com",
+      "expires": "2026-12-31"
+    },
+    {
+      "ghsa": "GHSA-vfj7-8cjw-p6xm",
+      "package": "braces",
+      "modules": ["server-side"],
+      "severity": "high",
+      "reason": "Braces 3.0.3 is the latest version published to the npm registry, and no patched braces release is available to resolve this advisory.",
+      "exposure": "This is reachable through nodemon/chokidar in the server-side development toolchain and is not a runtime application dependency in production code. It is limited to local development and CI build tooling.",
+      "required_before_renewal": "Replace the dev watcher by changing the server-side dev script to `tsx watch src/index.ts` using the existing tsx dependency, then verify the watch workflow and remove nodemon/chokidar from the dependency tree.",
       "owner": "psitsucmain2025@gmail.com",
       "expires": "2026-12-31"
     }

@@ -40,8 +40,7 @@ export const PrintableMembershipReceipt = ({
             {receipt.course || "-"} {receipt.year ? `- ${receipt.year}` : ""}
           </p>
           <p>
-            <span className="font-semibold">Reference:</span>{" "}
-            {referenceDisplay}
+            <span className="font-semibold">Reference:</span> {referenceDisplay}
           </p>
           <p>
             <span className="font-semibold">Date:</span>{" "}

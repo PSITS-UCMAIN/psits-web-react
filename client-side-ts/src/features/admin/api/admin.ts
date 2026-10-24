@@ -4,6 +4,10 @@ import backendConnection from "../../../api/backendApi";
 import { showToast } from "../../../utils/alertHelper";
 import type { DashboardStatsResponse } from "../dashboard/types/dashboard.types";
 import type { OrganizationTabCounts } from "../organization/types/organization.types";
+import type {
+  RefundReportRow,
+  RefundReportSummary,
+} from "../reports/types/reports.types";
 
 interface Student {
   _id?: string;
@@ -190,6 +194,24 @@ export interface MerchandiseReportsParams {
   batch?: string;
   size?: string;
   color?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+export interface RefundReportsResult {
+  data: RefundReportRow[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  message?: string;
+  summary: RefundReportSummary;
+}
+
+export interface RefundReportsParams {
+  page?: number;
+  limit?: number;
+  search?: string;
   dateFrom?: string;
   dateTo?: string;
 }
@@ -746,6 +768,45 @@ export const merchandiseReportFilterOptions =
       handleApiError(error, false);
     }
   };
+
+export const refundReports = async ({
+  page = 1,
+  limit = 10,
+  search,
+  dateFrom,
+  dateTo,
+}: RefundReportsParams = {}): Promise<RefundReportsResult | void> => {
+  try {
+    const response: AxiosResponse<RefundReportsResult> = await axios.get(
+      `${backendConnection()}/api/reports/refunds`,
+      {
+        headers: createHeaders(),
+        params: { page, limit, search, dateFrom, dateTo },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    handleApiError(error, false);
+  }
+};
+
+export const exportRefundReports = async (
+  params: Omit<RefundReportsParams, "page" | "limit"> = {}
+): Promise<Blob | void> => {
+  try {
+    const response: AxiosResponse<Blob> = await axios.get(
+      `${backendConnection()}/api/reports/refunds/export`,
+      {
+        headers: createHeaders(),
+        params,
+        responseType: "blob",
+      }
+    );
+    return response.data;
+  } catch (error) {
+    handleApiError(error, false);
+  }
+};
 
 export const exportMerchandiseReports = async (
   params: Omit<MerchandiseReportsParams, "page" | "limit"> = {}

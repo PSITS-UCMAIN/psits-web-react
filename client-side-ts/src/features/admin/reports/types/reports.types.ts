@@ -1,4 +1,4 @@
-export type ReportsTab = "membership" | "merchandise";
+export type ReportsTab = "membership" | "merchandise" | "refunds";
 
 export type ReportsStatus = "idle" | "loading" | "error" | "success";
 
@@ -43,6 +43,26 @@ export interface MerchandiseReportOrder {
 export interface MerchandiseSalesSummary {
   unitsSold: number;
   totalRevenue: number;
+}
+
+export interface RefundReportRow {
+  _id: string;
+  refund_id: string;
+  order_id: string;
+  order_reference: string;
+  product_name: string;
+  student_name: string;
+  id_number: string;
+  course: string;
+  year: string;
+  refund_price: number;
+  refund_admin: string;
+  refund_date: string | null;
+}
+
+export interface RefundReportSummary {
+  refundCount: number;
+  totalRefunded: number;
 }
 
 export interface MerchandiseReportProductOption {

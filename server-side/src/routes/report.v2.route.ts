@@ -24,6 +24,20 @@ router.get(
 );
 
 router.get(
+  "/refunds/export",
+  requireAccessTokenWithDBCheck,
+  roleAuthenticateV2(["admin"]),
+  reportController.exportRefundReport
+);
+
+router.get(
+  "/refunds",
+  requireAccessTokenWithDBCheck,
+  roleAuthenticateV2(["admin"]),
+  reportController.fetchRefundReport
+);
+
+router.get(
   "/",
   requireAccessTokenWithDBCheck,
   roleAuthenticateV2(["admin"]),

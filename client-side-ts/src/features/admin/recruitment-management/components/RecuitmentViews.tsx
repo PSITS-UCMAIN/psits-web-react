@@ -444,6 +444,7 @@ export const RecruitmentViews = () => {
 
   const [selectedRejectedIds, setSelectedRejectedIds] = useState<string[]>([]);
   const [selectedPositionIds, setSelectedPositionIds] = useState<string[]>([]);
+  const [isBulkStatusUpdating, setIsBulkStatusUpdating] = useState(false);
 
   const [isBulkDeletePositionsOpen, setIsBulkDeletePositionsOpen] =
     useState(false);
@@ -510,6 +511,33 @@ export const RecruitmentViews = () => {
     setSelectedPositionIds((current) =>
       current.includes(id) ? current.filter((x) => x !== id) : [...current, id]
     );
+  };
+
+  const selectedOpenPositionIds = positions
+    .filter(
+      (position) =>
+        selectedPositionIds.includes(position._id) &&
+        position.hiringStatus === "OPEN"
+    )
+    .map((position) => position._id);
+  const selectedClosedPositionIds = positions
+    .filter(
+      (position) =>
+        selectedPositionIds.includes(position._id) &&
+        position.hiringStatus === "CLOSED"
+    )
+    .map((position) => position._id);
+
+  const handleBulkPositionStatusChange = async (
+    ids: string[],
+    updateStatus: (id: string) => Promise<void>
+  ) => {
+    setIsBulkStatusUpdating(true);
+    try {
+      await Promise.all(ids.map(updateStatus));
+    } finally {
+      setIsBulkStatusUpdating(false);
+    }
   };
 
   // Only CLOSED positions are eligible for deletion (matches the per-row
@@ -778,24 +806,45 @@ export const RecruitmentViews = () => {
           {activeTab === "applications" ? (
             <div>
               {selectedPositionIds.length > 0 && (
-                <div className="mb-3 flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
-                  <span>
-                    {selectedPositionIds.length} selected
-                    {deletablePositionIds.length <
-                      selectedPositionIds.length && (
-                      <span className="ml-1 text-amber-600">
-                        (
-                        {selectedPositionIds.length -
-                          deletablePositionIds.length}{" "}
-                        open — close before deleting)
-                      </span>
-                    )}
-                  </span>
-                  <div className="flex items-center gap-3">
+                <div className="mb-3 flex flex-wrap items-center justify-end gap-x-4 gap-y-2 rounded-lg bg-slate-50 px-4 py-3 text-sm">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                    {canManageRecruitment &&
+                      selectedOpenPositionIds.length > 0 && (
+                        <button
+                          type="button"
+                          disabled={isMutating || isBulkStatusUpdating}
+                          onClick={() =>
+                            handleBulkPositionStatusChange(
+                              selectedOpenPositionIds,
+                              closePosition
+                            )
+                          }
+                          className="cursor-pointer font-medium text-red-600 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Close selected ({selectedOpenPositionIds.length})
+                        </button>
+                      )}
+                    {canManageRecruitment &&
+                      selectedClosedPositionIds.length > 0 && (
+                        <button
+                          type="button"
+                          disabled={isMutating || isBulkStatusUpdating}
+                          onClick={() =>
+                            handleBulkPositionStatusChange(
+                              selectedClosedPositionIds,
+                              reopenPosition
+                            )
+                          }
+                          className="cursor-pointer font-medium text-emerald-700 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Reopen selected ({selectedClosedPositionIds.length})
+                        </button>
+                      )}
                     <button
                       type="button"
                       onClick={() => setSelectedPositionIds([])}
-                      className="cursor-pointer font-medium text-[#1c9dde] hover:underline"
+                      disabled={isBulkStatusUpdating}
+                      className="cursor-pointer font-medium text-[#1c9dde] hover:underline disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Clear selection
                     </button>
@@ -804,7 +853,8 @@ export const RecruitmentViews = () => {
                         <button
                           type="button"
                           onClick={() => setIsBulkDeletePositionsOpen(true)}
-                          className="cursor-pointer font-medium text-red-600 hover:underline"
+                          disabled={isBulkStatusUpdating}
+                          className="cursor-pointer font-medium text-red-600 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           Delete selected ({deletablePositionIds.length})
                         </button>
