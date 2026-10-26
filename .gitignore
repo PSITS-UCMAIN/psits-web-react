@@ -1,5 +1,4 @@
 node_modules/
-.env
 dist/
 build/
 .DS_Store
@@ -18,3 +17,4 @@ sca-report/
 # Private security detail: never commit unfixed vulnerability reports to this public repo.
 # Deliver these through a private GitHub Security Advisory or direct to project leads.
 docs/security-sast/private/
+config.bat

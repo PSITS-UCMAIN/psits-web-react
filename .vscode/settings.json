@@ -10,9 +10,16 @@
   "files.autoSave": "afterDelay",
   "editor.defaultFormatter": "esbenp.prettier-vscode",
   "editor.wordWrap": "wordWrapColumn",
-  "editor.formatOnPaste": true,
-  "editor.formatOnSave": true,
   "prettier.bracketSameLine": true,
   "prettier.enableDebugLogs": true,
-  "prettier.experimentalTernaries": true
+  "prettier.experimentalTernaries": true,
+  "task.allowAutomaticTasks": true,
+  "debug.openDebug": "neverOpen",
+  "terminal.integrated.inheritEnv": false,
+  "tasks": {
+    "label": "lint on open",
+    "type": "shell",
+    "command": "npm run lint",
+    "runOn": "folderOpen"
+  }
 }
