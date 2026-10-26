@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "nodemon",
-    "build": "tsc && npm run copy-assets",
+    "dev": "node init && nodemon",
+    "build": "node init && tsc && npm run copy-assets",
     "copy-assets": "node -e \"const fs=require('fs'); fs.cpSync('src/assets','dist/assets',{recursive:true}); fs.cpSync('src/templates','dist/templates',{recursive:true}); \"",
-    "start": "node dist/index.js",
+    "start": "node init && node dist/index.js",
     "migrate:old-enums": "ts-node src/scripts/migrate-old-enums.ts",
     "migrate:merch-order-details": "ts-node src/scripts/migrate-merch-order-details-to-report.ts",
     "migrate:membership-schema": "ts-node src/scripts/migrate-membership-to-new-schema.ts",
