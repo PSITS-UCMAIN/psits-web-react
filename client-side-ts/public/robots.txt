@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /student
+Disallow: /cart
+Disallow: /auth/otp
+Disallow: /auth/reset-password
+Disallow: /auth/forgot-password
+
+Sitemap: https://psits.org/sitemap.xml
