@@ -2,7 +2,7 @@
   "name": "psits-web",
   "private": true,
   "scripts": {
-    "dev": "concurrently -k -n api,web -c blue,green \"npm run dev --prefix server-side\" \"npm run dev --prefix client-side-ts\""
+    "dev": "node init && concurrently -k -n api,web -c blue,green \"npm run dev --prefix server-side\" \"npm run dev --prefix client-side-ts\""
   },
   "devDependencies": {
     "concurrently": "^10.0.5",
