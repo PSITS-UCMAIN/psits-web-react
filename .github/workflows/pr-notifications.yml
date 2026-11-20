@@ -126,40 +126,61 @@ jobs:
 
       - name: Load file list and services
         id: load-files
+        env:
+          FILE_LIST: ${{ steps.detect-changes.outputs.file_list }}
+          CHANGED_SERVICES: ${{ steps.detect-changes.outputs.changed_services }}
+          FILES_ADDED: ${{ steps.detect-changes.outputs.files_added }}
+          FILES_REMOVED: ${{ steps.detect-changes.outputs.files_removed }}
+          FILES_MODIFIED: ${{ steps.detect-changes.outputs.files_modified }}
+          FILES_RENAMED: ${{ steps.detect-changes.outputs.files_renamed }}
+          TOTAL_FILES: ${{ steps.detect-changes.outputs.total_files }}
+          FILE_TYPES: ${{ steps.detect-changes.outputs.file_types }}
+          SERVICE_COUNT: ${{ steps.detect-changes.outputs.service_count }}
         run: |
+          # The file list is built from the pull request's own filenames, so it is
+          # data: read it from env and write it with a per-run delimiter.
           {
-            echo "FILE_LIST<<EOF"
-            echo "${{ steps.detect-changes.outputs.file_list }}"
-            echo "EOF"
-          } >> $GITHUB_ENV
-          
+            delimiter="FILE_LIST_EOF_$RANDOM$RANDOM"
+            echo "FILE_LIST<<$delimiter"
+            printf '%s\n' "$FILE_LIST"
+            echo "$delimiter"
+          } >> "$GITHUB_ENV"
+
           {
-            echo "CHANGED_SERVICES<<EOF"
-            echo "${{ steps.detect-changes.outputs.changed_services }}"
-            echo "EOF"
-          } >> $GITHUB_ENV
-          
-          echo "FILES_ADDED=${{ steps.detect-changes.outputs.files_added }}" >> $GITHUB_ENV
-          echo "FILES_REMOVED=${{ steps.detect-changes.outputs.files_removed }}" >> $GITHUB_ENV
-          echo "FILES_MODIFIED=${{ steps.detect-changes.outputs.files_modified }}" >> $GITHUB_ENV
-          echo "FILES_RENAMED=${{ steps.detect-changes.outputs.files_renamed }}" >> $GITHUB_ENV
-          echo "TOTAL_FILES=${{ steps.detect-changes.outputs.total_files }}" >> $GITHUB_ENV
-          echo "FILE_TYPES=${{ steps.detect-changes.outputs.file_types }}" >> $GITHUB_ENV
-          echo "SERVICE_COUNT=${{ steps.detect-changes.outputs.service_count }}" >> $GITHUB_ENV
+            delimiter="SERVICES_EOF_$RANDOM$RANDOM"
+            echo "CHANGED_SERVICES<<$delimiter"
+            printf '%s\n' "$CHANGED_SERVICES"
+            echo "$delimiter"
+          } >> "$GITHUB_ENV"
+
+          echo "FILES_ADDED=$FILES_ADDED" >> "$GITHUB_ENV"
+          echo "FILES_REMOVED=$FILES_REMOVED" >> "$GITHUB_ENV"
+          echo "FILES_MODIFIED=$FILES_MODIFIED" >> "$GITHUB_ENV"
+          echo "FILES_RENAMED=$FILES_RENAMED" >> "$GITHUB_ENV"
+          echo "TOTAL_FILES=$TOTAL_FILES" >> "$GITHUB_ENV"
+          echo "SERVICE_COUNT=$SERVICE_COUNT" >> "$GITHUB_ENV"
+
+          {
+            delimiter="FILE_TYPES_EOF_$RANDOM$RANDOM"
+            echo "FILE_TYPES<<$delimiter"
+            printf '%s\n' "$FILE_TYPES"
+            echo "$delimiter"
+          } >> "$GITHUB_ENV"
 
       - name: Send Discord notification
         if: env.DISCORD_WEBHOOK_URL != ''
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_AUTHOR_AVATAR: ${{ github.event.pull_request.user.avatar_url }}
+          BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.event.pull_request.base.repo.full_name }}
         run: |
           # Prepare PR information
-          PR_NUMBER="${{ github.event.pull_request.number }}"
-          PR_TITLE="${{ github.event.pull_request.title }}"
-          PR_URL="${{ github.event.pull_request.html_url }}"
-          PR_AUTHOR="${{ github.event.pull_request.user.login }}"
-          PR_AUTHOR_AVATAR="${{ github.event.pull_request.user.avatar_url }}"
-          BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
-          HEAD_BRANCH="${{ github.event.pull_request.head.ref }}"
-          HEAD_REPO="${{ github.event.pull_request.head.repo.full_name }}"
-          BASE_REPO="${{ github.event.pull_request.base.repo.full_name }}"
           ADDITIONS="${{ github.event.pull_request.additions }}"
           DELETIONS="${{ github.event.pull_request.deletions }}"
           CHANGED_FILES="${{ github.event.pull_request.changed_files }}"
